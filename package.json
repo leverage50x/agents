@@ -1,0 +1,16 @@
+{
+  "name": "leverage50xagents",
+  "version": "0.1.1",
+  "private": true,
+  "type": "module",
+  "description": "Local-only, demo-safe multi-device AI agent dashboard with human approval workflow",
+  "scripts": {
+    "hub": "node src/hub.mjs",
+    "agent": "node src/agent.mjs",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "MIT"
+}

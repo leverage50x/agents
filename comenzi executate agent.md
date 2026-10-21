@@ -1458,3 +1458,421 @@ Fișierele incluse:
 Acțiune apply_patch: această secțiune finalizează jurnalul urmărit și va fi pusă în index înainte de commit. Nu declarăm anticipat commitul drept reușit. Pentru a păstra jurnalul versionat în propriul checkpoint și repository-ul curat, rezultatele reale ale operațiunilor de închidere (staging final, verificare finală, commit și verificări post-commit) se consemnează în [continuarea locală a jurnalului](.local-run/checkpoint-final.log), exclusă din Git, și în raportul final al conversației. Comanda de commit autorizată este `git commit -m 'Checkpoint: ETAPA 1 local demo MVP'`; ea nu este încă executată la închiderea acestei secțiuni. Nu s-au făcut push, operațiuni externe sau implementări ETAPA 2.
 
 <!-- jurnal versionat închis înaintea checkpointului -->
+
+## Pornire și verificare reală a aplicației locale — 2026-10-18
+
+Autorizație nouă: hub și agent pe 127.0.0.1, token aleator în .env ignorat, inventariere locală reală (numai nume MCP și metadate sesiuni), probă browser și flux DEMO. Nu activăm Codex, nu facem push, nu începem ETAPA 2. Tokenul, numele reale ale gazdei, ID-urile sesiunilor și datele private nu se copiază în acest jurnal.
+
+Comenzi de inspecție, director [WORKSPACE]:
+
+- `cat AGENTS.md package.json .gitignore` — cod 0; citire/verificare, fără modificări.
+- `cat README.md src/agent.mjs src/hub.mjs src/local-config.mjs` — cod 0; citire/verificare, fără modificări.
+- `cat src/ui.html src/ui.mjs src/inventory.mjs src/codex-runner.mjs` — cod 0; citire/verificare, fără modificări.
+- `git status --short --branch` — cod 0; citire/verificare, fără modificări.
+- `rg --files --hidden .local-run -g '!*.log' -g '!*.json' -g '!token*' -g '!browser-profile/**'` — cod 0; citire/verificare, fără modificări.
+- `tail -n 24 'comenzi executate agent.md'` — cod 0; citire/verificare, fără modificări.
+- `git check-ignore -v -- .env .local-run/live-processes.json` — cod 0; .gitignore:2:.env	.env .gitignore:11:.local-run/	.local-run/live-processes.json
+- `node --input-type=module -e 'import fs from "node:fs"; import {parseEnv} from "node:util"; console.log(JSON.stringify({dotenvExists:fs.existsSync(".env"),parseEnvAvailable:typeof parseEnv === "function",windowsChromePresent:fs.existsSync("/mnt/c/Program Files/Google/Chrome/Application/chrome.exe"),windowsEdgePresent:fs.existsSync("/mnt/c/Program Files (x86)/Microsoft/Edge/Application/msedge.exe")}));'` — cod 0; {"dotenvExists":false,"parseEnvAvailable":true,"windowsChromePresent":true,"windowsEdgePresent":true}
+- `command -v powershell.exe wslpath chromium google-chrome firefox` — cod 0; /mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0/powershell.exe /usr/bin/wslpath
+
+ constatări: frontend HTML/CSS/JavaScript nativ, backend node:http și API JSON, agent CLI separat cu heartbeat la 5 secunde, dashboard cu polling la 4 secunde; package.json nu declară dependențe. Aplicația nu încarcă automat .env, deci pornirea va utiliza suportul Node --env-file și un launcher local ignorat. Nicio modificare de securitate sau de cod al aplicației.
+
+Acțiune apply_patch: helper-ele ignorate `.local-run/prepare-env.mjs` și `.local-run/start-local.mjs`. Primul creează .env cu randomBytes(32), mode 0600 și fără afișarea secretului. Al doilea lansează procesele CLI reale cu --env-file, forțează configurația cerută și poate opri numai procesele proprii. Nu schimbăm codul aplicației, autentificarea sau sandboxul.
+
+Comandă: `node .local-run/prepare-env.mjs`. Director: [WORKSPACE]. Cod: 0. Rezultat: Created ignored .env; 32 random bytes; permissions 0600; secret not printed.. Fișier nou: `.env`, ignorat de Git. Nu au fost copiate valori ale mediului în jurnal.
+
+Comandă: `node .local-run/start-local.mjs`. Director: [WORKSPACE]. Cod: 1.
+
+```text
+COMMAND node --env-file=.env src/hub.mjs
+A local service exited (code 1).
+Managed local services stopped.
+```
+
+Comenzile copil sunt tipărite literal în ieșire; niciun token sau inventar personal nu este tipărit. Această încercare nu este marcată reușită înaintea verificărilor reale.
+
+Comandă: `node .local-run/start-local.mjs` — reluare prin aprobarea explicită a platformei pentru serviciile localhost, după ieșirea hub-ului cu cod 1 în sandbox. Servicii păstrate în sesiunea 99473; nu declarăm procesul finalizat.
+
+```text
+COMMAND node --env-file=.env src/hub.mjs
+Leverage50xAgents hub listening on loopback port 8765 (DEMO ONLY).
+COMMAND node --env-file=.env src/agent.mjs
+Real hub and CLI agent running at http://127.0.0.1:8765. DEMO ONLY.
+Leverage50xAgents local agent started; DEMO ONLY; remote Codex execution disabled.
+```
+
+Comenzi copil reale: `node --env-file=.env src/hub.mjs` și, după readiness, `node --env-file=.env src/agent.mjs`. Secretul este numai în fișierul ignorat și memoria proceselor, nu în argumentele CLI. Niciun Codex/MCP nu este lansat.
+
+Acțiune apply_patch: helper-ele ignorate `.local-run/verify-live.mjs` și `.local-run/browser-livecheck.ps1`. Primul verifică HTTP, procesele, adresa de ascultare și compară inventarul raportat cu inventarul local, afișând numai numere/stări. Al doilea deschide Chrome real cu profil nou, verifică formulare reale și confirmarea nativă pentru propriile probe DEMO, fără a modifica setările de securitate sau profilul browserului personal. Captura vizuală locală va estompa identificatorii inventarului; aceștia nu sunt copiați în jurnal. Helper-ele sunt locale, fără instalări sau dependențe.
+
+Comandă: `node .local-run/verify-live.mjs`. Director: [WORKSPACE]. Cod: 1.
+
+```text
+node:internal/deps/undici/undici:15270
+      Error.captureStackTrace(err);
+            ^
+
+TypeError: fetch failed
+    at node:internal/deps/undici/undici:15270:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async request (file://[WORKSPACE]/.local-run/verify-live.mjs:7:20)
+    at async file://[WORKSPACE]/.local-run/verify-live.mjs:13:22 {
+  [cause]: Error: connect EPERM 127.0.0.1:8765 - Local (undefined:undefined)
+      at internalConnect (node:net:1111:16)
+      at defaultTriggerAsyncIdScope (node:internal/async_hooks:472:18)
+      at node:net:1357:9
+      at process.processTicksAndRejections (node:internal/process/task_queues:84:11) {
+    errno: -1,
+    code: 'EPERM',
+    syscall: 'connect',
+    address: '127.0.0.1',
+    port: 8765
+  }
+}
+
+Node.js v22.23.3
+```
+
+Comandă: `node .local-run/verify-live.mjs` — reluare prin aprobarea platformei după connect EPERM către localhost în sandbox. Cod: 1.
+
+```text
+{
+  "endpoint": "http://127.0.0.1:8765",
+  "backendStatus": 200,
+  "unauthorizedStatus": 401,
+  "listeningOnlyOn127001": true,
+  "assets": {
+    "/": {
+      "status": 200,
+      "contentType": "text/html; charset=utf-8"
+    },
+    "/app.js": {
+      "status": 200,
+      "contentType": "text/javascript; charset=utf-8"
+    },
+    "/app.css": {
+      "status": 200,
+      "contentType": "text/css; charset=utf-8"
+    }
+  },
+  "localAgentOnline": true,
+  "workspaceReady": true,
+  "executionMode": "demo-only",
+  "sandbox": "no-execution",
+  "configuredMcpCount": 0,
+  "configuredMcpStatus": "configured-only",
+  "discoveredSessionCount": 1,
+  "sessionInventory": {
+    "status": "available",
+    "truncated": false
+  },
+  "reportedMcpMatchesLocalInventory": true,
+  "reportedSessionsMatchLocalInventory": false,
+  "envMode0600": true,
+  "demoJobs": []
+}
+```
+
+Verificarea folosește HTTP real și inventarul real al agentului local; nu confirmă sesiuni active sau sănătatea MCP.
+
+Constatare din verificarea HTTP: backend/assets/agent/loopback/autentificare au trecut, dar helperul a returnat cod 1 deoarece compara strict și timestampurile sesiunilor citite la momente diferite față de heartbeat. Acțiune apply_patch numai în helperul ignorat: păstrăm raportarea comparației exacte, iar criteriul de inventar verifică identitatea ID-urilor; adăugăm numere/stări pentru sursa implicită a utilizatorului, fără a afișa căile sau configurația. Nu modificăm aplicația sau mecanismele de securitate și nu deducem activitatea sesiunilor din timestamps.
+
+Comandă: `node .local-run/verify-live.mjs` — reverificare autorizată localhost după corectarea helperului. Cod: 0.
+
+```text
+{
+  "endpoint": "http://127.0.0.1:8765",
+  "backendStatus": 200,
+  "unauthorizedStatus": 401,
+  "listeningOnlyOn127001": true,
+  "assets": {
+    "/": {
+      "status": 200,
+      "contentType": "text/html; charset=utf-8"
+    },
+    "/app.js": {
+      "status": 200,
+      "contentType": "text/javascript; charset=utf-8"
+    },
+    "/app.css": {
+      "status": 200,
+      "contentType": "text/css; charset=utf-8"
+    }
+  },
+  "localAgentOnline": true,
+  "workspaceReady": true,
+  "executionMode": "demo-only",
+  "sandbox": "no-execution",
+  "configuredMcpCount": 0,
+  "configuredMcpStatus": "configured-only",
+  "discoveredSessionCount": 1,
+  "sessionInventory": {
+    "status": "available",
+    "truncated": false
+  },
+  "reportedMcpMatchesLocalInventory": true,
+  "reportedSessionsMatchLocalInventory": false,
+  "reportedSessionIdsMatchLocalInventory": true,
+  "defaultUserHomeInventory": {
+    "mcpCount": 0,
+    "mcpStatus": "configured-only",
+    "sessionCount": 1,
+    "sessionStatus": "available"
+  },
+  "inheritedCodexHomeOverridePresent": false,
+  "envMode0600": true,
+  "demoJobs": []
+}
+```
+
+Comandă: `wslpath -w .local-run/browser-livecheck.ps1` — cod 0; calea Windows pentru helperul local a fost rezolvată. Calea personală nu se copiază în jurnal.
+
+## Pregătire publicare Stage 1 — 2026-10-21
+
+Operatorul autorizează verificarea repository-ului privat leverage50x/leverage50xagents, CI, commit nou, tag v0.1.1-stage1-demo și push fără force după verificări. Primul commit f85f715 se păstrează. Nu este autorizată schimbarea vizibilității sau ETAPA 2.
+
+Comenzi inițiale (director: [WORKSPACE]):
+
+- `cat AGENTS.md package.json package-lock.json .gitignore` — cod 0; inspecție read-only.
+- `git status --short --branch` — cod 0; inspecție read-only.
+- `git log --format='%h %s' -6` — cod 0; inspecție read-only.
+- `git diff --stat` — cod 0; inspecție read-only.
+- `git diff --cached --stat` — cod 0; inspecție read-only.
+- `git branch --show-current` — cod 0; inspecție read-only.
+- `git tag --list` — cod 0; inspecție read-only.
+- `tail -n 35 'comenzi executate agent.md'` — cod 0; inspecție read-only.
+- `command -v gh` — cod 1; inspecție read-only.
+
+Alte operațiuni efective:
+
+- `git remote get-url origin` — cod 2, origin lipsește; nicio destinație existentă suprascrisă.
+- MCP GitHub get_user_login({}) — autentificarea conectorului corespunde leverage50x; fără date de contact copiate.
+- MCP GitHub get_repo({repository_full_name: "leverage50x/leverage50xagents"}) — 404 NOT_FOUND. Existența/vizibilitatea/ownership rămân neconfirmate până când accesul este disponibil; nu facem push înaintea confirmării.
+- `git config --get-all credential.helper` — cod 1, niciun helper configurat. Nu am citit fișiere de autentificare și nu am rulat utilitare Windows.
+- `git check-ignore -v -- .env .local-run` — cod 0, ambele sunt ignorate.
+- `cat .local-run/review-staged.mjs` — cod 0, inspecție a helperului precedent.
+- Documentație oficială consultată prin web open/click: https://docs.github.com/en/actions/tutorials/build-and-test-code/nodejs ; https://github.com/actions/checkout/releases/tag/v7.0.1 ; https://github.com/actions/setup-node/releases/tag/v7.1.0 și README setup-node din raw.githubusercontent.com. Un open inițial al paginii setup-node a returnat eroare de fetch; sursa raw și release-ul au fost apoi citite. Commiturile acțiunilor sunt fixate la SHA-urile release-urilor oficiale verificate, nu la taguri flotante.
+
+Acțiune apply_patch: adăugăm `.github/workflows/ci.yml` (Ubuntu, Node 22, push/pull_request, contents:read, fără credențiale persistate și fără cache sau secrete custom); adăugăm helperul ignorat `.local-run/review-publication.mjs` pentru scanarea tuturor bloburilor din istoricul main și a fișierelor care urmează să fie publicate, inclusiv potrivirea secretului local numai în memorie. Nu schimbăm funcționalitățile aplicației. Operatorul a confirmat separat testarea manuală a dashboardului și fluxului DEMO; nu pretindem că verificarea vizuală automată Windows a fost finalizată.
+
+Comandă: `node .local-run/review-publication.mjs` — cod 0. Istoric: 1 commit, 27 bloburi, zero constatări și zero căi private urmărite; primul commit păstrat. Working tree: 28 fișiere, zero constatări. Secretul local a fost comparat în memorie cu conținutul publicabil, fără afișare. Scannerul a executat read-only `git rev-list --reverse main`, `git ls-tree -rz --full-tree <commit>`, câte `git cat-file blob <oid>` pentru cele 27 bloburi, `git show -s --format=%B <commit>` și `git ls-files --cached --others --exclude-standard -z`. Manifestul și comenzile complete sunt în raportul local ignorat/conversație. Identitatea Git autorizată din metadatele commitului nu este tratată ca secret și nu este duplicată în fișiere.
+
+Acțiune apply_patch: README.md documentează numai CI, cerințele sale și tagul demonstrativ; nicio schimbare de funcționalitate.
+
+Comandă: `npm ci`. Director: [WORKSPACE]. Proces în curs, sesiune 25398.
+
+```text
+
+```
+
+Continuare `npm ci`, sesiune 25398 — cod 0.
+
+```text
+up to date, audited 1 package in 1s
+
+found 0 vulnerabilities
+```
+
+Comandă: `npm test` — rulare prin aprobarea platformei pentru testele localhost. Director: [WORKSPACE]. Proces în curs, sesiune 82576.
+
+```text
+> leverage50xagents@0.1.1 test
+> node --test
+
+TAP version 13
+# Subtest: agent uses synthetic inventory and transports only approved demo jobs without redirects
+ok 1 - agent uses synthetic inventory and transports only approved demo jobs without redirects
+  ---
+  duration_ms: 42.878514
+  type: 'test'
+  ...
+# Subtest: agent reports an invalid workspace and returns a fail-closed live result
+ok 2 - agent reports an invalid workspace and returns a fail-closed live result
+  ---
+  duration_ms: 6.072492
+  type: 'test'
+  ...
+# Subtest: local configuration rejects external destinations, credentials and weak tokens
+ok 3 - local configuration rejects external destinations, credentials and weak tokens
+  ---
+  duration_ms: 17.016801
+  type: 'test'
+  ...
+# Subtest: authentication requires a valid bearer token and rejects unauthenticated approval
+ok 4 - authentication requires a valid bearer token and rejects unauthenticated approval
+  ---
+  duration_ms: 13.888999
+  type: 'test'
+  ...
+# Subtest: API rejects malformed/non-object JSON and counts bytes, preserving chunked UTF-8
+ok 5 - API rejects malformed/non-object JSON and counts bytes, preserving chunked UTF-8
+  ---
+  duration_ms: 26.174128
+  type: 'test'
+  ...
+# Subtest: invalid heartbeat data is rejected atomically and cannot claim live capabilities
+ok 6 - invalid heartbeat data is rejected atomically and cannot claim live capabilities
+  ---
+  duration_ms: 20.09947
+  type: 'test'
+  ...
+# Subtest: only explicitly approved jobs are claimed, with one terminal result
+ok 7 - only explicitly approved jobs are claimed, with one terminal result
+  ---
+  duration_ms: 21.388575
+  type: 'test'
+  ...
+# Subtest: rejected jobs are terminal; expired devices cannot receive instructions
+ok 8 - rejected jobs are terminal; expired devices cannot receive instructions
+  ---
+  duration_ms: 13.649499
+  type: 'test'
+  ...
+# Subtest: dashboard assets are served with restrictive headers
+ok 9 - dashboard assets are served with restrictive headers
+  ---
+  duration_ms: 11.25433
+  type: 'test'
+  ...
+```
+
+Continuare `npm test`, sesiune 82576 — cod 0.
+
+```text
+# Subtest: CLI hub authenticates, approves demo dispatch and accepts a mocked result
+ok 10 - CLI hub authenticates, approves demo dispatch and accepts a mocked result
+  ---
+  duration_ms: 438.982736
+  type: 'test'
+  ...
+# Subtest: MCP inventory extracts names but not secrets, commands or env
+ok 11 - MCP inventory extracts names but not secrets, commands or env
+  ---
+  duration_ms: 3.810407
+  type: 'test'
+  ...
+# Subtest: MCP names exclude multiline values, deduplicate and remain configured-only
+ok 12 - MCP names exclude multiline values, deduplicate and remain configured-only
+  ---
+  duration_ms: 7.316845
+  type: 'test'
+  ...
+# Subtest: session scan distinguishes missing and invalid roots and ignores symlinks
+ok 13 - session scan distinguishes missing and invalid roots and ignores symlinks
+  ---
+  duration_ms: 4.763071
+  type: 'test'
+  ...
+# Subtest: sessions deduplicate UUIDs, sort metadata and never read transcript contents
+ok 14 - sessions deduplicate UUIDs, sort metadata and never read transcript contents
+  ---
+  duration_ms: 10.971252
+  type: 'test'
+  ...
+# Subtest: session scan considers more than 500 files and reports bounded scans
+ok 15 - session scan considers more than 500 files and reports bounded scans
+  ---
+  duration_ms: 127.856389
+  type: 'test'
+  ...
+# Subtest: scan reports unreadable subdirectories without claiming a complete inventory
+ok 16 - scan reports unreadable subdirectories without claiming a complete inventory
+  ---
+  duration_ms: 5.276774
+  type: 'test'
+  ...
+# Subtest: sessions inventory reads filenames only
+ok 17 - sessions inventory reads filenames only
+  ---
+  duration_ms: 5.765681
+  type: 'test'
+  ...
+# Subtest: real localhost HTTP hub and agent complete an approved demo without Git
+ok 18 - real localhost HTTP hub and agent complete an approved demo without Git
+  ---
+  duration_ms: 232.563142
+  type: 'test'
+  ...
+# Subtest: demo uses a directory without Git and leaves the workspace untouched
+ok 19 - demo uses a directory without Git and leaves the workspace untouched
+  ---
+  duration_ms: 9.83079
+  type: 'test'
+  ...
+# Subtest: live activation is blocked before workspace or job validation
+ok 20 - live activation is blocked before workspace or job validation
+  ---
+  duration_ms: 2.157469
+  type: 'test'
+  ...
+# Subtest: demo rejects missing, relative and non-directory workspaces
+ok 21 - demo rejects missing, relative and non-directory workspaces
+  ---
+  duration_ms: 6.479187
+  type: 'test'
+  ...
+# Subtest: demo rejects invalid instructions
+ok 22 - demo rejects invalid instructions
+  ---
+  duration_ms: 4.886547
+  type: 'test'
+  ...
+# Subtest: UI blocks submission until connected and after a network failure
+ok 23 - UI blocks submission until connected and after a network failure
+  ---
+  duration_ms: 14.915382
+  type: 'test'
+  ...
+# Subtest: UI escapes inventory and marks incomplete scans; offline devices disable submission
+ok 24 - UI escapes inventory and marks incomplete scans; offline devices disable submission
+  ---
+  duration_ms: 4.399084
+  type: 'test'
+  ...
+# Subtest: UI sends no approval when the explicit confirmation is declined
+ok 25 - UI sends no approval when the explicit confirmation is declined
+  ---
+  duration_ms: 3.191558
+  type: 'test'
+  ...
+1..25
+# tests 25
+# suites 0
+# pass 25
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 896.106935
+```
+
+Comandă: `git remote add origin https://github.com/leverage50x/leverage50xagents.git` — cod 0, prin aprobarea platformei pentru .git read-only. Rezultat: origin configurat local, fără ieșire. Nu s-a făcut push și nu s-a schimbat vizibilitatea repository-ului.
+
+Comandă: `GIT_TERMINAL_PROMPT=0 GIT_ASKPASS=/bin/false git -c core.askPass=/bin/false ls-remote origin` — cod 128. Read-only; prompturile interactive și askpass sunt oprite numai pentru această comandă, pentru a nu lansa interfețe Windows sau expune credențiale.
+
+```text
+fatal: unable to access 'https://github.com/leverage50x/leverage50xagents.git/': Could not resolve host: github.com
+```
+
+MCP GitHub get_repo pentru leverage50x/leverage50xagents, reverificat după pregătirea CI — tot 404 NOT_FOUND; contul conectat este leverage50x, dar accesul/vizibilitatea repository-ului încă nu sunt confirmate.
+
+Comandă: `GIT_TERMINAL_PROMPT=0 GIT_ASKPASS=/bin/false git -c core.askPass=/bin/false ls-remote origin` — reluare prin aprobarea platformei după Could not resolve host în sandbox. Cod: 128.
+
+```text
+remote: Repository not found.
+fatal: repository 'https://github.com/leverage50x/leverage50xagents.git/' not found
+```
+
+Verificări de pregătire commit (director: [WORKSPACE]):
+
+- `git diff -- .github/workflows/ci.yml README.md` — cod 0. Rezultate revizuite în conversație.
+- `git diff --name-only f85f715402c368f5c1b48a983269135342619830 -- src test test-support package.json package-lock.json AGENTS.md .gitignore` — cod 0. Nu sunt modificări ale aplicației/testelor/configurației de bază față de primul checkpoint.
+- `git diff --check` — cod 0. Fără erori whitespace.
+- `git status --short --branch` — cod 0. Rezultate revizuite în conversație.
+- `git config --local --get user.name` — cod 0. Identitatea locală rămâne leverage50x.
+
+Accesul remote a fost încercat numai read-only: după rezolvarea limitei DNS a sandboxului, Git a returnat Repository not found (cod 128). Conectorul GitHub a returnat de asemenea 404 la două verificări. Nu putem confirma încă Private/ownership/acces, deci push-ul este blocat de condițiile cerute de operator, nu de testele locale. Pregătim commitul și tagul local fără a declara versiunea publicată. Documentația și workflow-ul sunt complete și revizuibile.
+
+Comandă: `node .local-run/review-publication.mjs` — cod 0 la reverificarea dinaintea stagingului. Istoricul și cele 28 de fișiere locale nu au constatări; .env și .local-run nu sunt urmărite. Comenzile Git read-only interne sunt cele documentate mai sus. Acțiunea următoare autorizată este commitul workflow-ului/documentației/jurnalului; nu s-a făcut push. Jurnalul operațiunilor de după acest commit va rămâne local și va fi raportat explicit, conform cererii operatorului.
+
+<!-- publish-next -->

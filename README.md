@@ -67,3 +67,7 @@ Nu sunt implementate execuția reală Codex, aprobările tehnice ale comenzilor,
 Dezvoltarea locală autorizată se desfășoară autonom în sandbox, conform AGENTS.md. Sudo, operațiunile externe, alte dispozitive, commiturile și publicarea pe GitHub cer aprobare separată. Nu include secrete, date personale, configurații reale sau transcripturi în repository.
 
 Licență MIT; vezi LICENSE.
+
+## CI pentru Stage 1
+
+Workflow-ul `.github/workflows/ci.yml` rulează `npm ci` și `npm test` pe Ubuntu cu Node.js 22 la push și pull request. Folosește numai permisiunea `contents: read`, acțiuni fixate la commituri și fixture-uri sintetice; nu necesită tokenuri personale sau fișierul `.env`. Tagul versiunii demonstrative este `v0.1.1-stage1-demo`. Execuția reală Codex rămâne blocată.

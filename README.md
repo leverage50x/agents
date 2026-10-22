@@ -1,73 +1,55 @@
-# Leverage50xAgents — ETAPA 1, MVP local DEMO
+# Leverage50xAgents — Etapa 2A
 
-Leverage50xAgents a fost redenumit dintr-un prototip anterior. Aplicația afișează dispozitivul local, numele serverelor MCP configurate și identificatorii descoperiți în fișierele sesiunilor Codex.
+Dashboard central pentru dispozitive personale, heartbeat și inventar read-only al sesiunilor Codex. Stage 1 este păstrat în tagul `v0.1.1-stage1-demo`; dezvoltarea 2A este pe `stage2-device-discovery`, fără merge în main.
 
-**Instrucțiunile sunt numai demonstrative.** Dashboardul cere aprobare sau respingere pentru fiecare instrucțiune. Agentul returnează un rezultat DEMO ONLY; nu pornește Codex, shell sau instrumente MCP. Setarea LEVERAGE_ENABLE_LIVE_CODEX=1 este refuzată explicit.
+**Execuția reală din dashboard rămâne blocată.** Formularul de instrucțiuni oferă numai fluxul demonstrativ cu aprobare/respingere și rezultat DEMO ONLY. `LEVERAGE_ENABLE_LIVE_CODEX=1` este refuzat.
 
-## Cerințe și verificare
+## Pornire locală
 
-Node.js >=22 și npm. Aplicația folosește numai module Node incluse; nu este necesară instalarea unor dependențe. Directorul de lucru poate fi un director personal existent, fără Git.
+Node.js >=22, npm, Linux/WSL. Numai module Node built-in, fără dependențe externe.
 
-Din directorul proiectului:
-
-~~~bash
+```bash
+npm ci
 npm test
-~~~
+node src/manage.mjs init
+node --env-file=.local-run/hub.env src/hub.mjs
+```
 
-Testele folosesc configurații și sesiuni sintetice. Două teste de integrare deschid porturi temporare exclusiv pe 127.0.0.1; un sandbox care interzice ascultarea poate raporta EPERM. Aceasta nu reprezintă un rezultat PASS. Vezi VERIFICARE.md pentru rezultatele executate efectiv și comenzi executate agent.md pentru jurnal, inclusiv erorile.
+Alt terminal, în același checkout:
 
-## Pornire pe același calculator
+```bash
+node --env-file=.local-run/hub.env src/manage.mjs enroll --name laptop-1 --out .local-run/laptop1.env
+LEVERAGE_WORKSPACE="$PWD" node --env-file=.local-run/laptop1.env src/agent.mjs
+```
 
-Creează într-un manager de parole un secret aleatoriu lung, preferabil 32 octeți reprezentați prin 64 caractere hexazecimale. Nu îl trimite în chat, Git sau jurnal. Hub-ul și agentul folosesc același secret, introdus la promptul ascuns.
+Deschide manual http://127.0.0.1:8765. Introdu tokenul **operatorului**, consultat privat în `.local-run/hub.env`. Nu îl trimite în conversație, capturi sau Git. Tokenul browserului rămâne în memoria paginii. Oprește procesele cu Ctrl+C. `init`/`enroll` refuză suprascrierea fișierelor private existente; la restart refolosește fișierele, fără o nouă înrolare.
 
-Terminal A, în directorul proiectului:
+Fișierul Stage 1 `.env` rămâne ignorat și păstrat; noul flux nu îl reutilizează ca secret partajat. Node încarcă explicit fișierele prin `--env-file`, iar variabilele deja exportate au prioritate. `.env.example` conține doar placeholder-uri.
 
-~~~bash
-read -rsp 'Token: ' LEVERAGE_TOKEN
-export LEVERAGE_TOKEN
-npm run hub
-~~~
+## Dispozitive și permisiuni
 
-Terminal B, în același director; introdu același secret:
+Fiecare agent primește UUIDv4 persistent și token independent. Registrul privat `.local-run/agents.json` păstrează numai hash-uri SHA-256 și revocări, în fișier 600/director 700. Nume identice sunt permise. Dashboard-ul afișează UUID, Online/Offline, heartbeat și sesiuni selectate per dispozitiv. Online înseamnă heartbeat în ultimele 15 secunde, nu sănătatea Codex.
 
-~~~bash
-read -rsp 'Token: ' LEVERAGE_TOKEN
-export LEVERAGE_TOKEN
-export LEVERAGE_DEVICE=laptop-local
-export LEVERAGE_WORKSPACE="$PWD"
-npm run agent
-~~~
+Operatorul poate înrola/revoca agenți și folosi dashboard-ul; un agent poate raporta numai propriul UUID și nu poate folosi endpointurile administrative sau vedea inventarul altora. Revocarea persistă după restart și invalidează următoarea cerere. Inventarul și sarcinile DEMO rămân în memorie; agenții refac inventarul după restart Hub.
 
-Deschide http://127.0.0.1:8765, introdu secretul, propune o instrucțiune și apasă **Approve DEMO task** sau **Reject**. Nici selectarea unui ID existent, nici aprobarea nu creează sau reia o conversație Codex. Oprește procesele cu Ctrl+C.
+Pentru laptopul 2, urmează [ETAPA-2-LAPTOP2.md](ETAPA-2-LAPTOP2.md). Conexiunea recomandată este un tunel SSH autentificat prin LAN/VPN existent. Hub-ul și destinațiile HTTP ale agentului rămân exclusiv loopback. Nu expune portul pe internet și nu schimba bind-ul în 0.0.0.0.
 
-Comenzile sunt pentru Bash/Linux/WSL. Aplicația nu încarcă automat fișiere .env; variabilele se exportă în terminal. .env.example este doar un șablon, iar .env este ignorat de Git.
+## Sesiuni Codex și confidențialitate
 
-## Configurație și inventar
+Agentul încearcă adaptorul oficial App Server pentru codex-cli **0.163.0**, versiunea a cărei schemă a fost verificată local. Sunt permise numai initialize/initialized/thread/list, cu `useStateDbOnly=true`, fără resume, turnuri, tool-uri sau apeluri de model. Alte versiuni/erori folosesc fallback explicit după numele fișierelor; nu presupunem compatibilitate neverificată.
 
-- LEVERAGE_HOST: implicit 127.0.0.1; sunt acceptate numai 127.0.0.1, ::1 și localhost (normalizat la 127.0.0.1).
-- LEVERAGE_PORT: implicit 8765, între 1 și 65535.
-- LEVERAGE_URL: implicit http://127.0.0.1:8765; numai origine HTTP loopback, fără credențiale, cale, query sau fragment. Redirecționările sunt refuzate.
-- LEVERAGE_TOKEN: minimum 24 caractere, fără spații sau caractere de control; folosește un secret aleatoriu.
-- LEVERAGE_WORKSPACE: director absolut, existent și lizibil. Starea workspaceReady verifică doar aceste condiții, nu siguranța proiectului.
-- LEVERAGE_DEVICE: nume local, maximum 64 caractere. ID-ul demonstrativ derivă din nume; numele identice produc același ID.
-- LEVERAGE_CODEX_HOME, apoi CODEX_HOME, apoi ~/.codex: sursa inventarului când operatorul pornește agentul. config.toml este citit local, dar sunt raportate numai numele MCP. Conținutul transcripturilor nu este citit.
+Sunt raportate maximum 40 UUID-uri, timestampuri și opțional un basename validat al proiectului. Nu se transmit căi absolute, transcripturi, preview, titluri, chei sau configurații. Protocolul thread/list poate include preview/name tranzitoriu în memoria procesului/parserului; adaptorul le elimină imediat. Pentru a evita și această procesare tranzitorie, setează `LEVERAGE_SESSION_SOURCE=files`. Cu `LEVERAGE_REPORT_PROJECT=0` omiți etichetele proiectelor.
 
-Inventarul MCP recunoaște antetele de tabele mcp_servers cu nume simple sau citate; nu este un parser TOML complet și nu validează configurația. Configurațiile peste 1 MiB și fișierele simbolice sunt refuzate. Sunt raportate maximum 100 nume.
+Toate sesiunile sunt **descoperite, cu activitate neconfirmată**: un App Server nou nu confirmă că o sesiune a altui proces este activă. `updatedAt` este ultima activitate cunoscută din metadatele App Server; `mtime` din fallback se afișează separat, fără a fi prezentat ca activitate. Fallback-ul citește numai nume/stat, maximum 10000 intrări la cinci niveluri, fără conținut JSONL. Numele MCP sunt configurate, fără verificare live.
 
-Scanarea sesiunilor vizitează maximum 10000 intrări, până la cinci niveluri sub sessions, și returnează maximum 40 UUID-uri distincte, sortate după modificarea fișierului. Nu urmărește intrările simbolice. Dashboardul afișează disponibilitatea inventarului și scanările incomplete. Data modificării și existența unui fișier nu confirmă activitatea sau posibilitatea reluării unei sesiuni.
+Configurație agent: `LEVERAGE_AGENT_ID`, `LEVERAGE_AGENT_TOKEN`, `LEVERAGE_DEVICE`, `LEVERAGE_URL` loopback, opțional `LEVERAGE_WORKSPACE`, `LEVERAGE_CODEX_HOME`/`CODEX_HOME`, `LEVERAGE_SESSION_SOURCE=app-server|files`, `LEVERAGE_REPORT_PROJECT=0`. Hub: `LEVERAGE_OPERATOR_TOKEN`, `LEVERAGE_CREDENTIAL_STORE`, `LEVERAGE_HOST`, `LEVERAGE_PORT`. Vechiul `LEVERAGE_TOKEN` este acceptat doar ca token operator pentru tranziție; nu autentifică agenți.
 
-## Limite și siguranță
+Detalii și limite: [ETAPA-2A-ARHITECTURA.md](ETAPA-2A-ARHITECTURA.md). Controlul sesiunilor, aprobările tehnice și auditul execuției rămân pentru Etapa 2B.
 
-Hub-ul și agentul sunt exclusiv locale în ETAPA 1. Nu există autentificare separată pentru operator și dispozitive: toate folosesc aceeași credențială demonstrativă. Un deținător al secretului poate folosi toate endpointurile; aprobarea din dashboard nu oferă separare de roluri.
+## Teste și CI
 
-Dispozitivele devin offline după 15 secunde fără heartbeat. Sarcinile sunt păstrate numai în memorie; nu există recuperare după restart sau după întreruperea unui agent în timpul unei sarcini. Interfața dezactivează trimiterea când hub-ul nu este disponibil sau nu există dispozitive online.
+`npm test` folosește `node --test`, date sintetice și porturi temporare pe 127.0.0.1. Sunt testate și două procese agent reale pe același sistem; aceasta nu verifică fizic laptopul 2 sau tunelul SSH. Sandboxul poate necesita aprobare pentru loopback/subprocese; un blocaj nu reprezintă PASS.
 
-Nu sunt implementate execuția reală Codex, aprobările tehnice ale comenzilor, verificarea MCP live, sincronizarea VS Code, conectarea privată a două laptopuri sau securitatea pentru producție. ETAPA 2 nu a fost începută.
-
-Dezvoltarea locală autorizată se desfășoară autonom în sandbox, conform AGENTS.md. Sudo, operațiunile externe, alte dispozitive, commiturile și publicarea pe GitHub cer aprobare separată. Nu include secrete, date personale, configurații reale sau transcripturi în repository.
+Workflow-ul `.github/workflows/ci.yml` rulează pe push/PR: Ubuntu, Node.js 22, `npm ci`, `npm test`, permisiunea `contents: read`, fără secrete reale. Rezultatele executate sunt în [VERIFICARE.md](VERIFICARE.md), iar operațiunile în [comenzi executate agent.md](<comenzi executate agent.md>). Nu publica `.env`, `.local-run`, credențiale sau configurații personale.
 
 Licență MIT; vezi LICENSE.
-
-## CI pentru Stage 1
-
-Workflow-ul `.github/workflows/ci.yml` rulează `npm ci` și `npm test` pe Ubuntu cu Node.js 22 la push și pull request. Folosește numai permisiunea `contents: read`, acțiuni fixate la commituri și fixture-uri sintetice; nu necesită tokenuri personale sau fișierul `.env`. Tagul versiunii demonstrative este `v0.1.1-stage1-demo`. Execuția reală Codex rămâne blocată.

@@ -1,4 +1,8 @@
-# Leverage50xAgents — ghid local pentru ETAPA 1
+# Leverage50xAgents — ghid curent pentru Etapa 2A
+
+**Ghidul curent este [ETAPA-2-LAPTOP2.md](ETAPA-2-LAPTOP2.md), inclusiv pornirea laptopului principal.** Se folosesc credențiale separate, înrolate; vechiul secret partajat de mai jos nu este fluxul 2A. Nu porni agenți cu tokenul operatorului. Branch autorizat: stage2-device-discovery; main și tagul Stage 1 se păstrează. Execuția reală rămâne blocată.
+
+Textul de mai jos este istoric pentru Stage 1; comenzile lui de autentificare nu se aplică branch-ului 2A. Folosește README și ghidul curent.
 
 ## Modul de lucru
 

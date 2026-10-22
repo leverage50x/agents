@@ -1,4 +1,22 @@
-# Leverage50xAgents — verificare ETAPA 1 (2026-10-17)
+# Leverage50xAgents — verificare Etapa 2A (2026-10-22)
+
+## Verificări actuale
+
+- Tagul Stage 1 a fost extras într-un director temporar și testat fără modificări: **25/25 PASS**. main și tagul nu au fost modificate.
+- Suita integrată după adaptarea autentificării: **51/51 PASS**; după adăugarea a trei cazuri de securitate suplimentare: **54/54 PASS**. Verificarea finală după ajustările inventarului: `npm ci` cod 0, zero vulnerabilități raportate; `npm test` **54/54 PASS**, zero fail/skip, 3004.198565 ms. Rezultatul remote CI este consemnat după publicare în jurnal.
+- Hub și doi agenți ca procese CLI Node reale au fost porniți exclusiv pe 127.0.0.1, cu case/date/credențiale sintetice. Au fost verificate heartbeat separat, nume identice, dashboard HTTP 200, restart cu același UUID și revocare, cu celălalt agent funcțional.
+- Testele verifică token invalid, agent fără acces administrativ, operator fără acces la endpointurile agentului, UUID legat de credențială, revocare persistentă și în timpul unui heartbeat incomplet, Offline după expirare și sesiuni separate în UI. Tokenul unui agent activ sau revocat nu poate deveni token operator.
+- Inventarul filtrează preview/turnuri/căi absolute și nu acceptă activitate confirmată declarată de agent. Adaptorul are 12 teste sintetice pentru protocol, paginare, fallback, versiune incompatibilă, output limitat, cereri nesolicitate și oprirea procesului la timeout.
+- Codex CLI local: **0.163.0**; schema generată local confirmă useStateDbOnly. Adaptorul real a executat initialize/initialized/thread/list într-un CODEX_HOME izolat: sursa app-server, status available, 0 sesiuni, fără turnuri de model. Aceasta verifică protocolul, nu starea sesiunilor personale într-un alt runtime.
+- Inventarul real local prin nume/stat a găsit 5 ID-uri de sesiune, status available, fără trunchiere; nu s-au citit transcripturi și nu s-au afișat ID-uri/căi personale.
+- Protecția LEVERAGE_ENABLE_LIVE_CODEX=1 este păstrată și testată. Niciun dashboard task nu lansează Codex, shell sau MCP. Sesiunile rămân discovered/activity unconfirmed.
+- Rulările inițiale din timpul asamblării au eșuat din cauza modulului încă nescris și a limitelor sandboxului pentru subprocese; nu sunt prezentate ca PASS. Suitele complete au fost rulate prin aprobarea explicită a platformei.
+
+Nu a fost verificat fizic laptopul 2, accesul lui SSH/LAN/VPN sau inventarul lui real. Testele cu doi agenți rulează pe un singur sistem. UI are teste DOM sintetice și HTTP real; nu s-a deschis automat browserul și nu pretindem verificare vizuală în această etapă. Ghidul manual este ETAPA-2-LAPTOP2.md. Procesele temporare de test au fost oprite.
+
+## Arhiva verificării Stage 1 (2026-10-17)
+
+Textul următor descrie exclusiv starea istorică Stage 1; limitele autentificării partajate au fost înlocuite pe branch-ul 2A.
 
 ## Rezultate executate efectiv
 

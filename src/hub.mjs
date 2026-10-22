@@ -4,11 +4,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { loopbackHost, validateToken } from './local-config.mjs';
+import { createCredentialStore } from './credentials.mjs';
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const UUID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const isObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
-const isDevice = value => typeof value === 'string' && /^[a-f0-9]{20}$/.test(value);
+const isDevice = value => typeof value === 'string' && UUID.test(value);
 const isThread = value => value == null || value === '' || (typeof value === 'string' && UUID.test(value));
 
 class HttpError extends Error {
@@ -77,13 +78,22 @@ function inventory(body) {
     typeof meta.truncated === 'boolean', 'Invalid session inventory metadata.');
   return {
     mcp: { status: mcp.status, servers: [...new Set(mcp.servers)] },
-    sessions: sessions.map(x => ({ id: x.id, modified: new Date(x.modified).toISOString() })),
-    sessionInventory: { status: meta.status, truncated: meta.truncated }
+    sessions: sessions.map(x => ({
+      id: x.id, modified: new Date(x.modified).toISOString(),
+      ...(x.source === 'app-server' && typeof x.lastActivity === 'string' && Number.isFinite(Date.parse(x.lastActivity))
+        ? { lastActivity: new Date(x.lastActivity).toISOString() } : {}),
+      ...(typeof x.project === 'string' && /^[\p{L}\p{N}_. -]{1,100}$/u.test(x.project) ? { project: x.project } : {}),
+      activity: 'discovered', source: x.source === 'app-server' ? 'app-server' : 'files'
+    })),
+    sessionInventory: { status: meta.status, truncated: meta.truncated,
+      source: meta.source === 'app-server' ? 'app-server' : 'files',
+      ...(['app-server-unavailable', 'app-server-incompatible'].includes(meta.reason) ? { reason: meta.reason } : {}) }
   };
 }
 
-export function createHub({ token, now = Date.now } = {}) {
+export function createHub({ token, credentialStore = createCredentialStore(), now = Date.now } = {}) {
   validateToken(token);
+  if (credentialStore.hasToken(token)) throw new Error('Operator and agent credentials must be separate.');
   const devices = new Map();
   const jobs = new Map();
   const online = device => device && now() - device.lastSeen < 15000;
@@ -101,22 +111,61 @@ export function createHub({ token, now = Date.now } = {}) {
       });
       return res.end(content);
     }
-    if (!validToken(req.headers.authorization, token)) return send(res, 401, { error: 'Unauthorized' });
+    const authorization = req.headers.authorization;
+    const operator = validToken(authorization, token) && !credentialStore.hasToken(token);
+    const bearer = typeof authorization === 'string' && /^Bearer \S+$/i.test(authorization) ? authorization.slice(7) : '';
+    const agent = operator ? null : credentialStore.authenticate(bearer);
+    if (!operator && !agent) return send(res, 401, { error: 'Unauthorized' });
+    const agentEndpoint = u.pathname.startsWith('/api/agent/');
+    if ((agentEndpoint && !agent) || (!agentEndpoint && !operator)) {
+      return send(res, 403, { error: 'Credential role is not permitted on this endpoint.' });
+    }
     if (req.method === 'GET' && u.pathname === '/api/state') {
+      const agents = credentialStore.list();
       return send(res, 200, {
-        devices: [...devices.values()].map(d => ({ ...d, online: Boolean(online(d)) })),
+        agents,
+        devices: [...devices.values()].map(d => {
+          const credential = agents.find(x => x.id === d.id);
+          const revokedAt = credential?.revokedAt || null;
+          return { ...d, revokedAt, online: !revokedAt && Boolean(credential && online(d)) };
+        }),
         jobs: [...jobs.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 40)
       });
     }
-    if (req.method === 'POST' && u.pathname === '/api/agent/heartbeat') {
+    if (req.method === 'POST' && u.pathname === '/api/admin/agents') {
+      const b = await readJson(req);
+      requireValue(typeof b.name === 'string' && b.name.trim().length > 0 && b.name.length <= 64 &&
+        !/[\x00-\x1f\x7f]/.test(b.name), 'Invalid agent name.');
+      const enrolled = credentialStore.enroll(b.name.trim());
+      if (validToken('Bearer ' + enrolled.token, token)) {
+        credentialStore.revoke(enrolled.deviceId);
+        throw new HttpError(500, 'Credential generation failed.');
+      }
+      return send(res, 201, enrolled);
+    }
+    if (req.method === 'POST' && u.pathname === '/api/admin/agents/revoke') {
       const b = await readJson(req);
       requireValue(isDevice(b.deviceId), 'Invalid device.');
-      requireValue(typeof b.name === 'string' && b.name.trim().length > 0 && b.name.length <= 64, 'Invalid device name.');
+      if (!credentialStore.revoke(b.deviceId)) return send(res, 404, { error: 'Unknown agent.' });
+      for (const job of jobs.values()) {
+        if (job.deviceId === b.deviceId && ['pending_approval', 'queued', 'running'].includes(job.status)) {
+          job.status = 'rejected'; job.finishedAt = new Date(now()).toISOString();
+        }
+      }
+      return send(res, 200, { ok: true });
+    }
+    if (req.method === 'POST' && u.pathname === '/api/agent/heartbeat') {
+      const b = await readJson(req);
+      if (!credentialStore.authenticate(bearer)) return send(res, 401, { error: 'Unauthorized' });
+      requireValue(isDevice(b.deviceId), 'Invalid device.');
+      if (b.deviceId !== agent.id) return send(res, 403, { error: 'Agent identity mismatch.' });
+      requireValue(typeof b.name === 'string' && b.name.trim().length > 0 && b.name.length <= 64 &&
+        !/[\x00-\x1f\x7f]/.test(b.name), 'Invalid device name.');
       requireValue(typeof b.platform === 'string' && b.platform.length <= 30, 'Invalid platform.');
       requireValue(b.workspaceReady === undefined || typeof b.workspaceReady === 'boolean', 'Invalid workspace readiness.');
       const discovered = inventory(b);
       devices.set(b.deviceId, {
-        id: b.deviceId, name: b.name, platform: b.platform, sandbox: 'no-execution',
+        id: agent.id, name: agent.name, platform: b.platform, sandbox: 'no-execution',
         workspaceReady: b.workspaceReady === true, executionMode: 'demo-only',
         ...discovered, lastSeen: now()
       });
@@ -124,7 +173,9 @@ export function createHub({ token, now = Date.now } = {}) {
     }
     if (req.method === 'POST' && u.pathname === '/api/task') {
       const b = await readJson(req);
-      requireValue(isDevice(b.deviceId) && online(devices.get(b.deviceId)), 'Device offline or unknown.');
+      const registered = credentialStore.list().find(x => x.id === b.deviceId);
+      requireValue(isDevice(b.deviceId) && registered && !registered.revokedAt &&
+        online(devices.get(b.deviceId)), 'Device offline or unknown.');
       requireValue(typeof b.prompt === 'string' && b.prompt.trim().length > 0 && b.prompt.length <= 2000,
         'Prompt required (max 2000 chars).');
       requireValue(isThread(b.threadId), 'Invalid Codex thread ID.');
@@ -152,6 +203,7 @@ export function createHub({ token, now = Date.now } = {}) {
     }
     if (req.method === 'GET' && u.pathname === '/api/agent/task') {
       const deviceId = u.searchParams.get('deviceId');
+      if (deviceId !== agent.id) return send(res, 403, { error: 'Agent identity mismatch.' });
       requireValue(isDevice(deviceId) && online(devices.get(deviceId)), 'Device offline or unknown.');
       const job = [...jobs.values()].find(j => j.deviceId === deviceId && j.status === 'queued');
       if (job) { job.status = 'running'; job.startedAt = new Date(now()).toISOString(); }
@@ -159,6 +211,8 @@ export function createHub({ token, now = Date.now } = {}) {
     }
     if (req.method === 'POST' && u.pathname === '/api/agent/result') {
       const b = await readJson(req);
+      if (!credentialStore.authenticate(bearer)) return send(res, 401, { error: 'Unauthorized' });
+      if (b.deviceId !== agent.id) return send(res, 403, { error: 'Agent identity mismatch.' });
       const job = jobs.get(b.jobId);
       requireValue(job && job.deviceId === b.deviceId && job.status === 'running', 'Job mismatch.');
       requireValue(['completed', 'failed'].includes(b.status) && typeof b.output === 'string' &&
@@ -188,7 +242,8 @@ export function startHub(env = process.env) {
   const host = loopbackHost(env.LEVERAGE_HOST || '127.0.0.1');
   const port = Number(env.LEVERAGE_PORT || 8765);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid hub port.');
-  const server = createHub({ token: env.LEVERAGE_TOKEN });
+  const server = createHub({ token: env.LEVERAGE_OPERATOR_TOKEN || env.LEVERAGE_TOKEN,
+    credentialStore: createCredentialStore({ file: env.LEVERAGE_CREDENTIAL_STORE || '.local-run/agents.json' }) });
   server.listen(port, host, () => {
     console.log('Leverage50xAgents hub listening on loopback port ' + port + ' (DEMO ONLY).');
   });
@@ -198,5 +253,5 @@ export function startHub(env = process.env) {
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     startHub().on('error', () => { console.error('Hub could not listen on the configured local port.'); process.exitCode = 1; });
-  } catch (error) { console.error(error.message); process.exitCode = 1; }
+  } catch { console.error('Hub startup failed. Check loopback settings and private credential configuration.'); process.exitCode = 1; }
 }

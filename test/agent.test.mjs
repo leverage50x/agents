@@ -8,7 +8,7 @@ import { fixture, dispatch } from '../test-support/fixtures.mjs';
 
 test('agent uses synthetic inventory and transports only approved demo jobs without redirects', async t => {
   const f = fixture(t);
-  const server = createHub({ token: f.token });
+  const server = createHub({ token: f.token, credentialStore: f.store });
   const call = input => dispatch(server, f.token, input);
   fs.writeFileSync(path.join(f.home, 'config.toml'), '[mcp_servers.synthetic]\npassword="SYNTHETIC_PRIVATE_VALUE"\n');
   const requests = [];

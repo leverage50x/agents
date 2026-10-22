@@ -2,19 +2,24 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
-import { createHash } from 'node:crypto';
-import { codexHome, listMcp, listSessionInventory } from './inventory.mjs';
+import { codexHome, listMcp } from './inventory.mjs';
+import { discoverCodexSessions } from './codex-app-server.mjs';
 import { runCodexJob } from './codex-runner.mjs';
 import { localHubUrl, validateToken, workspaceReady } from './local-config.mjs';
 
 export function createAgent({ env = process.env, fetchImpl = fetch } = {}) {
   // Validate the destination before constructing or sending authorization headers.
   const url = localHubUrl(env.LEVERAGE_URL || 'http://127.0.0.1:8765');
-  const token = validateToken(env.LEVERAGE_TOKEN);
+  const token = validateToken(env.LEVERAGE_AGENT_TOKEN);
   const name = env.LEVERAGE_DEVICE || os.hostname();
-  if (typeof name !== 'string' || !name.trim() || name.length > 64) throw new Error('Invalid local device name.');
-  const deviceId = createHash('sha256').update(name).digest('hex').slice(0, 20);
+  if (typeof name !== 'string' || !name.trim() || name.length > 64 || /[\x00-\x1f\x7f]/.test(name)) throw new Error('Invalid local device name.');
+  const deviceId = env.LEVERAGE_AGENT_ID;
+  if (typeof deviceId !== 'string' || !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(deviceId)) {
+    throw new Error('Enroll this agent first and load its private credential file.');
+  }
   const home = env.LEVERAGE_CODEX_HOME || env.CODEX_HOME || codexHome();
+  const source = env.LEVERAGE_SESSION_SOURCE || 'app-server';
+  if (!['app-server', 'files'].includes(source)) throw new Error('Invalid session inventory source.');
 
   async function request(method, endpoint, data, signal) {
     const timeout = AbortSignal.timeout(14000);
@@ -28,7 +33,10 @@ export function createAgent({ env = process.env, fetchImpl = fetch } = {}) {
   }
 
   async function tick({ signal } = {}) {
-    const { sessions, ...sessionInventory } = listSessionInventory(home);
+    const discovered = await discoverCodexSessions({ home, source });
+    const { sessions: listed, ...sessionInventory } = discovered;
+    const sessions = env.LEVERAGE_REPORT_PROJECT === '0'
+      ? listed.map(({ project, ...metadata }) => metadata) : listed;
     await request('POST', '/api/agent/heartbeat', {
       deviceId, name, platform: process.platform, mcp: listMcp(home), sessions, sessionInventory,
       sandbox: 'no-execution', workspaceReady: workspaceReady(env.LEVERAGE_WORKSPACE), executionMode: 'demo-only'

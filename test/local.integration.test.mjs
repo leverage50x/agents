@@ -9,7 +9,7 @@ import { fixture } from '../test-support/fixtures.mjs';
 
 test('real localhost HTTP hub and agent complete an approved demo without Git', { timeout: 10000 }, async t => {
   const f = fixture(t);
-  const server = createHub({ token: f.token });
+  const server = createHub({ token: f.token, credentialStore: f.store });
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
   t.after(async () => { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); });

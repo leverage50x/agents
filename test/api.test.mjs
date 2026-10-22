@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import { createHub, validToken, startHub } from '../src/hub.mjs';
 import { createAgent } from '../src/agent.mjs';
 import { loopbackHost, localHubUrl, validateToken, workspaceReady } from '../src/local-config.mjs';
-import { fixture, dispatch, device, register } from '../test-support/fixtures.mjs';
+import { fixture, dispatch, register } from '../test-support/fixtures.mjs';
 
 function setup(t, options = {}) {
   const f = fixture(t);
-  const server = createHub({ token: f.token, ...options });
-  return { ...f, call: input => dispatch(server, f.token, input) };
+  const server = createHub({ token: f.token, credentialStore: f.store, ...options });
+  return { ...f, call: input => dispatch(server, f.token, input), agentCall: input => dispatch(server, f.agentToken, input) };
 }
 
 test('local configuration rejects external destinations, credentials and weak tokens', t => {
@@ -45,7 +45,7 @@ test('authentication requires a valid bearer token and rejects unauthenticated a
 });
 
 test('API rejects malformed/non-object JSON and counts bytes, preserving chunked UTF-8', async t => {
-  const { call } = setup(t);
+  const { call, agentCall, device } = setup(t);
   for (const raw of ['null', '[]', '"value"', 'true', '1', '{', '']) {
     const result = await call({ method: 'POST', endpoint: '/api/task', raw });
     assert.equal(result.status, 400);
@@ -53,7 +53,7 @@ test('API rejects malformed/non-object JSON and counts bytes, preserving chunked
   }
   const large = await call({ method: 'POST', endpoint: '/api/task', raw: JSON.stringify({ prompt: 'ă'.repeat(10001) }) });
   assert.equal(large.status, 413);
-  await register(call);
+  await register(agentCall, device);
   const bytes = Buffer.from(JSON.stringify({ deviceId: device.deviceId, prompt: 'ă demo' }));
   const at = bytes.indexOf(Buffer.from('ă')) + 1;
   const valid = await call({ method: 'POST', endpoint: '/api/task', chunks: [bytes.subarray(0, at), bytes.subarray(at)] });
@@ -62,8 +62,8 @@ test('API rejects malformed/non-object JSON and counts bytes, preserving chunked
 });
 
 test('invalid heartbeat data is rejected atomically and cannot claim live capabilities', async t => {
-  const { call } = setup(t);
-  const post = body => call({ method: 'POST', endpoint: '/api/agent/heartbeat', body });
+  const { call, agentCall, device } = setup(t);
+  const post = body => agentCall({ method: 'POST', endpoint: '/api/agent/heartbeat', body });
   for (const change of [
     { deviceId: 1 }, { name: null }, { platform: [] }, { workspaceReady: 'yes' },
     { mcp: null }, { mcp: { status: 'connected', servers: [] } },
@@ -83,38 +83,38 @@ test('invalid heartbeat data is rejected atomically and cannot claim live capabi
 });
 
 test('only explicitly approved jobs are claimed, with one terminal result', async t => {
-  const { call } = setup(t);
-  await register(call);
+  const { call, agentCall, device } = setup(t);
+  await register(agentCall, device);
   for (const prompt of [null, {}, '', ' ', 'x'.repeat(2001)]) {
     assert.equal((await call({ method: 'POST', endpoint: '/api/task', body: { deviceId: device.deviceId, prompt } })).status, 400);
   }
   const queued = await call({ method: 'POST', endpoint: '/api/task', body: { deviceId: device.deviceId, prompt: 'Synthetic demo' } });
   const jobId = queued.body.job.id;
-  const claim = () => call({ endpoint: '/api/agent/task?deviceId=' + device.deviceId });
+  const claim = () => agentCall({ endpoint: '/api/agent/task?deviceId=' + device.deviceId });
   assert.equal((await claim()).body.job, null);
   assert.equal((await call({ method: 'POST', endpoint: '/api/task/approve', body: { jobId } })).status, 200);
   assert.equal((await call({ method: 'POST', endpoint: '/api/task/approve', body: { jobId } })).status, 409);
   assert.equal((await claim()).body.job.status, 'running');
   assert.equal((await claim()).body.job, null);
   const result = { jobId, deviceId: device.deviceId, status: 'completed', output: 'MOCK DEMO RESULT' };
-  assert.equal((await call({ method: 'POST', endpoint: '/api/agent/result', body: { ...result, deviceId: 'b'.repeat(20) } })).status, 400);
-  assert.equal((await call({ method: 'POST', endpoint: '/api/agent/result', body: { ...result, status: 'live' } })).status, 400);
-  assert.equal((await call({ method: 'POST', endpoint: '/api/agent/result', body: result })).status, 200);
-  assert.equal((await call({ method: 'POST', endpoint: '/api/agent/result', body: result })).status, 400);
+  assert.equal((await agentCall({ method: 'POST', endpoint: '/api/agent/result', body: { ...result, deviceId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' } })).status, 403);
+  assert.equal((await agentCall({ method: 'POST', endpoint: '/api/agent/result', body: { ...result, status: 'live' } })).status, 400);
+  assert.equal((await agentCall({ method: 'POST', endpoint: '/api/agent/result', body: result })).status, 200);
+  assert.equal((await agentCall({ method: 'POST', endpoint: '/api/agent/result', body: result })).status, 400);
 });
 
 test('rejected jobs are terminal; expired devices cannot receive instructions', async t => {
   let time = Date.now();
-  const { call } = setup(t, { now: () => time });
-  await register(call);
+  const { call, agentCall, device } = setup(t, { now: () => time });
+  await register(agentCall, device);
   const jobId = (await call({ method: 'POST', endpoint: '/api/task', body: { deviceId: device.deviceId, prompt: 'Reject demo' } })).body.job.id;
   assert.equal((await call({ method: 'POST', endpoint: '/api/task/reject', body: { jobId } })).body.status, 'rejected');
   assert.equal((await call({ method: 'POST', endpoint: '/api/task/approve', body: { jobId } })).status, 409);
-  assert.equal((await call({ endpoint: '/api/agent/task?deviceId=' + device.deviceId })).body.job, null);
+  assert.equal((await agentCall({ endpoint: '/api/agent/task?deviceId=' + device.deviceId })).body.job, null);
   time += 15000;
   assert.equal((await call()).body.devices[0].online, false);
   assert.equal((await call({ method: 'POST', endpoint: '/api/task', body: { deviceId: device.deviceId, prompt: 'offline' } })).status, 400);
-  assert.equal((await call({ endpoint: '/api/agent/task?deviceId=' + device.deviceId })).status, 400);
+  assert.equal((await agentCall({ endpoint: '/api/agent/task?deviceId=' + device.deviceId })).status, 400);
 });
 
 test('dashboard assets are served with restrictive headers', async t => {

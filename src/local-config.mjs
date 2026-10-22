@@ -4,7 +4,7 @@ import path from 'node:path';
 export function loopbackHost(host = '127.0.0.1') {
   if (host === 'localhost') return '127.0.0.1';
   if (host === '127.0.0.1' || host === '::1') return host;
-  throw new Error('ETAPA 1 permits loopback hosts only.');
+  throw new Error('The hub and agent connection permit loopback hosts only; use a private SSH tunnel.');
 }
 
 export function localHubUrl(value = 'http://127.0.0.1:8765') {
@@ -21,7 +21,7 @@ export function localHubUrl(value = 'http://127.0.0.1:8765') {
 
 export function validateToken(token) {
   if (typeof token !== 'string' || token.length < 24 || /[\s\x00-\x1f\x7f]/.test(token)) {
-    throw new Error('Set LEVERAGE_TOKEN to a long random secret (at least 24 characters, no whitespace).');
+    throw new Error('Set the role-specific credential to a long random secret (at least 24 characters, no whitespace).');
   }
   return token;
 }

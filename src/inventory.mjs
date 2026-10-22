@@ -102,7 +102,7 @@ export function listSessionInventory(home = codexHome(), limit = 40, { maxEntrie
   }
   const sessions = [...result].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, limit)
     .map(([id, modified]) => ({ id, modified: new Date(modified).toISOString() }));
-  return { status: partial ? 'partial' : 'available', truncated, sessions };
+  return { status: partial ? 'partial' : 'available', truncated: truncated || result.size > limit, sessions };
 }
 
 /** Compatibility helper: metadata is available from listSessionInventory. */

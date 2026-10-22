@@ -66,7 +66,7 @@ test('session scan considers more than 500 files and reports bounded scans', t =
   }
   assert.equal(listSessionIds(f.home, 1)[0].id, newest);
   assert.equal(listSessionInventory(f.home).sessions.length, 40);
-  assert.equal(listSessionInventory(f.home).truncated, false);
+  assert.equal(listSessionInventory(f.home).truncated, true);
   assert.equal(listSessionInventory(f.home, 40, { maxEntries: 2 }).truncated, true);
 });
 

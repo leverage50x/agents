@@ -1,4 +1,6 @@
-# Mesaj pentru Codex — ETAPA 1
+# Mesaj istoric pentru Codex — ETAPA 1
+
+Acest mesaj descrie etapa arhivată în v0.1.1-stage1-demo. Pentru branch-ul stage2-device-discovery se aplică AGENTS.md și cererea explicită Etapa 2A: autentificare separată, inventar read-only și publicare numai a branch-ului, fără merge în main. Nu folosi promptul istoric pentru a reactiva secrete partajate sau a începe 2B. Vezi ETAPA-2-LAPTOP2.md.
 
 Lucrăm la proiectul meu personal Leverage50xAgents. Respectă AGENTS.md și limitează-te la stabilizarea MVP-ului local existent.
 

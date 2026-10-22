@@ -1875,4 +1875,430 @@ Accesul remote a fost încercat numai read-only: după rezolvarea limitei DNS a 
 
 Comandă: `node .local-run/review-publication.mjs` — cod 0 la reverificarea dinaintea stagingului. Istoricul și cele 28 de fișiere locale nu au constatări; .env și .local-run nu sunt urmărite. Comenzile Git read-only interne sunt cele documentate mai sus. Acțiunea următoare autorizată este commitul workflow-ului/documentației/jurnalului; nu s-a făcut push. Jurnalul operațiunilor de după acest commit va rămâne local și va fi raportat explicit, conform cererii operatorului.
 
+Comandă: `git add -- .github/workflows/ci.yml README.md 'comenzi executate agent.md'` — cod 0. Exact trei fișiere în index; .env/.local-run excluse.
+
+Verificări ale indexului efectuate după staging:
+
+- `git diff --cached --check` — cod 0, PASS.
+- `git diff --cached --name-only` — cod 0: .github/workflows/ci.yml, README.md și comenzi executate agent.md.
+- `git show :.github/workflows/ci.yml` — cod 0; YAML-ul final revizuit, Ubuntu/Node 22, npm ci/npm test, contents:read, SHA-uri fixe, fără secrete.
+- `git diff --name-only` — cod 0, fără modificări nestaged înaintea commitului.
+
+Comandă: `git commit -m 'ci: add Stage 1 demo GitHub Actions workflow'` — cod 0.
+
+```text
+[main 906c24f] ci: add Stage 1 demo GitHub Actions workflow
+ 3 files changed, 447 insertions(+)
+ create mode 100644 .github/workflows/ci.yml
+```
+
+Această înregistrare și rezultatele ulterioare rămân local după commitul de mai sus; vor fi explicate în raportul final. Nu afirmăm publicarea remote.
+
+`git tag --list v0.1.1-stage1-demo` — cod 0, fără rezultat; tagul nu exista local.
+
+Comandă: `git tag -a v0.1.1-stage1-demo -m 'Stage 1 demo: local inventory and approved demo tasks; live Codex blocked'` — cod 0. Rezultat: tag local creat, fără ieșire. Nu s-a publicat tagul; accesul remote rămâne neconfirmat și nu se folosește force push.
+
+Verificări după commit/tag (director: [WORKSPACE]):
+
+- `git show -s --format='%H%n%s%nAuthor: %an' HEAD` — cod 0; 906c24f15f8b364d9bec6da8cebb74b57caa8862 / ci: add Stage 1 demo GitHub Actions workflow / Author: leverage50x.
+- `git rev-parse 'v0.1.1-stage1-demo^{commit}'` — cod 0; 906c24f15f8b364d9bec6da8cebb74b57caa8862.
+- `git merge-base --is-ancestor f85f715402c368f5c1b48a983269135342619830 HEAD` — cod 0; fără ieșire; verificare reușită.
+- `git status --short --branch` — cod 0; ## main /  M "comenzi executate agent.md".
+- `git diff --stat` — cod 0; comenzi executate agent.md | 23 +++++++++++++++++++++++ /  1 file changed, 23 insertions(+).
+- `git remote get-url origin` — cod 0; https://github.com/leverage50x/leverage50xagents.git.
+- `git diff --cached --check` — cod 0; fără ieșire; verificare reușită.
+- `node .local-run/review-publication.mjs` — cod 0; 2 commituri, 30 bloburi istorice, 28 fișiere locale, zero constatări și zero căi private urmărite. Primul checkpoint păstrat.
+
+Status local: doar jurnalul are completări după commit. Aceste înregistrări (staging/commit/tag/verificările finale și rezultatul accesului remote) nu sunt în commitul etichetat și nu au fost publicate. Nu s-au executat `git push -u origin main` sau push al tagului, deoarece existența/accesul/vizibilitatea Private ale repository-ului nu au fost încă verificate. GitHub Actions remote nu a rulat pentru această versiune locală. Nu s-a făcut force push, nu s-a creat repository online, nu s-a schimbat vizibilitatea și nu s-a început ETAPA 2.
+
+Documentație suplimentară consultată read-only prin web pentru intervenția de autentificare: https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens și https://git-scm.com/docs/git-credential-cache . Nu s-a creat, solicitat în conversație sau înregistrat niciun PAT.
+
+Pași propuși operatorului, NEEXECUTAȚI: confirmarea existenței și stării Private pentru repository, acordarea accesului conexiunii GitHub și autentificarea Git din WSL. Opțiune fără stocarea tokenului pe disc: `git config --local credential.helper 'cache --timeout=900'`, urmat de `git ls-remote origin` într-un terminal propriu; username leverage50x, PAT introdus exclusiv la promptul ascuns de parolă. Tokenul trebuie restrâns la repository-ul indicat, cu Contents write, Workflows write și Actions read pentru verificarea CI, cu expirare scurtă. Nu recomandăm trimiterea lui în conversație sau includerea în URL/fișiere/comenzi.
+
+Jurnalul are intenționat completări locale după commitul 906c24f15f8b364d9bec6da8cebb74b57caa8862. Tagul local indică exact acel commit; nu a fost mutat sau publicat. Publicarea poate continua numai după confirmarea accesului și vizibilității Private.
+
+## 2026-10-21 — publicarea Stage 1 în repository-ul corect
+
+Director pentru toate comenzile de mai jos: `[WORKSPACE]`. Operatorul a confirmat explicit repository-ul `https://github.com/leverage50x/agents`, caracterul PRIVATE și aprobarea întregului flux de push/verificare CI. Destinația veche din înregistrările anterioare este depășită. Nu se schimbă istoricul sau tagul existent. Verificările independente din aceeași grupă au rulat în paralel.
+
+Verificări locale inițiale (toate cod 0):
+
+- `git status --short --branch` — cod 0.
+- `git log -3 --format='%h %s'` — cod 0.
+- `git branch --show-current` — cod 0.
+- `git tag --list v0.1.1-stage1-demo` — cod 0.
+- `git rev-parse HEAD 'v0.1.1-stage1-demo^{}'` — cod 0.
+- `command -v gh` — cod 0.
+- `cat AGENTS.md .github/workflows/ci.yml package.json` — cod 0.
+- `tail -65 'comenzi executate agent.md'` — cod 0.
+
+Rezultat: main; HEAD și tagul dezarhivat indică `906c24f15f8b364d9bec6da8cebb74b57caa8862`; primul checkpoint `f85f715402c368f5c1b48a983269135342619830` este păstrat. Doar jurnalul avea modificări nestaged. GitHub CLI disponibil la `/usr/bin/gh`.
+
+Comandă read-only suplimentară, cod 0:
+
+```bash
+python3 -c 'import subprocess,urllib.parse; r=subprocess.run(["git","remote","get-url","origin"],capture_output=True,text=True); u=r.stdout.strip(); p=urllib.parse.urlsplit(u); print("origin=" + (u if p.scheme == "https" and p.hostname == "github.com" and p.username is None and p.password is None else "[remote absent or requires private inspection]")); raise SystemExit(r.returncode)'
+```
+
+Rezultat: origin indica vechiul repository `https://github.com/leverage50x/leverage50xagents.git`.
+
+Revizuire paralelă read-only realizată de agentul de verificare, fără rețea, modificări sau teste:
+
+- `cat AGENTS.md .github/workflows/ci.yml package.json package-lock.json` — cod 0.
+- `rg --files test tests src public` — cod 2: directoarele `tests/` și `public/` nu există; fișierele din `test/` și `src/` au fost listate.
+- `cat test/api.test.mjs test/local.integration.test.mjs test/hub.test.mjs test/runner.test.mjs test/agent.test.mjs test/ui.test.mjs test/inventory.test.mjs` — cod 0.
+- `cat test-support/fixtures.mjs src/hub.mjs src/agent.mjs src/local-config.mjs src/inventory.mjs` — cod 0.
+
+Concluzie statică: workflow Ubuntu/Node 22, push/PR, npm ci/npm test, permissions contents:read, fără secrete reale; testele folosesc module built-in și inventar sintetic. Niciun blocaj CI identificat static.
+
+Verificări rețea în sandbox:
+
+- `gh api user --jq .login` — cod 1: error connecting to api.github.com.
+- `gh api repos/leverage50x/agents --jq '{full_name,private,owner:.owner.login,permissions,default_branch}'` — cod 1: aceeași limitare de rețea.
+- `node .local-run/review-publication.mjs` — cod 0. Ieșirea instrumentului a fost trunchiată la afișare, iar parserul din orchestrare a eșuat cu SyntaxError la JSON incomplet. Scanarea însă a terminat cu cod 0; a fost repetată cu buget de ieșire suficient. Niciun rezultat nu a fost dedus din JSON-ul incomplet.
+
+Operațiuni reluate prin fluxul explicit de aprobare al platformei, după blocajul de rețea și pentru scrierea configurației .git:
+
+- `git remote set-url origin https://github.com/leverage50x/agents.git` — cod 0; origin corectat conform aprobării explicite. Fără modificări globale.
+- `gh api user --jq .login` — cod 0: leverage50x.
+- `gh api repos/leverage50x/agents --jq '{full_name,private,owner:.owner.login,permissions,default_branch}'` — cod 0: full_name leverage50x/agents, owner leverage50x, private true, default_branch main; pull/push/admin/maintain/triage true. Nu s-au citit/afișat tokenuri.
+- `node .local-run/review-publication.mjs` — cod 0: 2 commituri, 30 bloburi istorice unice, 28 fișiere de lucru; zero constatări și zero căi interzise. Secretul local din .env a fost comparat numai în memorie, fără afișare. Fișierul ignorat `.local-run/publication-audit.json` a fost actualizat. Primul checkpoint păstrat.
+
+Comenzile Git read-only interne ale scannerului, executate la fiecare dintre cele două rulări de mai sus (toate cod 0; argv literal, fără conținutul fișierelor):
+
+```text
+COMMAND ["git","rev-list","--reverse","main"]
+COMMAND ["git","ls-tree","-rz","--full-tree","f85f715402c368f5c1b48a983269135342619830"]
+COMMAND ["git","cat-file","blob","0505545ea0450e59e837c49382d9d510f99c4422"]
+COMMAND ["git","cat-file","blob","f83c087ed1cb3350f3aacc4e92f57fe4ef6685a5"]
+COMMAND ["git","cat-file","blob","575f5671e53be2381c4d7de8337391f2a575127b"]
+COMMAND ["git","cat-file","blob","dddea1c3e98e96deb586280e0afafaf7b8729d75"]
+COMMAND ["git","cat-file","blob","d1b048aa135685c9ec4a52ef474bdc047303978c"]
+COMMAND ["git","cat-file","blob","42abf70b785509a180e2a2c6611099976d8aa9b9"]
+COMMAND ["git","cat-file","blob","cf55316d859b7077a5e264a387bf816dc8eb5df4"]
+COMMAND ["git","cat-file","blob","787d01a4e68eb8ea647c9ed6a243e94fe0c8e3a6"]
+COMMAND ["git","cat-file","blob","f8c7f993bec1acfedafffc7f1e52f031ceab6c34"]
+COMMAND ["git","cat-file","blob","f8158b5ab4f3eb02cdf3a4bab949c683a8e89c05"]
+COMMAND ["git","cat-file","blob","8c097c2d9b8d2473508e1ee6f547a3f9672836ec"]
+COMMAND ["git","cat-file","blob","1199c1000e2b815958322dec68dab8791e49e78e"]
+COMMAND ["git","cat-file","blob","0c7c3df7d588da78995a67c7b839c5693ad6c8e1"]
+COMMAND ["git","cat-file","blob","cb5b422e198c65a34006ce2e11ac5a6bf9a4d1c8"]
+COMMAND ["git","cat-file","blob","39b49523b7890bef372444f20b1c020644a1ebaf"]
+COMMAND ["git","cat-file","blob","b6c0d4b3d133c00b5c07c3e5c3f5e04f2a722b08"]
+COMMAND ["git","cat-file","blob","1cf182ce5adeb20e06de31b1c35d1b0749413ee3"]
+COMMAND ["git","cat-file","blob","07f107d367b9561919fbcc035de31dfa15acd0df"]
+COMMAND ["git","cat-file","blob","a33db80fcc54091d69650e0302de94a79555f499"]
+COMMAND ["git","cat-file","blob","1299e9bb5359203d4dd7d5851f65864cea55d6f0"]
+COMMAND ["git","cat-file","blob","d0a2947a7f8c31d8846803d88e532d2bafaed057"]
+COMMAND ["git","cat-file","blob","d4fe8e8354c85035105f386094a2e18ffd5c101d"]
+COMMAND ["git","cat-file","blob","ffe0cd23a36424617f59a6c194e7184448e60a58"]
+COMMAND ["git","cat-file","blob","e4bad6bebaa149bf4d4ef5ee473c5122bc89d89d"]
+COMMAND ["git","cat-file","blob","43fa1266804221d8d78d8a70aa9d1a90545c0411"]
+COMMAND ["git","cat-file","blob","8fc30ee2bdd120f036484449e0f819e6190bed91"]
+COMMAND ["git","cat-file","blob","6bd65d290ebfa503432ba76fc4b639a3291f437f"]
+COMMAND ["git","show","-s","--format=%B","f85f715402c368f5c1b48a983269135342619830"]
+COMMAND ["git","ls-tree","-rz","--full-tree","906c24f15f8b364d9bec6da8cebb74b57caa8862"]
+COMMAND ["git","cat-file","blob","8636bced96117d469930bb2e3290ed84887695d6"]
+COMMAND ["git","cat-file","blob","71a0bf76f0854ca518bdecf76792e277850b4102"]
+COMMAND ["git","cat-file","blob","6b5148cb745c734374358cb1d6e999ccad2dc39b"]
+COMMAND ["git","show","-s","--format=%B","906c24f15f8b364d9bec6da8cebb74b57caa8862"]
+COMMAND ["git","ls-files","--cached","--others","--exclude-standard","-z"]
+```
+
+- `GIT_TERMINAL_PROMPT=0 git ls-remote --heads --tags origin` — cod 0, fără ieșire: acces Git confirmat; remote-ul nu are ramuri/taguri. Rulare prin aprobarea platformei pentru rețea.
+
+Verificări locale ulterioare:
+
+- `git diff --stat` — cod 0.
+- `git diff --check` — cod 0.
+- `git diff --cached --check` — cod 0.
+- `git remote get-url origin` — cod 0.
+- `git check-ignore .env .local-run/publication-audit.json` — cod 0.
+- `sed -n '1,240p' .local-run/review-publication.mjs` — cod 0.
+- `git ls-tree -r --name-only HEAD` — cod 0.
+- `git diff -- 'comenzi executate agent.md'` — cod 0.
+- `cat .env.example .gitignore` — cod 0.
+- `git for-each-ref refs/tags/v0.1.1-stage1-demo --format='%(objectname) %(objecttype) %(subject)'` — cod 0.
+- `git status --porcelain=v1 --untracked-files=all` — cod 0.
+
+Rezultate: .env și .local-run/publication-audit.json sunt ignorate; 28 fișiere urmărite, fără .env ori .local-run; template-ul .env.example are doar placeholder; diff/check și cached/check fără erori. Singura schimbare locală este jurnalul. Tagul anotat existent are obiectul `229f258d9316dc5169eda089df374f0ccfbbe234` și mesaj exclusiv DEMO.
+
+Validări read-only prin GitHub CLI, cu aprobarea platformei pentru rețea:
+
+- `gh api repos/actions/checkout/commits/3d3c42e5aac5ba805825da76410c181273ba90b1 --jq .sha` — cod 0; SHA-ul oficial returnat este identic cu cel din workflow.
+- `gh api repos/actions/setup-node/commits/949feb2413d6458794dcd2491c4babbbce0c15c1 --jq .sha` — cod 0; SHA-ul oficial returnat este identic cu cel din workflow.
+
+Modificări în această continuare până aici: numai origin din configurația Git locală, jurnalul (patchul curent) și raportul de audit ignorat. Fără modificări ale aplicației sau workflow-ului; nu s-au rulat teste noi până aici. Jurnalul completat după commitul etichetat rămâne intenționat local și va fi raportat. Push-ul și rezultatele CI vor fi înregistrate numai după executare.
+
+Publicare efectivă, după verificările de mai sus (director: `[WORKSPACE]`; rețea și scrieri .git prin aprobarea platformei):
+
+- `git push -u origin main` — cod 0; new branch main -> main; main urmărește acum origin/main.
+- `git push origin refs/tags/v0.1.1-stage1-demo` — cod 0; new tag v0.1.1-stage1-demo. Tagul existent nu a fost mutat.
+
+Verificări read-only după publicare (toate cod 0):
+
+- `gh api repos/leverage50x/agents --jq '{full_name,private,owner:.owner.login,default_branch}'` — cod 0.
+- `gh api repos/leverage50x/agents/branches/main --jq '{name,sha:.commit.sha,protected}'` — cod 0.
+- `gh api repos/leverage50x/agents/git/ref/tags/v0.1.1-stage1-demo --jq '{ref,object}'` — cod 0.
+- `gh api repos/leverage50x/agents/commits --jq 'map({sha,message:.commit.message})'` — cod 0.
+- `gh run list --repo leverage50x/agents --workflow ci.yml --commit 906c24f15f8b364d9bec6da8cebb74b57caa8862 --json databaseId,status,conclusion,url,event,headSha,headBranch` — cod 0.
+
+Rezultate GitHub: repository PRIVATE, owner leverage50x, default main; ramura main indică `906c24f15f8b364d9bec6da8cebb74b57caa8862`. Ambele commituri sunt prezente, inclusiv primul checkpoint. Ref-ul tagului indică obiectul anotat `229f258d9316dc5169eda089df374f0ccfbbe234`.
+
+- `gh api repos/leverage50x/agents/git/tags/229f258d9316dc5169eda089df374f0ccfbbe234 --jq '{tag,object,message}'` — cod 0; tagul publicat indică exact commitul 906c24f15f8b364d9bec6da8cebb74b57caa8862, cu mesaj DEMO.
+- `gh api repos/leverage50x/agents/git/trees/906c24f15f8b364d9bec6da8cebb74b57caa8862 --jq '{sha,paths:[.tree[].path]}'` — cod 0; fișierele și directoarele proiectului sunt pe GitHub, inclusiv .github, src, test, package.json, package-lock.json și jurnalul în versiunea din commit. Nu apar .env sau .local-run.
+
+Verificarea CI, prin aprobarea platformei pentru rețea (comenzi lansate în paralel, toate terminate cu cod 0):
+
+- `gh run view 39665170425 --repo leverage50x/agents --json status,conclusion,url,headSha,jobs` — cod 0.
+- `gh run view 39665178425 --repo leverage50x/agents --json status,conclusion,url,headSha,jobs` — cod 0.
+- `gh run view 39665170425 --repo leverage50x/agents --log` — cod 0.
+- `gh run view 39665178425 --repo leverage50x/agents --log` — cod 0.
+
+GitHub Actions a pornit automat la ambele push-uri și a terminat cu SUCCESS:
+
+- main: https://github.com/leverage50x/agents/actions/runs/39665170425 — job test SUCCESS; toate etapele au trecut.
+- v0.1.1-stage1-demo: https://github.com/leverage50x/agents/actions/runs/39665178425 — job test SUCCESS; toate etapele au trecut.
+
+Logurile CI confirmă pentru fiecare rulare Ubuntu/Node v22.23.3: `npm ci` reușit, audited 1 package, found 0 vulnerabilities; `npm test` -> `node --test`, 25 tests, 25 pass, 0 fail. Aceste comenzi au rulat efectiv pe runnerul GitHub în workspace-ul checkout-ului, nu local în WSL în această continuare. Au fost afișate numai liniile necesare de verificare din loguri. Nu au fost necesare reparații CI sau commituri noi.
+
+Fișiere modificate: configurația locală a remote-ului și tracking main/origin/main din .git; jurnalul; raportul de audit ignorat. Codul aplicației și workflow-ul nu au fost schimbate. Nu s-a făcut force push, nu s-a schimbat PRIVATE, nu s-a început Stage 2 și execuția reală Codex rămâne blocată. Actualizările jurnalului de după commitul 906c24f rămân locale, conform opțiunii permise explicit de operator.
+
+Verificări locale finale după publicare și actualizarea jurnalului (director `[WORKSPACE]`, toate cod 0):
+
+- `git status --short --branch` — cod 0.
+- `git rev-parse HEAD origin/main 'v0.1.1-stage1-demo^{}'` — cod 0.
+- `git log -2 --format='%H %s'` — cod 0.
+- `git diff --name-only` — cod 0.
+- `git diff --cached --name-only` — cod 0.
+- `git diff --check` — cod 0.
+
+Rezultat: HEAD = origin/main = commitul tagului = `906c24f15f8b364d9bec6da8cebb74b57caa8862`; două commituri păstrate; index gol; diff --check PASS. Status: `## main...origin/main` și ` M "comenzi executate agent.md"`, fără alte schimbări urmărite.
+
+- `node .local-run/review-publication.mjs` — cod 0, reverificare finală a istoricului și jurnalului actualizat: 2 commituri, 30 bloburi, 28 fișiere, zero constatări, zero căi interzise. Scannerul a executat aceeași listă argv Git read-only documentată mai sus, toate cod 0, și a actualizat raportul ignorat.
+
+Această ultimă completare prin apply_patch înregistrează numai rezultatele obținute; rămâne în jurnalul local nestaged. Publicarea Stage 1 este finalizată și ambele rulări GitHub Actions sunt verificate SUCCESS, 25/25 teste fiecare. Nu rămân erori de publicare sau CI; singura diferență locală urmărită este jurnalul de după commit. Oprire după Stage 1.
+
+## 2026-10-22 — Etapa 2A, pregătire și implementare
+
+Autorizare explicită: implementare, teste, commituri și push numai pe `stage2-device-discovery`, în repository-ul PRIVATE leverage50x/agents. main și tagul Stage 1 rămân intacte. Modificările locale ale jurnalului din publicarea Stage 1 sunt păstrate. Director implicit pentru toate comenzile de mai jos: `[WORKSPACE]`. Căile personale din comenzi/diagnostice sunt anonimizate; nu sunt incluse valori de mediu ori credențiale. Comenzile independente au fost lansate în paralel; listele fiecărei grupe păstrează ordinea lansării, nu inventează o ordine de finalizare.
+
+Verificări inițiale (toate cod 0):
+
+- `git status --short --branch` — cod 0.
+- `git log -3 --format='%H %s'` — cod 0.
+- `git branch --list` — cod 0.
+- `cat AGENTS.md package.json .gitignore` — cod 0.
+- `rg --files -g '!comenzi executate agent.md' -g '!package-lock.json'` — cod 0.
+- `cat [USER_HOME]/.codex/skills/.system/openai-docs/SKILL.md` — cod 0.
+
+Rezultat: main urmărea origin/main la 906c24f15f8b364d9bec6da8cebb74b57caa8862; numai jurnalul era modificat; exista numai branch-ul main.
+
+Am aplicat skill-ul OpenAI Docs (anunțat operatorului), citind SKILL.md. Web read-only: căutare exactă `site:developers.openai.com codex app server thread/list`; prima deschidere fără slash final a eșuat, apoi `https://developers.openai.com/codex/app-server/` a fost deschisă și a redirecționat la `https://learn.chatgpt.com/docs/app-server`. Au fost căutate thread/list, omitGitInfo (absent), Thread status și initialize. Documentația confirmă metadatele, DB-only și limitele statusului unui runtime nou; nu a fost folosit niciun apel AI/API/MCP de execuție.
+
+- `git switch -c stage2-device-discovery` — cod 0, prin aprobarea platformei pentru scrierea .git. Jurnalul local a fost păstrat.
+
+Inspecție locală (toate cod 0):
+
+- `cat src/hub.mjs src/local-config.mjs` — cod 0.
+- `cat src/agent.mjs src/inventory.mjs src/codex-runner.mjs` — cod 0.
+- `cat src/ui.html src/ui.mjs src/ui.css` — cod 0.
+- `cat test/api.test.mjs test/agent.test.mjs test/hub.test.mjs test/local.integration.test.mjs test-support/fixtures.mjs` — cod 0.
+- `command -v codex` — cod 0.
+- `codex --version` — cod 0.
+- `codex app-server --help` — cod 0.
+
+Codex CLI local este 0.163.0. --version și app-server --help au afișat avertismentul PATH aliases read-only; nu au fost schimbate protecții. Comanda de teste lansată în prima grupă `npm test` a avut ieșire trunchiată în instrumentul de orchestrare; rezultatul complet nu a fost reținut, deci nu este declarat PASS. Tagul exact Stage 1 a fost reverificat ulterior separat.
+
+Modificări prin apply_patch în paralel: autentificare Hub, identitate persistentă agent, adaptor Codex read-only, dashboard și teste. O rulare intermediară `npm test` (cu aprobare loopback) a terminat cu cod 1, 17 PASS/4 FAIL: src/credentials.mjs încă nu fusese scris, iar CLI Hub nu putea porni. Este o eroare reală din timpul asamblării, nu rezultatul final. A fost remediată prin finalizarea modulelor, fără dezactivarea testelor.
+
+Comenzi de inspecție în timpul integrării, cod 0:
+
+- `cat test/ui.test.mjs README.md VERIFICARE.md`
+- `cat src/credentials.mjs`
+- `cat src/manage.mjs`
+- `cat src/ui.mjs`
+- `cat test-support/fixtures.mjs test/hub.test.mjs`
+- `cat src/hub.mjs`
+- `git diff -- src/hub.mjs src/agent.mjs src/local-config.mjs package.json AGENTS.md .env.example`
+- `cat INSTRUCTIUNI-RO.md PROMPT-CODEX-RO.md`
+
+Verificarea exactă a Stage 1, după extragere în director temporar separat, fără modificarea checkout-ului sau a tagului:
+
+- apply_patch: creat helper ignorat `.local-run/verify-stage1.mjs`.
+- `node .local-run/verify-stage1.mjs` — cod 0, aprobare explicită a platformei pentru loopback. Intern: `git archive v0.1.1-stage1-demo` cod 0; `tar -x -C [TEMP_STAGE1]` cod 0; `npm test` în [TEMP_STAGE1] cod 0, **25/25 PASS**, 0 fail/skip. Directorul temporar a fost curățat în finally.
+- `cat src/codex-app-server.mjs` — cod 0.
+
+Suita integrată:
+
+- `npm test` — cod 0, prin aprobarea platformei pentru loopback/subprocese: **51/51 PASS**, 0 fail/skip, 2031.916269 ms.
+- `git status --short --branch` — cod 0: stage2-device-discovery și modificările Stage 2A; main nu a fost mutat.
+
+Verificare reală Codex strict read-only:
+
+- apply_patch: helper ignorat `.local-run/verify-codex.mjs`, CODEX_HOME temporar izolat în workspace.
+- `node .local-run/verify-codex.mjs` — cod 0, aprobare explicită a platformei. Executabilul Codex instalat a răspuns initialize/initialized/thread/list: status available, source app-server, 0 sesiuni în mediul izolat, fără turnuri/model/tool. Copilul a fost oprit și mediul temporar curățat.
+- Același helper a apelat local listSessionInventory(codexHome()) numai pentru nume/stat: 5 UUID-uri, available, truncated false. Nu au fost citite transcripturi, nici afișate ID-uri, căi personale sau configurații.
+
+Inspecții după documentare (toate cod 0):
+
+- `rg -n 'truncated|listSessionInventory' test/inventory.test.mjs` — cod 0.
+- `git diff --check` — cod 0.
+- `git diff --stat` — cod 0.
+- `node --check src/hub.mjs` — cod 0.
+- `node --check src/agent.mjs` — cod 0.
+- `cat .github/workflows/ci.yml` — cod 0.
+
+- `npm test` — cod 0, aprobare loopback/subprocese: **54/54 PASS**, 0 fail/skip, 2752.425301 ms; trei cazuri noi verifică coliziunea operator/agent inclusiv revocat, revocarea în timpul unui heartbeat incomplet și filtrarea metadatelor/private/fabricated activity.
+- `sed -n '35,75p' test/inventory.test.mjs` — cod 0; identificat cazul de 510 sesiuni unde tăierea la 40 nu era semnalată. Patch ulterior: fallback-ul marchează truncated și testul verifică acest lucru; limita de nume este aliniată la 64, iar workflow-ul este redenumit Node.js CI fără schimbarea securității lui. Rezultatul final după aceste ajustări va fi consemnat separat.
+
+Fișiere dezvoltate până aici: src/hub.mjs, agent.mjs, local-config.mjs, inventory.mjs; module noi credentials.mjs/manage.mjs/codex-app-server.mjs; src/ui.html/ui.css/ui.mjs; fixture-uri și teste adaptate + teste noi app-server/credentials/stage2/stage2.cli; AGENTS.md, README.md, .env.example, package.json, workflow, VERIFICARE.md; ghiduri noi ETAPA-2-LAPTOP2.md și ETAPA-2A-ARHITECTURA.md; avertizări de arhivă în INSTRUCTIUNI-RO.md/PROMPT-CODEX-RO.md. Nu au fost instalate dependențe externe și nu s-au accesat alte dispozitive. Documentația separă clar probele reale locale de simularea fizică a două laptopuri și de probele încă necesare prin SSH.
+
+Contribuții paralele — jurnalul comenzilor raportate de fiecare subagent, în ordine cronologică pe fiecare flux. Toate au cwd `[WORKSPACE]`; cifra finală este codul de ieșire. Ordinea dintre fluxurile paralele nu este inventată. Fișierele au fost editate prin apply_patch în scope-ul atribuit, fără Git sau acces la alte dispozitive.
+
+Dashboard, adaptarea testelor Stage 1 și testul CLI cu doi agenți:
+
+```text
+cat AGENTS.md — 0
+sed -n '1,260p' src/ui.mjs — 0
+cat src/ui.html — 0
+cat src/ui.css — 0
+cat test/ui.test.mjs — 0
+node --test test/ui.test.mjs — 0; numai wrapper de fișier raportat în sandbox
+node --version — 0; v22.23.3
+node --test --test-reporter spec test/ui.test.mjs — 0; numai wrapper
+rg -n '^test\(' test/ui.test.mjs — 0
+node -e 'process.stdout.write(JSON.stringify({nodeTestContext: process.env.NODE_TEST_CONTEXT ?? null, nodeOptionsPresent: Boolean(process.env.NODE_OPTIONS)}))' — 0; null,false
+node test/ui.test.mjs — 0; 6/6 PASS
+node --test --test-isolation=none test/ui.test.mjs — 9; opțiune nesuportată în Node 22
+node --check src/ui.mjs — 0
+git diff --check -- src/ui.html src/ui.mjs src/ui.css test/ui.test.mjs — 0
+git diff --stat -- src/ui.html src/ui.mjs src/ui.css test/ui.test.mjs — 0
+cat test-support/fixtures.mjs — 0
+cat test/api.test.mjs — 0
+cat test/agent.test.mjs — 0
+cat test/hub.test.mjs — 0
+cat test/local.integration.test.mjs — 0
+sed -n '1,260p' src/agent.mjs — 0
+sed -n '1,320p' src/hub.mjs — 0
+rg --files src test | sort — 0
+rg -n 'fixture\(|register\(|\bdevice\b' test test-support — 0
+sed -n '1,190p' test/api.test.mjs — 0
+cat test/hub.test.mjs — 0
+node --check test-support/fixtures.mjs — 0
+node --check test/api.test.mjs — 0
+node --check test/agent.test.mjs — 0
+node --check test/hub.test.mjs — 0
+node --check test/local.integration.test.mjs — 0
+git diff --check -- test-support/fixtures.mjs test/api.test.mjs test/agent.test.mjs test/hub.test.mjs test/local.integration.test.mjs — 0
+cat src/agent.mjs — 0
+cat src/credentials.mjs — 0
+sed -n '1,180p' src/inventory.mjs — 0
+cat package.json — 0
+node --check test/stage2.cli.test.mjs — 0
+git diff --check -- test/stage2.cli.test.mjs — 0
+```
+
+Credențiale, CLI de administrare, teste și revizuire de securitate/documentație:
+
+```text
+cat AGENTS.md — 0
+rg --files src test test-support — 0
+cat src/config.mjs — 1; fișier inexistent
+cat src/local-config.mjs — 0
+cat test/api.test.mjs — 0
+stat -c '%a %F' .local-run — 0; 755 înaintea întăririi directoarelor private
+node --test test/credentials.test.mjs — 0; wrapper sandbox
+node --version — 0
+node --test --test-reporter=spec test/credentials.test.mjs — 0; wrapper sandbox
+node test/credentials.test.mjs — 0; 5/5 PASS inițial
+node test/credentials.test.mjs — 0; 7/7 PASS după două teste noi
+cat src/hub.mjs — 0
+cat src/agent.mjs — 0
+cat src/inventory.mjs — 0
+nl -ba src/hub.mjs — 0
+cat src/codex-app-server.mjs — 0
+cat src/ui.mjs — 0
+cat src/codex-runner.mjs — 0
+node test/credentials.test.mjs — 0; 8/8 PASS după hasToken/revocare și ștergerea registrului
+cat ETAPA-2-LAPTOP2.md — 0
+cat ETAPA-2A-ARHITECTURA.md — 0
+cat README.md — 0
+cat src/manage.mjs — 0
+cat src/agent.mjs — 0
+cat src/hub.mjs — 0
+nl -ba ETAPA-2-LAPTOP2.md — 0
+rg -n 'name.length|LEVERAGE_REPORT_PROJECT|function sessionMetadata|projectName|useStateDbOnly|VERIFIED_VERSION' src/credentials.mjs src/manage.mjs src/codex-app-server.mjs src/agent.mjs — 0
+cat .gitignore — 0
+ps -o pid,ppid,comm -C node -C bash — 1; numai antet
+```
+
+Revizuirea a identificat și implementarea principală a reparat: coliziuni de rol inclusiv cu token revocat, revocare în timpul recepției corpului, nume cu caractere de control, registru absent și motiv explicit de fallback. Proba suplimentară de sintaxă Bash prin Node/spawnSync a rămas blocată în sandbox și a fost întreruptă explicit (130); nu este PASS. Nicio comandă din ghidul laptopului 2 nu a fost executată.
+
+Adaptor Codex și teste exclusiv sintetice (subagentul a consultat separat aceeași pagină oficială OpenAI Docs, fără API de model):
+
+```text
+sed -n '1,260p' src/inventory.mjs — 0
+cat AGENTS.md — 0
+sed -n '1,180p' test/inventory.test.mjs — 0
+cat [USER_HOME]/.codex/skills/.system/openai-docs/SKILL.md — 0
+rg --files .local-run /tmp -g '*thread*' -g '*schema*' -g '*app-server*' — 2; directoare /tmp de sistem inaccesibile, fără investigații ulterioare
+rg -n "session|UUID" src/api.mjs src/agent.mjs src/hub.mjs test-support/fixtures.mjs — 2; src/api.mjs inexistent
+node --test test/app-server.test.mjs — 1; restricții sandbox pentru pipe-urile subproceselor
+codex app-server generate-json-schema --out .local-run/codex-schema — 0; schema generată ignorată, warning PATH aliases read-only
+node --test --test-reporter=spec test/app-server.test.mjs — 1; același sandbox
+rg -n 'useStateDbOnly|updatedAt|ThreadListParams' .local-run/codex-schema — 0
+sed -n '1,100p' test-support/fixtures.mjs — 0
+node test/app-server.test.mjs — 1; 3/12 PASS, pipe-uri blocate
+sed -n '140,168p' .local-run/codex-schema/v2/ThreadListParams.json — 0; useStateDbOnly confirmat
+node --version — 0
+node test/app-server.test.mjs — 1; același sandbox
+node --test-name-pattern='whitelists metadata' test/app-server.test.mjs — 1; lipsă stdout
+node --test-name-pattern='whitelists metadata' test/app-server.test.mjs — 1; lipsă stdout
+sed -n '1,110p' test/app-server.test.mjs — 0
+node --input-type=module -e 'import {spawn} from "node:child_process"; const child=spawn(process.execPath,["-e","process.stdout.write(\"codex-cli 0.163.0\\n\")"],{env:{PATH:process.env.PATH,HOME:process.env.HOME},stdio:["pipe","pipe","pipe"]}); child.stdout.on("data",c=>console.log(JSON.stringify(c.toString()))); child.on("close",code=>console.log({code}));' — 0; copil sintetic, output-ul pipe lipsește
+node --input-type=module -e 'import {spawnSync} from "node:child_process"; const child=spawnSync(process.execPath,["-e","process.stdout.write(\"synthetic-output\")"],{encoding:"utf8"}); console.log({status:child.status,stdout:child.stdout,stderr:child.stderr,error:child.error?.code});' — 0; status0/stdout gol/error EPERM
+node --test test/app-server.test.mjs — 0; reluat prin aprobarea platformei, 12/12 PASS,1209.72ms
+sed -n '1,100p' .local-run/codex-schema/v2/ThreadListParams.json — 0; sourceKinds confirmate
+node --test test/app-server.test.mjs — 0; aprobare platformă,12/12 PASS,1123.42ms
+node --test test/app-server.test.mjs — 0; aprobare platformă,12/12 PASS,2390.58ms
+git diff --check -- src/codex-app-server.mjs test/app-server.test.mjs — 0
+```
+
+Debug-ul sintetic introdus temporar în teste a fost eliminat. Adaptorul final folosește allowlist, limita de 40, toate sourceKinds validate, DB-only, timestamp/proiect filtrat și oprirea copiilor; nimic din transcripturi nu este păstrat sau trimis Hub-ului.
+
+Verificări finale locale și acces de publicare:
+
+- `npm ci` — cod 0, up to date, audited 1 package, found 0 vulnerabilities.
+- `git diff --check` — cod 0.
+- `npm test` — cod 0 prin aprobarea platformei: **54/54 PASS**, 0 fail/skip, 3004.198565 ms.
+- `git rev-parse main origin/main 'v0.1.1-stage1-demo^{}'` — cod 0; toate trei 906c24f15f8b364d9bec6da8cebb74b57caa8862.
+- `git remote get-url origin` — cod 0; https://github.com/leverage50x/agents.git.
+- apply_patch: scannerul ignorat `.local-run/review-publication.mjs` acceptă acum explicit ref-ul auditat; VERIFICARE.md actualizat cu rezultatul real final.
+- `node .local-run/review-publication.mjs stage2-device-discovery` — cod 2; istoric 2 commituri/30 bloburi fără constatări, 37 fișiere de lucru și o constatare în test/app-server.test.mjs:128, email sintetic pe domeniu rezervat. Nu este secret real sau date personale; fixture-ul a fost schimbat la domeniul rezervat example.com pentru a elimina ambiguitatea. Nu s-a oprit scanarea istoricului și nu s-a publicat nimic înainte de reverificare.
+- `gh api repos/leverage50x/agents --jq '{full_name,private,owner:.owner.login,permissions}'` — cod 0 prin aprobarea platformei: PRIVATE, owner leverage50x, push true.
+- `GIT_TERMINAL_PROMPT=0 git ls-remote --heads origin main stage2-device-discovery` — cod 0 prin aprobarea platformei: numai main la 906c24f; branch-ul nou nu exista remote.
+- `python3 -c 'from pathlib import Path; import re; s=Path("test/app-server.test.mjs").read_text().splitlines()[127]; print(re.sub(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", "[EMAIL_REDACTED]", s)); print("reserved_synthetic_domain=", "example.invalid" in s or "example.test" in s)'` — cod 0; reserved_synthetic_domain True, valoarea a rămas redactată.
+- `python3 -c 'from pathlib import Path; p=Path("test/app-server.test.mjs"); s=p.read_text(); p.write_text(s.replace("example.invalid", "example.com").replace("example.test", "example.com"))'` — cod 0; modificat exclusiv fixture-ul sintetic.
+- `node --test test/app-server.test.mjs` — cod 0 prin aprobarea platformei: **12/12 PASS**, 0 skip/fail,2503.866202ms după ajustarea fixture-ului.
+- `git config --local --get user.name` — cod 0; leverage50x.
+- `python3 -c 'import subprocess; r=subprocess.run(["git","config","--local","--get","user.email"],capture_output=True,text=True); print("repository_email_configured=" + str(r.returncode == 0 and bool(r.stdout.strip())))'` — cod 0; True. Identitatea locală autorizată existentă este păstrată; emailul nu este copiat în jurnal și configurația globală nu este modificată.
+
+Ghidurile au fost revizuite față de implementare; SSH loopback, separarea transferului de credențiale și prioritatea env-file sunt corecte. A fost adăugată și opțiunea de transfer prin ruta laptop 2 → Hub, cu protejarea destinației existente. Laptopul 2, SSH și browserul fizic nu au fost accesate. Urmează numai auditul final, commitul și publicarea branch-ului autorizat.
+
+Completare a înregistrării anterioare pentru proba sintactică întreruptă (comanda literală a fost raportată ulterior; execuția a precedat ps-ul din grupa subagentului). Cwd `[WORKSPACE]`, fără output, Ctrl+C, cod 130; niciun PASS confirmat și nicio comandă de ghid executată:
+
+````text
+node --input-type=module -e 'import fs from "node:fs"; import {spawnSync} from "node:child_process"; for (const file of ["ETAPA-2-LAPTOP2.md", "README.md"]) { const blocks = [...fs.readFileSync(file,"utf8").matchAll(/```bash\n([\s\S]*?)```/g)]; for (const [index, match] of blocks.entries()) { const result=spawnSync("bash",["-n"],{input:match[1],encoding:"utf8"}); if(result.status!==0) {console.error(file+": block "+(index+1)+" invalid"); process.exit(1);} } console.log(file+": "+blocks.length+" Bash blocks syntax-valid; commands not executed"); }'
+````
+
+Audit înainte de staging:
+
+- `node .local-run/review-publication.mjs stage2-device-discovery` — cod 0: 2 commituri/30 bloburi istorice, 37 fișiere locale, zero constatări/căi interzise, primul checkpoint păstrat. Scannerul a executat aceleași comenzi read-only documentate în publicarea Stage 1, cu `git rev-list --reverse stage2-device-discovery` ca ref; niciun conținut privat nu a fost afișat.
+- `git status --short --branch` — cod 0; branch corect și exact fișierele Stage 2A/jurnalul așteptate.
+- `git diff --check` — cod 0.
+- `git diff --numstat` — cod 0; modificările urmărite revizuite, plus cele 9 fișiere noi deja incluse în auditul celor 37 fișiere.
+
+Lucrarea este pregătită pentru commitul autorizat. Nu s-a făcut încă push Stage 2A. Jurnalul din acest commit păstrează completările Stage 1 și verificările efectuate până aici; operațiunile ulterioare vor fi înregistrate după executare.
+
 <!-- publish-next -->

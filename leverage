@@ -1,0 +1,4 @@
+#!/usr/bin/env node
+import { runLauncherCLI } from './src/launcher.mjs';
+
+await runLauncherCLI(process.argv.slice(2));

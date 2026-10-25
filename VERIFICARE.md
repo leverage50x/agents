@@ -1,4 +1,21 @@
-# Leverage50xAgents — verificare Etapa 2A (2026-10-22)
+# Leverage50xAgents — verificare Etapa 2B (2026-10-25)
+
+## Rezultate actuale executate
+
+- Baseline Stage 2A: 54/54 PASS. După implementarea launcherului, controllerului local, selectorilor și recuperării: **npm test 97/97 PASS**, zero fail/skip, 3783.816195ms. Testele controllerului importă modulul de producție; nu mai folosesc varianta temporară cu gate rescris în memorie.
+- Codex CLI0.163.0, `codex login status` authenticated, exit0, fără login nou și fără afișarea outputului brut. App Server account/read a confirmat autentificarea în agentul pornit de launcher; Hub-ul primește doar enumul authenticated.
+- Catalogul real de instrumente a fost verificat cu un provider strict sintetic pe127.0.0.1: turn completed, singurul instrument request_user_input. Nu există instrumente de fișiere/shell/MCP/browser în politica verificată; controllerul respinge și solicitările de input/aprobare. Nu s-a făcut apel de model extern în acea probă.
+- Proba a fost extinsă pentru thread/resume pe thread-ul strict sintetic: resumeVerifiedtrue, sandboxreadOnly/networkfalse/on-request/user, fără hidratarea transcriptului și fără reluarea vreunui thread personal. New și Resume sunt compatibile cu protocolul real instalat; disponibilitatea unei sesiuni personale se revalidează separat la fiecare cerere.
+- CLI override mcp_servers={} nu elimina configurația MCP, deci nu a fost considerat protecție. Proba cu dummyMCP a demonstrat că protocolul thread/start config:{mcp_servers:{}} înlocuiește tabelul și nu pornește serverul sintetic. Aceeași politică este trimisă la New/Resume, cu readOnly/networkAccessfalse/on-request/user și validarea răspunsului înainte de turn.
+- Instanța veche Hub/agent a fost identificată prin UID/cwd/argv/startTime și oprită numai după aprobarea platformei, prin SIGTERM către cele două PID-uri reverificate. Nu s-a folosit killall/pkill sau oprirea altor aplicații.
+- **./leverage start funcționează efectiv**, a doua pornire este idempotentă. status a confirmat Hub/agent deținute și heartbeatOnline. **./leverage stop funcționează efectiv**, iar status a confirmat port liber și procese oprite. Aplicația a fost apoi pornită din nou și lăsată disponibilă la http://127.0.0.1:8765.
+- Proba reală prin Hub/agent: New, workspace project, instrucțiunea autorizată „Analizează README.md și rezumă structura proiectului, fără modificări.”, confirmedtrue. Rezultat **completed**, răspuns Codex1840 caractere, SHA256 b16ed43aabd198c747ff020a0657f37ef43726bf336e09c41f7361605e2d7a78. Snapshoturile hash ale fișierelor urmărite au fost identice înainte/după turn. Răspunsul rămâne în dashboard; nu a fost copiat în Git/jurnal. A fost creat un thread nou.
+- Verificare după probă: dashboardHTTP200, localEnabledtrue, agentOnline, Codex authenticated, 2 sesiuni descoperite, dintre care1 cunoscută controllerului și0 busy în metadatele lui. Nu se deduce că toate sesiunile altor procese pot fi reluate. Resume este verificat automat cu transport sintetic; nu au fost reluate conversații personale din alte procese. Exclusivitatea necunoscută este refuzată conservator.
+- Politica permanentă de autonomie a fost adăugată în AGENTS.md și confirmată de toți cei trei subagenți. Configurație Codex locală de proiect verificată prin config/read: workspace-write/on-request/revieweruser/network_accessfalse, ambele origini projecttrue. Nu au fost schimbate setări globale și nu au fost instalate regulile de prefix propuse în CODEX-AUTONOMIE.md. Controllerul aplicației rămâne separat read-only.
+
+Limita inițială a controlului real: analiza folosește snapshotul validat README și nume de fișiere ale proiectului, fără instrumente de citire arbitrară sau shell. Nu există scriere, execuție pe alt dispozitiv, MCP live sau aprobare tehnică pentru comenzi cu efecte secundare. Nu s-a conectat laptopul2. UI a fost verificat prin teste și HTTP real, fără browser automat sau pretenție de inspecție vizuală. Ultimele rezultate de publicare/CI sunt consemnate după executare în jurnal.
+
+## Arhiva verificării Etapei 2A (2026-10-22)
 
 ## Verificări actuale
 

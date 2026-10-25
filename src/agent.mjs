@@ -1,13 +1,30 @@
 import os from 'node:os';
+import fs from 'node:fs';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { codexHome, listMcp } from './inventory.mjs';
 import { discoverCodexSessions } from './codex-app-server.mjs';
+import { createCodexControl } from './codex-control.mjs';
 import { runCodexJob } from './codex-runner.mjs';
 import { localHubUrl, validateToken, workspaceReady } from './local-config.mjs';
 
-export function createAgent({ env = process.env, fetchImpl = fetch } = {}) {
+// Count serialized UTF-8 bytes, including JSON escapes, without splitting a
+// Unicode code point. This is also stricter than the Hub's character limits.
+function boundedText(value, budget) {
+  const pieces = [];
+  let bytes = 0;
+  for (const character of value.toWellFormed()) {
+    const cost = Buffer.byteLength(JSON.stringify(character)) - 2;
+    if (bytes + cost > budget) break;
+    bytes += cost;
+    pieces.push(character);
+  }
+  return pieces.join('');
+}
+
+export function createAgent({ env = process.env, fetchImpl = fetch, controlFactory = createCodexControl } = {}) {
   // Validate the destination before constructing or sending authorization headers.
   const url = localHubUrl(env.LEVERAGE_URL || 'http://127.0.0.1:8765');
   const token = validateToken(env.LEVERAGE_AGENT_TOKEN);
@@ -20,25 +37,102 @@ export function createAgent({ env = process.env, fetchImpl = fetch } = {}) {
   const home = env.LEVERAGE_CODEX_HOME || env.CODEX_HOME || codexHome();
   const source = env.LEVERAGE_SESSION_SOURCE || 'app-server';
   if (!['app-server', 'files'].includes(source)) throw new Error('Invalid session inventory source.');
+  const localMode = env.LEVERAGE_LOCAL_READONLY === '1' && env.LEVERAGE_ENABLE_LIVE_CODEX !== '1';
+  if (localMode && !workspaceReady(env.LEVERAGE_WORKSPACE)) throw new Error('An authorized local workspace is required.');
+  const control = localMode ? controlFactory({ workspace: env.LEVERAGE_WORKSPACE, home }) : null;
+  const workspaceBinding = localMode ? createHash('sha256').update(fs.realpathSync(env.LEVERAGE_WORKSPACE)).digest('hex') : null;
+  let activeRun = null;
+  let account = 'unavailable';
+  let cachedInventory;
+  let closing = false;
+  let shutdown;
+  const closeControl = () => {
+    closing = true; account = 'unavailable';
+    // Share one immediately handled shutdown, including synchronous failures.
+    shutdown ||= Promise.resolve().then(() => control?.close()).catch(() => {});
+    return shutdown;
+  };
+  const failClosed = () => {
+    if (control) void closeControl();
+  };
 
   async function request(method, endpoint, data, signal) {
     const timeout = AbortSignal.timeout(14000);
-    const response = await fetchImpl(url + endpoint, {
+    let response;
+    try { response = await fetchImpl(url + endpoint, {
       method, headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
       ...(data === undefined ? {} : { body: JSON.stringify(data) }), redirect: 'error',
       signal: signal ? AbortSignal.any([signal, timeout]) : timeout
-    });
+    }); } catch (error) { if (activeRun) failClosed(); throw error; }
+    if (response.status === 401 || response.status === 403 || (!response.ok && activeRun)) failClosed();
     if (!response.ok) throw new Error('Local hub request failed (HTTP ' + response.status + ').');
-    return response.json();
+    try { return await response.json(); }
+    catch (error) { if (activeRun) failClosed(); throw error; }
+  }
+
+  async function executeReadonly(job, signal) {
+    const events = [];
+    let stream = '';
+    let lastUpdate = 0;
+    let updates = Promise.resolve();
+    const update = body => {
+      const payload = { deviceId, jobId: job.id, ...body,
+        output: boundedText(body.output || '', 8000),
+        events: (body.events || []).slice(-20).map(event => ({
+          type: event.type, message: boundedText(event.message, 160)
+        })) };
+      // Preserve terminal identity/status fields. If unexpected metadata grows,
+      // trim presentation fields first and fail closed rather than overflow.
+      while (payload.events.length && Buffer.byteLength(JSON.stringify({ ...payload, output: '' })) >= 18000) payload.events.shift();
+      const remaining = 17999 - Buffer.byteLength(JSON.stringify({ ...payload, output: '' }));
+      if (remaining < 0) { failClosed(); return Promise.reject(new Error('Local update metadata exceeded its safe limit.')); }
+      payload.output = boundedText(payload.output, remaining);
+      if (Buffer.byteLength(JSON.stringify(payload)) >= 18000) {
+        failClosed(); return Promise.reject(new Error('Local update exceeded its safe limit.'));
+      }
+      return request('POST', '/api/agent/local/update', payload, signal);
+    };
+    const onEvent = event => {
+      if (closing) return;
+      const type = ['progress', 'output', 'error', 'completed'].includes(event?.type) ? event.type : 'progress';
+      const message = typeof event?.message === 'string' ? event.message : '';
+      if (type === 'output') stream = boundedText(stream + message, 8000);
+      events.push({ type, message: type === 'output' ? 'Codex response received.' : boundedText(message, 160) });
+      if (events.length > 20) events.shift();
+      if (Date.now() - lastUpdate > 300) {
+        lastUpdate = Date.now();
+        const snapshot = { status: 'running', output: stream, events: events.map(e => ({ ...e })) };
+        updates = updates.then(() => closing ? undefined : update(snapshot)).catch(() => {});
+      }
+    };
+    let result;
+    try { result = await control.run(job, onEvent); }
+    catch { result = { status: 'failed', output: 'Local READ-ONLY operation failed safely.', errorCode: 'controller-unavailable' }; }
+    await updates.catch(() => {});
+    await update({ status: ['completed', 'failed', 'interrupted'].includes(result?.status) ? result.status : 'failed',
+      output: typeof result?.output === 'string' ? boundedText(result.output, 8000) : stream,
+      ...(typeof result?.threadId === 'string' ? { threadId: result.threadId } : {}),
+      ...(typeof result?.errorCode === 'string' ? { errorCode: result.errorCode } : {}), events });
   }
 
   async function tick({ signal } = {}) {
-    const discovered = await discoverCodexSessions({ home, source });
+    if (closing) throw new Error('Local controller stopped safely; restart after checking authorization.');
+    let discovered;
+    if (control) {
+      if (!activeRun) {
+        try {
+          account = (await control.accountStatus()).status;
+          cachedInventory = await control.listSessions();
+        } catch { account = 'unavailable'; }
+      }
+      discovered = cachedInventory || await discoverCodexSessions({ home, source: 'files' });
+    } else discovered = await discoverCodexSessions({ home, source });
     const { sessions: listed, ...sessionInventory } = discovered;
     const sessions = env.LEVERAGE_REPORT_PROJECT === '0'
       ? listed.map(({ project, ...metadata }) => metadata) : listed;
     await request('POST', '/api/agent/heartbeat', {
       deviceId, name, platform: process.platform, mcp: listMcp(home), sessions, sessionInventory,
+      localControl: Boolean(control), workspaceBinding, codexAuth: account,
       sandbox: 'no-execution', workspaceReady: workspaceReady(env.LEVERAGE_WORKSPACE), executionMode: 'demo-only'
     }, signal);
     const response = await request('GET', '/api/agent/task?deviceId=' + deviceId, undefined, signal);
@@ -51,19 +145,29 @@ export function createAgent({ env = process.env, fetchImpl = fetch } = {}) {
       }
       await request('POST', '/api/agent/result', { deviceId, jobId: response.job.id, ...result }, signal);
     }
+    if (control && !activeRun && !closing) {
+      const next = await request('GET', '/api/agent/local/task?deviceId=' + deviceId, undefined, signal);
+      if (next.job) {
+        activeRun = executeReadonly(next.job, signal).catch(() => {}).finally(() => { activeRun = null; });
+      }
+    }
   }
-  return { tick, deviceId };
+  async function close() {
+    await closeControl();
+    await activeRun?.catch(() => {});
+  }
+  return { tick, deviceId, close, waitForIdle: async () => { await activeRun; } };
 }
 
 export async function runAgent({ signal, ...options } = {}) {
   const agent = createAgent(options);
-  console.log('Leverage50xAgents local agent started; DEMO ONLY; remote Codex execution disabled.');
-  while (!signal?.aborted) {
+  console.log('Leverage50xAgents agent started; remote execution disabled; local control requires explicit READ-ONLY authorization.');
+  try { while (!signal?.aborted) {
     try { await agent.tick({ signal }); }
     catch { if (!signal?.aborted) console.error('Local hub request failed; retrying. No credentials or private data logged.'); }
     try { await delay(5000, undefined, { signal }); }
     catch (error) { if (error.name !== 'AbortError') throw error; }
-  }
+  } } finally { await agent.close(); }
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -72,6 +176,6 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   process.once('SIGTERM', stop);
   process.once('SIGINT', stop);
   try { await runAgent({ signal: controller.signal }); }
-  catch (error) { console.error(error.message); process.exitCode = 1; }
+  catch { console.error('Agent startup failed. Check local credentials and workspace configuration.'); process.exitCode = 1; }
   finally { process.removeListener('SIGTERM', stop); process.removeListener('SIGINT', stop); }
 }

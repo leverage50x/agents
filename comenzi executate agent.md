@@ -2301,4 +2301,301 @@ Audit înainte de staging:
 
 Lucrarea este pregătită pentru commitul autorizat. Nu s-a făcut încă push Stage 2A. Jurnalul din acest commit păstrează completările Stage 1 și verificările efectuate până aici; operațiunile ulterioare vor fi înregistrate după executare.
 
+## 2026-10-23 — Etapa 2B: launcher și control Codex local READ-ONLY
+
+Autorizare explicită nouă a operatorului: implementare/teste autonome, branch stage2b-local-control din stage2-device-discovery, commit/push și CI; la final aplicația poate rămâne pornită. Înlocuiește interdicția istorică 2A doar pentru control READ-ONLY pe laptopul principal. Fără scriere prin Codex, privilegii, alte dispozitive, conectare laptop 2, rescriere istoric/main/taguri. Director implicit `[WORKSPACE]`. Căile personale sunt anonimizate, iar autentificarea/mediul nu sunt afișate. Grupele independente rulează în paralel; ordinea lansării în grupă este consemnată, fără a inventa ordinea finalizării.
+
+Verificări inițiale (toate cod 0):
+
+- `git status --short --branch` — cod 0.
+- `git log -3 --format='%h %s'` — cod 0.
+- `cat AGENTS.md package.json` — cod 0.
+- `cat [USER_HOME]/.codex/skills/.system/openai-docs/SKILL.md` — cod 0.
+- `rg --files src test test-support` — cod 0.
+
+Stare inițială: stage2-device-discovery urmărea origin/stage2-device-discovery la6136fe5, working tree curat. Au fost păstrate fișierele existente. Aplicat skill OpenAI Docs, anunțat operatorului; căutare topic App Server/thread resume/sandbox/account și deschidere oficială https://learn.chatgpt.com/docs/app-server. Au fost consultate account/read, readOnly și approvalPolicy. Exemplele cu policy never din documentație NU sunt adoptate. Compatibilitatea este verificată în schema CLI instalată înaintea turnurilor.
+
+- `git switch -c stage2b-local-control stage2-device-discovery` — cod 0 prin aprobarea platformei; branch nou, main și taguri intacte.
+
+Inspecții locale (toate cod 0):
+
+- `cat src/hub.mjs src/agent.mjs` — cod 0.
+- `cat src/credentials.mjs src/local-config.mjs` — cod 0.
+- `cat src/codex-app-server.mjs` — cod 0.
+- `tail -18 'comenzi executate agent.md'` — cod 0.
+- `codex --version` — cod 0.
+- `node --input-type=module -e 'import {spawnSync} from "node:child_process"; const r=spawnSync("codex",["login","status"],{encoding:"utf8",timeout:10000}); const s=(r.stdout||"")+"\n"+(r.stderr||""); console.log(JSON.stringify({command:"codex login status",exitCode:r.status,state:/logged in/i.test(s)?"authenticated":/not logged|not authenticated|login required/i.test(s)?"not-authenticated":"unavailable"}));'` — cod 0.
+- `python3 -c 'from pathlib import Path; import stat; p=Path(".local-run"); print([{ "name":f.name,"mode":oct(stat.S_IMODE(f.lstat().st_mode)),"symlink":f.is_symlink()} for f in p.iterdir() if f.name.endswith(".env")])'` — cod 0.
+
+Codex CLI0.163.0. CLI login status a fost capturat doar în memorie și redus la state authenticated/exitCode0, fără outputul brut. Nu s-a creat login și nu s-a citit/copiat fișierul de autentificare. Fișierele existente hub.env și laptop1.env au mod600, fără symlink; s-au afișat numai numele și permisiunile.
+
+- `npm test` — cod 0 prin aprobarea platformei pentru loopback/subprocese: baseline **54/54 PASS**, 0 fail/skip,2109.575594ms.
+- apply_patch AGENTS.md: consemnat scopul nou autorizat, controlul local READ-ONLY separat de DEMO, politica de refuz a escaladărilor și fără scriere/execuție remote.
+- apply_patch src/hub.mjs și src/agent.mjs: selector/API operator local, identitate primară configurată server-side, workspace explicit, confirmare, o singură execuție activă, update-uri separate și controller în fundal cu heartbeat.
+- `node --check src/hub.mjs` — cod 0.
+- `node --check src/agent.mjs` — cod 0.
+
+Diagnostic port existent:
+
+- `python3 -c 'import socket; s=socket.socket(); s.settimeout(1); print("loopback_8765_open=" + str(s.connect_ex(("127.0.0.1",8765)) == 0)); s.close()'` — inițial cod1, PermissionError EPERM la socket în sandbox; reluat prin aprobarea platformei cod0, loopback_8765_open True.
+- `git diff --check` — cod0.
+- `rg --files .local-run -g '*publication*' -g '*stage1*' -g '*schema*'` — cod0, helperi ignorați existenți identificați.
+- `ss -ltnp 'sport = :8765'` — în sandbox cod0 dar mesaj Cannot open netlink socket: Operation not permitted; rezultatul nu confirmă proprietarul. Reluat prin aprobarea platformei cod0: ascultă127.0.0.1:8765, Node PID88790.
+- `sed -n '1,260p' src/launcher.mjs` — cod0.
+- `sed -n '261,540p' src/launcher.mjs` — cod0.
+- `./leverage status` — cod0 prin aprobarea platformei: configurație ready, portListening true, hub/agent ownedRunning false. Launcherul nu adoptă sau omoară procese neadministrate.
+- apply_patch: helper ignorat .local-run/inspect-services.mjs, citește exclusiv metadate de proces, nu /proc/environ.
+- `node .local-run/inspect-services.mjs` — în sandbox cod0, listă goală din restricțiile /proc; aceasta nu dovedește absența aplicației. Reluat prin aprobarea platformei cod0: PID88790 Hub și PID89162 agent, același UID/workspace, argumente exacte ale aplicației, startTime verificate. Identitățile sunt salvate în .local-run/existing-services.json ignorat, fără secrete.
+
+La acest punct instanța veche nu a fost oprită. Migrarea finală poate semnaliza numai PID-urile aplicației deja identificate, după reverificarea UID/cwd/argumente/startTime și aprobarea platformei; nu se folosesc killall/pkill/adoptare automată. Codul nou și testele sunt încă în curs, fără turn real Codex lansat până aici.
+
+## 2026-10-25 — reluarea Etapei 2B
+
+Operatorul a cerut explicit verificarea stadiului și continuarea lucrării deja autorizate. Nu este un obiectiv nou și nu extinde execuția la scriere sau alte dispozitive. Starea de la întrerupere a fost păstrată.
+
+Verificări de reluare, cwd `[WORKSPACE]`:
+
+- `git status --short --branch` — cod 0.
+- `git log -3 --format='%h %s'` — cod 0.
+- `rg --files src test -g '*control*' -g '*launcher*'` — cod 0.
+- `tail -24 'comenzi executate agent.md'` — cod 0.
+- `./leverage status` — cod 0.
+
+Rezultat: branch stage2b-local-control pornit din6136fe5, modificările UI/Hub/agent/launcher/teste păstrate, controllerul src/codex-control.mjs încă lipsea. Portul8765 era ocupat de instanța anterioară, neadministrată de launcher; nu a fost adoptată sau oprită. Skill-ul OpenAI Docs citit anterior nu a fost recitit inutil. Agentul controllerului, întrerupt, a fost reluat pentru proba de compatibilitate și implementare.
+
+Verificări autentificare/sintaxă, toate cod0:
+
+- `codex --version` — cod 0.
+- `node --input-type=module -e 'import {spawnSync} from "node:child_process"; const r=spawnSync("codex",["login","status"],{encoding:"utf8",timeout:10000}); const s=(r.stdout||"")+"\n"+(r.stderr||""); console.log(JSON.stringify({exitCode:r.status,state:r.status===0&&/logged in/i.test(s)?"authenticated":/not logged|not authenticated|login required/i.test(s)?"not-authenticated":"unavailable"}));'` — cod 0.
+- `git diff --check` — cod 0.
+- `node --check src/hub.mjs` — cod 0.
+
+Codex rămâne0.163.0, login status authenticated/exit0, fără login nou sau output brut. Patch Hub: joburile locale queued/running sunt marcate failed/agent-disconnected după expirarea heartbeat-ului, fără reluare automată. Testele de integrare sunt extinse pentru recuperare după reconectare.
+
+Documentație adăugată prin apply_patch: ETAPA-2B-LOCAL.md și README.md, pentrulauncher/start-stop/logs/autentificare/selectori/politică și limite. Ghidul nu prezintă proba reală ca reușită înainte de executare.
+
+Verificări intermediare:
+
+- `node --check src/agent.mjs` — cod 0.
+- `node --check test/local-control.test.mjs` — cod 0.
+- `git diff --stat` — cod 0.
+- `git diff --check` — cod 0.
+- `rg --files src -g '*control*'` — cod 1.
+- `rg --files .local-run -g '*catalog*' -g '*probe-control*'` — cod 0.
+- `tail -8 AGENTS.md` — cod 0.
+- `git status --short --branch` — cod 0.
+
+Modulul controllerului lipsea la căutarea cu cod1, nu este un test PASS. Au fost identificate helperi ignorați pentru probele config/tool-catalog. Probele sunt sintetice și nu reprezintă o execuție de model reală. Situațiile de blocare/întrerupere vor fi documentate separat împreună cu rezultatul final.
+
+Reviziile de securitate au identificat și reparat în agent: rejection imediat tratat la progres, oprire la orice răspuns HTTP nereușit în timpul execuției, shutdown partajat și limitarea update-urilor prin bytes UTF-8 serializați sub18000, inclusiv Unicode/control characters. Codul/testele de recuperare au trecut verificarea sintactică; runtime-ul așteaptă finalizarea controllerului. Nu a fost pornit încă niciun turn real prin dashboard.
+
+Completări din fluxurile paralele Stage 2B (raportate ulterior, ordine cronologică pe fiecare flux; cwd `[WORKSPACE]`). Toate editările au fost prin apply_patch în fișierele alocate. Numerele indică exit status. Nu se inventează ordinea globală a finalizării între agenți.
+
+Launcher (leverage, src/launcher.mjs, test/launcher.test.mjs; procese sintetice reale):
+
+```text
+cat AGENTS.md — 0
+cat src/manage.mjs — 0
+cat src/credentials.mjs — 0
+cat src/agent.mjs — 0
+cat src/hub.mjs — 0
+cat package.json — 0
+chmod 755 leverage — 0
+node --test test/launcher.test.mjs — 1; 5/6 PASS, mesaj așteptat greșit
+node --test test/launcher.test.mjs — 0; 6/6 PASS după corecție
+node --test test/launcher.test.mjs — 0; 8/8 PASS după teste concurență/PID
+node --test test/launcher.test.mjs — 0; 9/9 PASS după rollback
+node --test test/launcher.test.mjs — 0; 9/9 PASS final, aproximativ3160ms
+```
+
+UI și testele integrării Hub/agent:
+
+```text
+cat src/ui.html — 0
+cat src/ui.mjs — 0
+cat src/ui.css — 0
+cat test/ui.test.mjs — 0
+node --check src/ui.mjs — 0
+sed -n '115,175p' src/ui.mjs — 0
+node test/ui.test.mjs — 0; 6/6 inițiale
+node test/ui.test.mjs — 0; 12/12 PASS
+node --check src/ui.mjs — 0
+node --check test/ui.test.mjs — 0
+git diff --check -- src/ui.html src/ui.mjs src/ui.css test/ui.test.mjs — 0
+git diff --stat -- src/ui.html src/ui.mjs src/ui.css test/ui.test.mjs — 0
+node --test test/ui.test.mjs — 0; 12/12
+sed -n '1,360p' src/hub.mjs — 0
+cat src/agent.mjs — 0
+cat test-support/fixtures.mjs — 0
+cat test/stage2.multi-device.test.mjs — 1; absent
+node --check test/local-control.test.mjs — 0
+rg --files src | sort — 0
+sed -n '120,145p' src/ui.mjs — 0
+sed -n '300,355p' test/ui.test.mjs — 0
+sed -n '85,330p' src/hub.mjs — 0
+node --test test/ui.test.mjs — 0; 12/12 după afișare errorCode
+git diff --check -- src/ui.html src/ui.mjs src/ui.css test/ui.test.mjs — 0
+sed -n '1,140p' src/agent.mjs — 0
+sed -n '165,275p' src/hub.mjs — 0
+sed -n '1,95p' test/local-control.test.mjs — 0
+sed -n '170,320p' test/local-control.test.mjs — 0
+rg --files src | sort — 0
+node --check test/local-control.test.mjs — 0
+rg --files src | sort — 0
+sed -n '1,85p' test/local-control.test.mjs — 0
+sed -n '90,170p' test/local-control.test.mjs — 0
+rg --files src | sort — 0
+node --check test/local-control.test.mjs — 0
+git diff --check -- test/local-control.test.mjs — 0
+```
+
+Revizie securitate și recuperare agent:
+
+```text
+cat src/hub.mjs — 0
+cat src/agent.mjs — 0
+cat src/launcher.mjs — 0
+rg --files src — 0
+nl -ba src/agent.mjs — 0
+tail -35 src/hub.mjs — 0
+rg -n 'LEVERAGE_ENABLE_LIVE_CODEX|LEVERAGE_LOCAL_READONLY|LOCAL_WORKSPACE|approval|sandbox|thread/start|thread/resume|turn/start|thread/unsubscribe|close|revok|progress|onEvent|secret|redact|interrupt' src/codex-app-server.mjs src/launcher.mjs test/local-readonly.test.mjs — 2; ultimul fișier absent
+rg -n 'local/task|eligibility|readonly|revok|progress|unhandled|closing' test — 0
+rg --files .local-run -g '*stop*' -g '*migration*' — 0
+node --input-type=module -e 'import fs from "node:fs"; console.log(fs.readFileSync(".local-run/stop-verified-old-services.mjs","utf8").replaceAll(process.cwd(),"[WORKSPACE]"));' — 0
+sed -n '295,370p' test/local-control.test.mjs — 0
+cat src/agent.mjs — 0
+cat test/agent.test.mjs — 0
+cat test-support/fixtures.mjs — 0
+sed -n '165,245p' test/local-control.test.mjs — 0
+rg --files src -g '*control*' — 1; modul absent atunci
+node --check src/agent.mjs — 0
+node --check test/agent-recovery.test.mjs — 0
+rg --files src -g '*control*' — 1; modul încă absent atunci
+```
+
+Problemele găsite au fost remediate: revalidare înainte de claim, workspace binding, oprire la revocare/transport, erori500/409 și rejection, byte limits și expirare fără replay. Acestea sunt verificate în suita finală, nu doar presupuse din inspecție.
+
+Controller și investigarea compatibilității (doar fișiere proprii src/codex-control.mjs/test/codex-control.test.mjs și helperi ignorați):
+
+```text
+git status --short --branch — 0
+codex --version — 0;0.163.0 și PATHalias read-only
+codex app-server --help — 0
+rg --files src test .local-run/codex-schema/v2 -g '*Control*' -g '*ThreadStart*' -g '*ThreadResume*' -g '*TurnStart*' -g '*AccountRead*' -g '*codex-control*' — 0
+node --input-type=module -e 'import fs from "node:fs"; for(const name of ["ThreadStartParams","ThreadResumeParams","TurnStartParams","GetAccountParams","GetAccountResponse"]){try{const x=JSON.parse(fs.readFileSync(".local-run/codex-schema/v2/"+name+".json")); console.log(name,JSON.stringify({properties:x.properties,required:x.required}));}catch{console.log(name,"missing");}}' — 0
+node --input-type=module -e 'import fs from "node:fs";const x=JSON.parse(fs.readFileSync(".local-run/codex-schema/v2/TurnStartParams.json"));for(const key of ["AskForApproval","SandboxPolicy","ReadOnlyAccess","ApprovalsReviewer"])console.log(key,JSON.stringify(x.definitions[key]));const y=JSON.parse(fs.readFileSync(".local-run/codex-schema/v2/ThreadStartResponse.json"));console.log("ThreadResponse",JSON.stringify(y.properties));' — 0
+codex --help — 0
+node .local-run/probe-control-config.mjs — 0; dummyMCP sintetic pornea cu CLI mcp_servers={}
+node .local-run/probe-control-config.mjs — 0; thread/start config:{mcp_servers:{}} suprima dummyMCP
+codex features list — 0; numai capabilități
+rg --files .local-run/codex-schema/v2 -g '*Approval*' -g '*Permission*' -g '*ToolCall*' -g '*TurnCompleted*' -g '*AgentMessage*' — 0
+node --input-type=module -e 'import fs from "node:fs";for(const name of ["CommandExecutionRequestApprovalResponse","FileChangeRequestApprovalResponse","PermissionsRequestApprovalResponse","DynamicToolCallResponse","TurnCompletedNotification","AgentMessageDeltaNotification"]){try{let x=JSON.parse(fs.readFileSync(".local-run/codex-schema/v2/"+name+".json"));console.log(name,JSON.stringify(x));}catch{console.log(name,"missing")}}' — 0
+node .local-run/probe-control-tools.mjs — 1 în sandbox; listenEPERM
+node --test test/codex-control.test.mjs — 0;8PASS6SKIP cu gate producție false
+node --test test/codex-control.test.mjs — 1;13PASS1FAIL, lease auto-detectat busy
+node --test test/codex-control.test.mjs — 0;14/14 mock-only variantă în memorie, producția încă blocată
+node --test test/codex-control.test.mjs — 0;15/15 mock-only după excluderea copiilor native proprii
+node --test test/codex-control.test.mjs — 0;15/15 modul PRODUCȚIE importat direct după proba root,293.31ms
+```
+
+Au fost consultate oficial App Server și config-reference, fără surse terțe. Cererile subagentului de escaladare pentru proba tool-catalog au fost întrerupte în platformă după1529.3s, apoi431.7s; nu au produs stdout/session și nu confirmă execuția. Producția a rămas cu gatefalse în acest interval. Testele temporare care rescriau gate-ul doar într-o copie sintetică în memorie NU au fost prezentate ca validare a execuției reale; copia/hack-ul au fost eliminate înaintea verificării finale. Root a preluat proba concretă, a obținut aprobarea platformei și abia apoi a autorizat activarea politicii pentru CLI0.163.0.
+
+Operațiuni root după pregătire:
+
+- `git diff --check` și `node --check .local-run/stop-verified-old-services.mjs` — cod0; helper de migrare pregătit prin apply_patch, fără oprire la acel moment.
+- `sed -n '1,230p' .local-run/probe-control-tools.mjs` — cod0; revizie fixture/provider strict local.
+- `./leverage start` — cod1 prin aprobarea platformei, diagnostic corect Port8765 occupied/unmanaged, niciun proces adoptat/oprit.
+- `./leverage logs` — cod0; numai start-requested/start-failed, fără output brut sau secrete.
+- `node .local-run/probe-control-tools.mjs` — cod0 prin aprobarea platformei: provider strict127.0.0.1, date sintetice, statuscompleted, catalog realCLI numai request_user_input. Fără instrumente FS/shell/MCP/browser și fără apel de model extern.
+- `sed -n '1,260p' src/codex-control.mjs`, `sed -n '261,560p' src/codex-control.mjs`, `sed -n '1,220p' src/agent.mjs`, `sed -n '560,820p' src/codex-control.mjs` — toate cod0, revizie a restricțiilor, lease, transport și lifecycle. Ultima plajă era goală.
+- `npm test` — cod0 prin aprobarea platformei pentru loopback/subprocese: **97/97 PASS**, zero fail/skip,3783.816195ms. Include toate scenariile anterioare și controllerul de producție cu transport simulat; nu necesită Codex instalat pe CI.
+- `git diff --check` — cod0.
+
+Migrare și verificare efectivă aplicație:
+
+- `node .local-run/stop-verified-old-services.mjs` — cod0 după aprobarea explicită a platformei; reverificat UID/cwd/argv/startTime și SIGTERM doar agent89162 și Hub88790. Ambele oprite; nu s-a semnalizat alt proces sau folosit SIGKILL global.
+- `./leverage start` — cod0: Hub și agent ready http://127.0.0.1:8765.
+- `./leverage status` — cod0: ownedRunning true pentru Hub/agent, online true, heartbeat prezent.
+- `./leverage start` — cod0: already running, fără duplicate.
+- `./leverage stop` — cod0: numai procesele launcherului oprite, credențiale păstrate.
+- `./leverage status` — cod0: portListeningfalse, ambele ownedRunningfalse.
+- `./leverage start` — cod0: pornire finală reușită, serviciile rămân pornite conform cererii.
+- apply_patch helper ignorat `.local-run/verify-local-control.mjs`: verificare API/assets și hash al fișierelor urmărite; nu păstrează răspunsul de model.
+- `node .local-run/verify-local-control.mjs --run-readme` — cod0 prin aprobarea platformei: dashboard200, localEnabledtrue, agentOnline, Codex authenticated prin account/read. A trimis exact instrucțiunea README autorizată, New/workspaceproject/confirmedtrue. Progres queued→running→completed, răspuns1840 caractere, SHA256 b16ed43aabd198c747ff020a0657f37ef43726bf336e09c41f7361605e2d7a78; README și numele proiectului prezente; thread nou raportat; hash workspace urmărit identic înainte/după. Răspunsul este în memoria Hub/dashboard, NU în jurnal/Git. Intern helperul a executat `git ls-files -z` de două ori (cod0), doar pentru calcularea hashurilor.
+
+Cererea următoare de citire inventarului a fost întreruptă de operator după131.3s fără rezultat/cod/session; nu este presupusă ca executată. Comenzile următoare din acel exec nu sunt pretinse ca rulate. Operatorul a cerut apoi politica permanentă de autonomie; lucrul Stage2B a continuat conform acelei direcții.
+
+## 2026-10-25 — politică permanentă de autonomie și configurație efectivă
+
+Operatorul a autorizat explicit actualizarea politicii pentru agentul principal și TOȚI subagenții, verificarea workspace-write/on-request și propuneri de reguli fără allowlist generic sau modificări globale. Aceasta direcționează lucrarea 2B în curs; nu revocă autorizarea existentă pentru commit/push al branch-ului separat.
+
+Citiri inițiale, cwd `[WORKSPACE]`, toate cod0:
+
+- `git status --short --branch`
+- `cat AGENTS.md`
+- `python3 -c 'from pathlib import Path; p=Path(".codex/config.toml"); print("project_codex_config_exists="+str(p.exists())); print("project_codex_config_symlink="+str(p.is_symlink())); print("project_codex_rules_exists="+str(Path(".codex/rules").exists()))'`
+
+Configurația/rules de proiect nu existau. Documentație oficială OpenAI consultată: config-basic și agent-configuration/rules, precum și pagina de approvals/security. Primele adrese config-basics și /rules au returnat404; au fost deschise apoi URL-urile oficiale corecte https://learn.chatgpt.com/docs/config-file/config-basic și https://learn.chatgpt.com/docs/agent-configuration/rules. Nu s-au folosit exemplele care dezactivează aprobările/sandboxul.
+
+Editări prin apply_patch:
+
+- AGENTS.md: secțiuni permanente AUTOMAT/CERE APROBARE/INTERZIS/RAPORTARE, aplicate tuturor agenților; păstrate limitele aplicației și autorizările explicite Stage2B.
+- codex-project.example.toml: șablon public fără secrete workspace-write/on-request/user/networkfalse.
+- CODEX-AUTONOMIE.md: politică și reguli precise PROPUSE/NEINSTALATE, fără allowlist generic bash/python/node.
+- Helperi ignorați configure-codex-project și verify-codex-policy pentru configurare exclusiv locală/verificare metadate.
+
+Toți cei trei subagenți au citit noul AGENTS.md și au confirmat adoptarea lui. Comenzile noi de raportare/revizie (fiecare cwd `[WORKSPACE]`, cod0 dacă nu este indicat):
+
+```text
+# agent credențiale/documentație
+cat AGENTS.md — 0
+# apply_patch: creat exclusiv CODEX-AUTONOMIE.md; fără teste sau modificări globale
+# agent controller
+cat AGENTS.md — 0
+sed -n '1,420p' src/codex-control.mjs — 0
+# agent UI
+cat AGENTS.md — 0
+cat ETAPA-2B-LOCAL.md — 0
+cat src/ui.html — 0
+cat src/ui.mjs — 0
+rg -n 'local|readonly|session|workspace|confirm|token' test/ui.test.mjs src/launcher.mjs src/manage.mjs — 0
+sed -n '1,70p' src/ui.mjs — 0
+sed -n '112,145p' src/ui.mjs — 0
+sed -n '190,260p' src/ui.mjs — 0
+sed -n '112,165p' src/launcher.mjs — 0
+rg -n 'readme|snapshot|verified|completed|readonly|READ-ONLY|session' VERIFICARE.md — 1, încă nu era actualizat
+sed -n '1,200p' VERIFICARE.md — 0
+node --test test/ui.test.mjs — 0;12/12 PASS
+```
+
+Reviziile nu au găsit o relaxare a controllerului: CLI override read-only și politica explicită New/Resume/turn au prioritate față de workspace-write din dezvoltare; răspunsul serverului este validat. Numărul de sesiuni descoperite/încărcate nu este prezentat ca dovadă globală că pot fi reluate. VERIFICARE.md a fost actualizat ulterior cu probele reale.
+
+Configurare exclusiv pentru proiect:
+
+- `python3 -c 'from pathlib import Path; import json; p=Path(".local-run/codex-schema/v2"); print({n:json.loads((p/(n+".json")).read_text()).get("properties") for n in ["ConfigReadParams","ConfigReadResponse","ConfigRequirementsReadResponse"] if (p/(n+".json")).exists()})'` — cod0; numai schema protocolului.
+- `node .local-run/configure-codex-project.mjs` — cod0 prin aprobarea platformei pentru directorul protejat .codex. Creat numai [WORKSPACE]/.codex/config.toml cu mod600, fără suprascriere, fără globale sau reguli instalate. Directorul rămâne ignorat de Git; șablonul public este separat.
+- `node .local-run/verify-codex-policy.mjs` — cod0 prin aprobarea platformei: **sandboxMode workspace-write, approvalPolicy on-request, reviewer user, networkAccess false, originile sandbox/aprobare projecttrue, managedRequirementsPresentfalse**. Folosește initialize/config/read/configRequirements/read pe App Server stdio, fără thread/turn; nu afișează configurația brută, auth sau mediu. Nu au fost schimbate fișiere globale.
+- `node .local-run/verify-local-control.mjs` — cod0 prin aprobarea platformei; numai inspecție, fără turn: dashboard200, localEnabledtrue, agentOnline, Codex authenticated,2 sesiuni descoperite/1 cunoscută controllerului/0 busy în metadate. Nu se garantează reluarea sesiunilor altor procese.
+- `./leverage status` — cod0: Hub/agent deținute și pornite, port8765, heartbeatOnline.
+- `cat CODEX-AUTONOMIE.md` — cod0, propunerile revizuite; nu au fost instalate.
+
+Documentare și verificări finale:
+
+- apply_patch VERIFICARE.md: actualizat cu97teste, launcher real, autentificare, proba README reală, limitele Resume și politica permanentă. ETAPA-2B-LOCAL.md/CODEX-AUTONOMIE.md actualizate, fără a prezenta testele sintetice ca fizice.
+- `npm ci` — cod0, audited1package,0 vulnerabilities.
+- `git diff --check` — cod0.
+- apply_patch helper ignorat probe-control-tools: adăugată verificarea thread/resume pe același thread SINTETIC.
+- `node .local-run/probe-control-tools.mjs` — cod0 prin aprobarea platformei: statuscompleted, numai request_user_input, resumeVerifiedtrue/readOnly/networkfalse/on-request/user, personalThreadsResumedfalse. Fără apel la model extern sau conversații personale.
+
+Audit înainte de commit/push:
+
+- `node .local-run/review-publication.mjs stage2b-local-control` — cod2: istoric3commituri/62bloburi fără constatări;47fișiere de lucru, o singură constatare email în test/codex-control.test.mjs:51. Verificat că este fixture sintetic pe domeniu rezervat, nu date personale/secrete; normalizat la example.com înainte de commit.
+- `gh api repos/leverage50x/agents --jq '{full_name,private,owner:.owner.login,permissions}'` — cod0 prin aprobarea platformei: PRIVATE, ownerleverage50x, pushtrue.
+- `GIT_TERMINAL_PROMPT=0 git ls-remote --heads origin main stage2-device-discovery stage2b-local-control` — cod0 prin aprobarea platformei: main906c24f,2A6136fe5; branch2B nu exista remote.
+- `python3 -c 'from pathlib import Path; import re; s=Path("test/codex-control.test.mjs").read_text().splitlines()[50]; print(re.sub(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", "[EMAIL_REDACTED]", s)); print("reserved_synthetic_domain=", "example.invalid" in s or "example.test" in s)'` — cod0; reserved_synthetic_domainTrue, valoarea redactată.
+- `python3 -c 'from pathlib import Path; p=Path("test/codex-control.test.mjs"); s=p.read_text(); p.write_text(s.replace("example.invalid", "example.com").replace("example.test", "example.com"))'` — cod0, numai fixture sintetic.
+- `node --test test/codex-control.test.mjs` — cod0 prin aprobarea platformei:15/15PASS,0fail/skip,359.167694ms după ajustarea fixture-ului.
+
+Nu există acțiuni globale executate sau reguli de interpret generic instalate. Activarea propunerilor de reguli, schimbările de sistem/autentificare, scrierea prin Codex și alte dispozitive rămân pentru autorizări explicite viitoare. Commitul și push-ul branch-ului Stage2B curent sunt deja autorizate. Aplicația rămâne pornită; nu este necesară o nouă execuție de model pentru documentarea și publicarea rezultatului.
+
 <!-- publish-next -->

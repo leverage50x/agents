@@ -1,0 +1,8 @@
+# Project-scoped development defaults; no credentials or global settings.
+# Copy only to this trusted repository's .codex/config.toml.
+approval_policy = "on-request"
+approvals_reviewer = "user"
+sandbox_mode = "workspace-write"
+
+[sandbox_workspace_write]
+network_access = false

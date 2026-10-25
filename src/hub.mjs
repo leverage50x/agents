@@ -2,8 +2,8 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { randomUUID, timingSafeEqual } from 'node:crypto';
-import { loopbackHost, validateToken } from './local-config.mjs';
+import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
+import { loopbackHost, validateToken, workspaceReady } from './local-config.mjs';
 import { createCredentialStore } from './credentials.mjs';
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
@@ -91,12 +91,26 @@ function inventory(body) {
   };
 }
 
-export function createHub({ token, credentialStore = createCredentialStore(), now = Date.now } = {}) {
+export function createHub({ token, credentialStore = createCredentialStore(), now = Date.now, localControl } = {}) {
   validateToken(token);
   if (credentialStore.hasToken(token)) throw new Error('Operator and agent credentials must be separate.');
   const devices = new Map();
   const jobs = new Map();
+  const readonlyJobs = new Map();
+  const localDeviceId = localControl?.deviceId;
+  const localEnabled = Boolean(isDevice(localDeviceId) && workspaceReady(localControl?.workspace));
+  const authorizedWorkspace = localEnabled ? fs.realpathSync(localControl.workspace) : null;
+  const workspaceBinding = localEnabled ? createHash('sha256').update(authorizedWorkspace).digest('hex') : null;
   const online = device => device && now() - device.lastSeen < 15000;
+  const localAgent = identity => localEnabled && identity?.id === localDeviceId;
+  const safeAuth = value => ['authenticated', 'not-authenticated', 'unavailable'].includes(value) ? value : 'unavailable';
+  const expireDisconnected = () => {
+    for (const job of readonlyJobs.values()) {
+      if (['queued', 'running'].includes(job.status) && !online(devices.get(job.deviceId))) {
+        job.status = 'failed'; job.errorCode = 'agent-disconnected'; job.finishedAt = new Date(now()).toISOString();
+      }
+    }
+  };
 
   async function route(req, res) {
     const u = new URL(req.url, 'http://127.0.0.1');
@@ -121,9 +135,13 @@ export function createHub({ token, credentialStore = createCredentialStore(), no
       return send(res, 403, { error: 'Credential role is not permitted on this endpoint.' });
     }
     if (req.method === 'GET' && u.pathname === '/api/state') {
+      expireDisconnected();
       const agents = credentialStore.list();
       return send(res, 200, {
         agents,
+        localControl: { enabled: localEnabled, deviceId: localEnabled ? localDeviceId : null,
+          workspaces: localEnabled ? [{ id: 'project', label: path.basename(authorizedWorkspace) }] : [] },
+        readonlyJobs: [...readonlyJobs.values()].slice(-40).reverse(),
         devices: [...devices.values()].map(d => {
           const credential = agents.find(x => x.id === d.id);
           const revokedAt = credential?.revokedAt || null;
@@ -152,6 +170,11 @@ export function createHub({ token, credentialStore = createCredentialStore(), no
           job.status = 'rejected'; job.finishedAt = new Date(now()).toISOString();
         }
       }
+      for (const job of readonlyJobs.values()) {
+        if (job.deviceId === b.deviceId && ['queued', 'running'].includes(job.status)) {
+          job.status = 'failed'; job.errorCode = 'agent-revoked'; job.finishedAt = new Date(now()).toISOString();
+        }
+      }
       return send(res, 200, { ok: true });
     }
     if (req.method === 'POST' && u.pathname === '/api/agent/heartbeat') {
@@ -164,11 +187,81 @@ export function createHub({ token, credentialStore = createCredentialStore(), no
       requireValue(typeof b.platform === 'string' && b.platform.length <= 30, 'Invalid platform.');
       requireValue(b.workspaceReady === undefined || typeof b.workspaceReady === 'boolean', 'Invalid workspace readiness.');
       const discovered = inventory(b);
+      const local = localAgent(agent) && b.localControl === true && b.workspaceBinding === workspaceBinding;
+      const sessions = discovered.sessions.map((session, index) => ({ ...session,
+        eligibility: local && ['confirmed', 'busy'].includes(b.sessions?.[index]?.eligibility)
+          ? b.sessions[index].eligibility : 'discovered' }));
       devices.set(b.deviceId, {
         id: agent.id, name: agent.name, platform: b.platform, sandbox: 'no-execution',
         workspaceReady: b.workspaceReady === true, executionMode: 'demo-only',
-        ...discovered, lastSeen: now()
+        ...discovered, sessions, localControl: local, codexAuth: local ? safeAuth(b.codexAuth) : 'unavailable', lastSeen: now()
       });
+      return send(res, 200, { ok: true });
+    }
+    if (req.method === 'POST' && u.pathname === '/api/local/task') {
+      expireDisconnected();
+      const b = await readJson(req);
+      requireValue(localEnabled && b.deviceId === localDeviceId, 'Local control is restricted to the configured primary agent.');
+      const device = devices.get(localDeviceId);
+      const registered = credentialStore.list().find(x => x.id === localDeviceId);
+      requireValue(registered && !registered.revokedAt && online(device) && device.localControl &&
+        device.codexAuth === 'authenticated', 'Local agent is offline, unavailable or not authenticated.');
+      requireValue(b.confirmed === true, 'Explicit READ-ONLY confirmation is required.');
+      requireValue(['new', 'resume'].includes(b.mode) && b.workspaceId === 'project', 'Select an authorized mode and workspace.');
+      requireValue(typeof b.prompt === 'string' && b.prompt.trim() && b.prompt.length <= 2000, 'Instruction required (max 2000 chars).');
+      requireValue(!['shell', 'command', 'sandbox', 'approvalPolicy', 'cwd', 'path', 'model'].some(key => Object.hasOwn(b, key)),
+        'Execution policy cannot be supplied by a request.');
+      if (b.mode === 'resume') {
+        requireValue(typeof b.threadId === 'string' && UUID.test(b.threadId) &&
+          device.sessions.some(x => x.id === b.threadId && x.eligibility !== 'busy'), 'Select an available session from this device.');
+      } else requireValue(b.threadId === undefined || b.threadId === null || b.threadId === '', 'New mode cannot select an existing thread.');
+      if ([...readonlyJobs.values()].some(j => ['queued', 'running'].includes(j.status))) {
+        return send(res, 409, { error: 'A local READ-ONLY instruction is already queued or running.' });
+      }
+      if (readonlyJobs.size >= 100) {
+        const oldest = [...readonlyJobs.values()].find(j => !['queued', 'running'].includes(j.status));
+        if (oldest) readonlyJobs.delete(oldest.id);
+      }
+      const job = { id: randomUUID(), deviceId: localDeviceId, mode: b.mode,
+        threadId: b.mode === 'resume' ? b.threadId : null, workspaceId: 'project', prompt: b.prompt,
+        confirmed: true, policy: 'local-read-only', status: 'queued', output: '', events: [], createdAt: new Date(now()).toISOString() };
+      readonlyJobs.set(job.id, job);
+      return send(res, 201, { job });
+    }
+    if (req.method === 'GET' && u.pathname === '/api/agent/local/task') {
+      expireDisconnected();
+      if (!localAgent(agent) || u.searchParams.get('deviceId') !== agent.id) return send(res, 403, { error: 'Local agent identity required.' });
+      requireValue(online(devices.get(agent.id)), 'Local device offline.');
+      const job = [...readonlyJobs.values()].find(j => j.status === 'queued' && j.deviceId === agent.id);
+      if (job) {
+        const device = devices.get(agent.id);
+        if (!device.localControl || device.codexAuth !== 'authenticated' || now() - Date.parse(job.createdAt) > 120000 ||
+            (job.mode === 'resume' && !device.sessions.some(s => s.id === job.threadId && s.eligibility !== 'busy'))) {
+          job.status = 'failed'; job.errorCode = 'selection-no-longer-available'; job.finishedAt = new Date(now()).toISOString();
+          return send(res, 200, { job: null });
+        }
+      }
+      if (job) { job.status = 'running'; job.startedAt = new Date(now()).toISOString(); }
+      return send(res, 200, { job: job || null });
+    }
+    if (req.method === 'POST' && u.pathname === '/api/agent/local/update') {
+      const b = await readJson(req);
+      if (!credentialStore.authenticate(bearer)) return send(res, 401, { error: 'Unauthorized' });
+      if (!localAgent(agent) || b.deviceId !== agent.id) return send(res, 403, { error: 'Local agent identity required.' });
+      const job = readonlyJobs.get(b.jobId);
+      if (!job || job.deviceId !== agent.id || job.status !== 'running') return send(res, 409, { error: 'No matching running job.' });
+      requireValue(['running', 'completed', 'failed', 'interrupted'].includes(b.status), 'Invalid READ-ONLY job state.');
+      requireValue(b.output === undefined || (typeof b.output === 'string' && b.output.length <= 8000), 'Output limit exceeded.');
+      requireValue(b.threadId == null || (typeof b.threadId === 'string' && UUID.test(b.threadId) &&
+        (!job.threadId || b.threadId === job.threadId)), 'Thread identity mismatch.');
+      requireValue(b.events === undefined || (Array.isArray(b.events) && b.events.length <= 20 && b.events.every(e =>
+        isObject(e) && ['progress', 'output', 'error', 'completed'].includes(e.type) && typeof e.message === 'string' && e.message.length <= 160)), 'Invalid progress events.');
+      job.status = b.status;
+      if (b.output !== undefined) job.output = b.output;
+      if (b.threadId) job.threadId = b.threadId;
+      if (b.events) job.events = b.events.map(({ type, message }) => ({ type, message }));
+      if (typeof b.errorCode === 'string' && /^[a-z-]{1,60}$/.test(b.errorCode)) job.errorCode = b.errorCode;
+      if (job.status !== 'running') job.finishedAt = new Date(now()).toISOString();
       return send(res, 200, { ok: true });
     }
     if (req.method === 'POST' && u.pathname === '/api/task') {
@@ -243,7 +336,9 @@ export function startHub(env = process.env) {
   const port = Number(env.LEVERAGE_PORT || 8765);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid hub port.');
   const server = createHub({ token: env.LEVERAGE_OPERATOR_TOKEN || env.LEVERAGE_TOKEN,
-    credentialStore: createCredentialStore({ file: env.LEVERAGE_CREDENTIAL_STORE || '.local-run/agents.json' }) });
+    credentialStore: createCredentialStore({ file: env.LEVERAGE_CREDENTIAL_STORE || '.local-run/agents.json' }),
+    localControl: env.LEVERAGE_ENABLE_LIVE_CODEX === '1' ? undefined : {
+      deviceId: env.LEVERAGE_LOCAL_DEVICE_ID, workspace: env.LEVERAGE_LOCAL_WORKSPACE } });
   server.listen(port, host, () => {
     console.log('Leverage50xAgents hub listening on loopback port ' + port + ' (DEMO ONLY).');
   });

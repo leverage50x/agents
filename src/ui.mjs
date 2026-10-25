@@ -8,6 +8,30 @@ const escape = value => String(value ?? '').replaceAll('&', '&amp;').replaceAll(
   .replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
 const online = device => device.online && !device.revokedAt;
 const deviceLabel = device => device.name + ' · ' + device.id;
+const authLabel = value => value === 'authenticated' ? 'Codex authenticated' : value === 'not-authenticated' ? 'Not authenticated' : 'Unavailable';
+const localDevice = () => state.devices.find(device => device.id === $('local-device').value);
+function localAvailability() {
+  const device = localDevice();
+  if (!connected) return { ready: false, message: 'Connect as operator to use local control.' };
+  if (!state.localControl?.enabled) return { ready: false, message: 'Local read-only control is disabled on this Hub.' };
+  if (!device) return { ready: false, message: 'Select the configured local device explicitly.' };
+  if (device.id !== state.localControl.deviceId || !device.localControl) {
+    return { ready: false, message: 'This device is inventory-only. Local control is unavailable.' };
+  }
+  if (!online(device)) return { ready: false, message: 'The selected local device is offline or revoked.' };
+  if (device.codexAuth !== 'authenticated') return { ready: false, message: 'Codex authentication: ' + authLabel(device.codexAuth) + '.' };
+  return { ready: true, message: 'Codex authenticated · local read-only control · explicit selections and confirmation required.' };
+}
+function localSelection() {
+  const device = localDevice();
+  const mode = $('local-mode').value;
+  const workspace = state.localControl?.workspaces?.find(item => item.id === $('local-workspace').value);
+  const session = device?.sessions?.find(item => item.id === $('local-thread').value);
+  const prompt = $('local-prompt').value.trim();
+  const valid = localAvailability().ready && ['new', 'resume'].includes(mode) && Boolean(workspace) &&
+    prompt.length > 0 && prompt.length <= 2000 && (mode === 'new' || Boolean(session && session.eligibility !== 'busy'));
+  return { valid, device, mode, workspace, session, prompt };
+}
 function timestamp(value) {
   if (value === undefined || value === null || value === '') return 'Unknown';
   const date = new Date(value);
@@ -19,6 +43,15 @@ function controls() {
   for (const id of ['device', 'thread', 'prompt', 'submit']) $(id).disabled = !available || busy;
   $('inventory-device').disabled = !connected || !state.devices.length;
   for (const button of document.querySelectorAll('#jobs button')) button.disabled = !connected || busy;
+  const { ready, message } = localAvailability();
+  $('local-control-status').textContent = message;
+  $('local-device').disabled = !connected || !state.localControl?.enabled || busy;
+  for (const id of ['local-mode', 'local-workspace', 'local-prompt']) $(id).disabled = !ready || busy;
+  $('local-thread').disabled = !ready || busy || $('local-mode').value !== 'resume';
+  $('local-thread').required = $('local-mode').value === 'resume';
+  const valid = localSelection().valid;
+  $('local-confirm').disabled = !valid || busy;
+  $('local-submit').disabled = !valid || !$('local-confirm').checked || busy;
 }
 function connection(ok, message) {
   connected = ok;
@@ -68,8 +101,43 @@ function renderSessions() {
       escape(session.project || 'Not available') + '</dd><dt>Last known activity</dt><dd>' +
       escape(timestamp(session.lastActivity)) + '</dd><dt>Last modified metadata</dt><dd>' +
       escape(timestamp(session.modified)) + '</dd><dt>Activity</dt><dd>' + escape(activity) +
-      '</dd><dt>Source</dt><dd>' + escape(source) + '</dd></dl></article>';
+      '</dd><dt>Source</dt><dd>' + escape(source) + '</dd><dt>Control eligibility</dt><dd>' +
+      (session.eligibility === 'busy' ? 'Busy — unavailable' : session.eligibility === 'confirmed' ?
+        'Resumability confirmed by local controller' : 'Discovered — resume not yet verified') + '</dd></dl></article>';
   }).join('') : '<p class="muted">No sessions reported by this device.</p>';
+}
+function renderLocalThreads(preserve = true) {
+  const previous = preserve ? $('local-thread').value : '';
+  const sessions = localDevice()?.sessions || [];
+  $('local-thread').innerHTML = '<option value="">Choose a session explicitly</option>' + sessions.map(session =>
+    '<option value="' + escape(session.id) + '"' + (session.eligibility === 'busy' ? ' disabled' : '') + '>' +
+    escape(session.id) + ' · ' + (session.eligibility === 'busy' ? 'Busy — unavailable' :
+      session.eligibility === 'confirmed' ? 'Confirmed by controller' : 'Discovered — resume unverified') + '</option>').join('');
+  if (sessions.some(session => session.id === previous && session.eligibility !== 'busy')) $('local-thread').value = previous;
+}
+function renderLocalControl() {
+  const currentDevice = $('local-device').value;
+  const currentWorkspace = $('local-workspace').value;
+  $('local-device').innerHTML = '<option value="">Choose a device explicitly</option>' + state.devices.map(device =>
+    '<option value="' + escape(device.id) + '">' + escape(deviceLabel(device)) + ' · ' +
+    escape(authLabel(device.codexAuth)) + (device.id === state.localControl?.deviceId && device.localControl ? ' · local control' : ' · inventory only') + '</option>').join('');
+  if (state.devices.some(device => device.id === currentDevice)) $('local-device').value = currentDevice;
+  const workspaces = state.localControl?.workspaces || [];
+  $('local-workspace').innerHTML = '<option value="">Choose a workspace explicitly</option>' + workspaces.map(workspace =>
+    '<option value="' + escape(workspace.id) + '">' + escape(workspace.label) + '</option>').join('');
+  if (workspaces.some(workspace => workspace.id === currentWorkspace)) $('local-workspace').value = currentWorkspace;
+  renderLocalThreads();
+  const jobs = state.readonlyJobs || [];
+  $('local-jobs').innerHTML = jobs.length ? jobs.map(job =>
+    '<article class="job"><b>' + escape(job.status) + '</b> · ' +
+    escape(state.devices.find(device => device.id === job.deviceId)?.name || job.deviceId) +
+    '<p><small>' + escape(job.mode) + ' · workspace ' + escape(job.workspaceId) + ' · session ' +
+    escape(job.resultThreadId || job.threadId || 'new') + ' · ' + escape(job.createdAt) + '</small></p><p>' +
+    escape(job.prompt) + '</p>' + ((job.events || []).length ? '<ul class="local-events">' + job.events.map(event =>
+      '<li><b>' + escape(event.type) + '</b> ' + escape(event.message) + '</li>').join('') + '</ul>' : '') +
+    (job.errorCode ? '<p class="off">Error: <code>' + escape(job.errorCode) + '</code></p>' : '') +
+    (job.output ? '<pre>' + escape(job.output) + '</pre>' : '') + '</article>'
+  ).join('') : '<p class="muted">No local read-only turns submitted.</p>';
 }
 function render() {
   $('device-count').textContent = '(' + state.devices.filter(online).length + ' online / ' + state.devices.length + ')';
@@ -77,8 +145,9 @@ function render() {
     '<div class="device"><h3>' + escape(d.name) + ' <small class="' + (online(d) ? 'on' : 'off') + '">' +
     (d.revokedAt ? '○ revoked' : online(d) ? '● online' : '○ offline') + '</small></h3><code>' + escape(d.id) +
     '</code><p class="muted">Last heartbeat: ' + escape(timestamp(d.lastSeen)) + '</p><small>' + escape(d.platform) +
-    ' · Remote AI execution: disabled · DEMO ONLY · ' + (d.workspaceReady ? 'Workspace verified' : 'Workspace missing or invalid') +
-    '</small><p><b>Configured MCP (' + d.mcp.servers.length + ')</b> <small>— ' + escape(d.mcp.status) +
+    ' · Remote instruction dispatch: disabled · ' + (d.workspaceReady ? 'Workspace verified' : 'Workspace missing or invalid') +
+    '</small><p class="muted">Codex authentication: ' + escape(authLabel(d.codexAuth)) +
+    '</p><p><b>Configured MCP (' + d.mcp.servers.length + ')</b> <small>— ' + escape(d.mcp.status) +
     '; NOT verified live</small></p><div class="chips">' + (d.mcp.servers.map(s =>
       '<span class="chip">' + escape(s) + '</span>').join('') || '<small>None found</small>') +
     '</div><p><b>Discovered thread IDs (' + d.sessions.length + ')</b></p><small>Inventory: ' +
@@ -97,6 +166,7 @@ function render() {
     '<option value="' + escape(d.id) + '">' + escape(deviceLabel(d)) + '</option>').join('');
   if (state.devices.some(d => d.id === current && online(d))) $('device').value = current;
   renderThreads();
+  renderLocalControl();
   $('jobs').innerHTML = state.jobs.length ? state.jobs.map(j =>
     '<div class="job"><b>' + escape(j.status) + '</b> · ' +
     escape(state.devices.find(d => d.id === j.deviceId)?.name || j.deviceId) + '<br><small>' +
@@ -132,6 +202,54 @@ $('login').addEventListener('click', async () => {
 });
 $('device').addEventListener('change', () => { renderThreads(); controls(); });
 $('inventory-device').addEventListener('change', renderSessions);
+$('local-device').addEventListener('change', () => {
+  $('local-mode').value = '';
+  $('local-workspace').value = '';
+  $('local-confirm').checked = false;
+  renderLocalThreads(false);
+  controls();
+});
+$('local-mode').addEventListener('change', () => {
+  $('local-confirm').checked = false;
+  renderLocalThreads(false);
+  controls();
+});
+for (const id of ['local-workspace', 'local-thread', 'local-prompt']) {
+  $(id).addEventListener(id === 'local-prompt' ? 'input' : 'change', () => {
+    $('local-confirm').checked = false;
+    controls();
+  });
+}
+$('local-confirm').addEventListener('change', controls);
+$('local-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const selection = localSelection();
+  if (busy || !selection.valid || !$('local-confirm').checked) {
+    $('local-message').textContent = 'Select the authenticated local device, conversation mode, approved workspace, session for Resume and an instruction; then confirm the read-only turn.';
+    return;
+  }
+  const { device, mode, workspace, session, prompt } = selection;
+  if (!confirm('Run one REAL LOCAL READ-ONLY Codex turn?\n\nDevice: ' + deviceLabel(device) +
+    '\nConversation: ' + (mode === 'new' ? 'New' : 'Resume ' + session.id) + '\nWorkspace: ' + workspace.label +
+    '\n\n' + prompt + '\n\nFile changes are prohibited. This does not authorize execution on another device.')) {
+    $('local-confirm').checked = false;
+    controls();
+    return;
+  }
+  busy = true;
+  controls();
+  try {
+    await api('POST', '/api/local/task', {
+      deviceId: device.id, mode, threadId: mode === 'resume' ? session.id : null,
+      workspaceId: workspace.id, prompt, confirmed: true
+    });
+    $('local-message').textContent = 'Confirmed local read-only turn submitted. Follow progress and results below.';
+    $('local-prompt').value = '';
+    $('local-confirm').checked = false;
+    await refresh();
+  } catch (error) { $('local-message').textContent = error.message; await refresh(); }
+  finally { busy = false; controls(); }
+});
 $('form').addEventListener('submit', async event => {
   event.preventDefault();
   if (!connected || busy || !state.devices.some(d => online(d) && d.id === $('device').value)) {

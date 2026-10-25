@@ -1,10 +1,12 @@
-# Leverage50xAgents — Etapa 2A
+# Leverage50xAgents — Etapa 2B, control local READ-ONLY
 
-Dashboard central pentru dispozitive personale, heartbeat și inventar read-only al sesiunilor Codex. Stage 1 este păstrat în tagul `v0.1.1-stage1-demo`; dezvoltarea 2A este pe `stage2-device-discovery`, fără merge în main.
+Dashboard central pentru dispozitive personale, heartbeat și inventar al sesiunilor Codex. Stage 1 este păstrat în tagul `v0.1.1-stage1-demo`, 2A pe `stage2-device-discovery`, iar controlul local și launcher-ul pe `stage2b-local-control`, fără merge în main.
 
-**Execuția reală din dashboard rămâne blocată.** Formularul de instrucțiuni oferă numai fluxul demonstrativ cu aprobare/respingere și rezultat DEMO ONLY. `LEVERAGE_ENABLE_LIVE_CODEX=1` este refuzat.
+**Scrierea și execuția pe alte dispozitive rămân blocate.** Fluxul local READ-ONLY cere dispozitiv/sesiune sau New/workspace/instrucțiune selectate explicit și confirmare. DEMO rămâne separat; `LEVERAGE_ENABLE_LIVE_CODEX=1` este refuzat. Ghid curent: [ETAPA-2B-LOCAL.md](ETAPA-2B-LOCAL.md).
 
 ## Pornire locală
+
+Cu credențialele Stage 2A deja create în `.local-run`, folosește din rădăcină `./leverage start`, `./leverage status`, `./leverage logs` și `./leverage stop`. Nu mai sunt necesare două terminale. Procesele sunt detașate, fără autostart. Un port ocupat este diagnosticat fără oprirea altor procese. Pașii de mai jos descriu înrolarea inițială și pornirea manuală Stage 2A, dacă fișierele lipsesc; launcher-ul nu generează secrete automat.
 
 Node.js >=22, npm, Linux/WSL. Numai module Node built-in, fără dependențe externe.
 
@@ -32,7 +34,7 @@ Fiecare agent primește UUIDv4 persistent și token independent. Registrul priva
 
 Operatorul poate înrola/revoca agenți și folosi dashboard-ul; un agent poate raporta numai propriul UUID și nu poate folosi endpointurile administrative sau vedea inventarul altora. Revocarea persistă după restart și invalidează următoarea cerere. Inventarul și sarcinile DEMO rămân în memorie; agenții refac inventarul după restart Hub.
 
-Pentru laptopul 2, urmează [ETAPA-2-LAPTOP2.md](ETAPA-2-LAPTOP2.md). Conexiunea recomandată este un tunel SSH autentificat prin LAN/VPN existent. Hub-ul și destinațiile HTTP ale agentului rămân exclusiv loopback. Nu expune portul pe internet și nu schimba bind-ul în 0.0.0.0.
+Ghidul [ETAPA-2-LAPTOP2.md](ETAPA-2-LAPTOP2.md) rămâne documentație pentru descoperirea 2A. Conectarea laptopului 2 și execuția pe alt dispozitiv nu fac parte din această livrare. Hub-ul și destinațiile HTTP ale agentului rămân exclusiv loopback. Nu expune portul pe internet și nu schimba bind-ul în 0.0.0.0.
 
 ## Sesiuni Codex și confidențialitate
 
@@ -44,7 +46,7 @@ Toate sesiunile sunt **descoperite, cu activitate neconfirmată**: un App Server
 
 Configurație agent: `LEVERAGE_AGENT_ID`, `LEVERAGE_AGENT_TOKEN`, `LEVERAGE_DEVICE`, `LEVERAGE_URL` loopback, opțional `LEVERAGE_WORKSPACE`, `LEVERAGE_CODEX_HOME`/`CODEX_HOME`, `LEVERAGE_SESSION_SOURCE=app-server|files`, `LEVERAGE_REPORT_PROJECT=0`. Hub: `LEVERAGE_OPERATOR_TOKEN`, `LEVERAGE_CREDENTIAL_STORE`, `LEVERAGE_HOST`, `LEVERAGE_PORT`. Vechiul `LEVERAGE_TOKEN` este acceptat doar ca token operator pentru tranziție; nu autentifică agenți.
 
-Detalii și limite: [ETAPA-2A-ARHITECTURA.md](ETAPA-2A-ARHITECTURA.md). Controlul sesiunilor, aprobările tehnice și auditul execuției rămân pentru Etapa 2B.
+Inventarul 2A descris mai sus rămâne disponibil separat de controllerul local 2B. Detalii istorice: [ETAPA-2A-ARHITECTURA.md](ETAPA-2A-ARHITECTURA.md). Politica locală, selecția și limitările actuale sunt în [ETAPA-2B-LOCAL.md](ETAPA-2B-LOCAL.md). Scrierea, aprobările tehnice și auditul persistent al execuției rămân separate.
 
 ## Teste și CI
 

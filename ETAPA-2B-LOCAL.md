@@ -27,6 +27,8 @@ Dashboard-ul folosește tokenul operatorului din hub.env, consultat privat local
 
 Verificarea CLI manuală este `codex login status`. Dacă nu ești autentificat, efectuează `codex login` în propriul terminal WSL conform fluxului oficial. Launcher-ul nu pornește login și nu cere parole sau tokenuri Codex în interfață. Un login local confirmat nu dovedește că furnizorul/modelul este momentan disponibil; eroarea unei execuții este raportată separat.
 
+`Online` confirmă heartbeat-ul agentului, separat de sănătatea App Server. După o oprire tranzitorie a App Server, agentul inactiv reconstruiește adaptorul cu backoff de 5–30 secunde și reface verificările de versiune/protocol. Nu reia un turn eșuat și nu redeschide controllerul după revocare, închidere explicită sau încălcarea politicii. Dacă `Unavailable` persistă, verifică `./leverage status`, `./leverage logs`, `codex --version` și `codex login status` în WSL; nu șterge autentificarea sau sesiunile. Raportul [INVESTIGATIE-GIT-CODEX.md](INVESTIGATIE-GIT-CODEX.md) documentează remedierea și limitele verificării VS Code.
+
 ## Selecție și prima instrucțiune
 
 În secțiunea Local READ-ONLY, selectează explicit dispozitivul principal, New sau Resume, workspace-ul autorizat și, pentru Resume, ID-ul sesiunii. Nu este preselectat automat niciun thread. Introdu instrucțiunea, bifează confirmarea READ-ONLY și confirmă dialogul final. Primul exemplu autorizat:

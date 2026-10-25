@@ -4,6 +4,7 @@ import os from 'node:os';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { StringDecoder } from 'node:string_decoder';
+import { performance } from 'node:perf_hooks';
 
 // Verified 2026-10-25 with CLI 0.163.0 and an isolated loopback-only synthetic
 // Responses provider: the policy exposes only request_user_input, which this
@@ -182,7 +183,7 @@ async function stop(child) {
 
 /** Local-only, one explicitly configured workspace, never a remote executor. */
 export function createCodexControl({ workspace, home, command = 'codex', spawnImpl = spawn,
-  rpcTimeoutMs = 10000, turnTimeoutMs = 120000, externalActivityCheck = externalActivity } = {}) {
+  rpcTimeoutMs = 10000, turnTimeoutMs = 120000, externalActivityCheck = externalActivity, now = () => performance.now() } = {}) {
   let canonical;
   let identity;
   try {
@@ -193,7 +194,8 @@ export function createCodexControl({ workspace, home, command = 'codex', spawnIm
   if ((command !== 'codex' && !(path.isAbsolute(command) && path.basename(command) === 'codex' && !/^\/mnt\/[a-z]\//i.test(command))) ||
       (home !== undefined && (typeof home !== 'string' || !path.isAbsolute(home))) ||
       !Number.isInteger(rpcTimeoutMs) || rpcTimeoutMs < 50 || rpcTimeoutMs > 30000 ||
-      !Number.isInteger(turnTimeoutMs) || turnTimeoutMs < 50 || turnTimeoutMs > 300000) throw new Error('Invalid local Codex configuration.');
+      !Number.isInteger(turnTimeoutMs) || turnTimeoutMs < 50 || turnTimeoutMs > 300000 ||
+      typeof now !== 'function') throw new Error('Invalid local Codex configuration.');
   const env = {};
   for (const key of ['PATH', 'HOME', 'LANG', 'LC_ALL', 'TMPDIR']) if (process.env[key]) env[key] = process.env[key];
   env.CODEX_HOME = home || process.env.LEVERAGE_CODEX_HOME || process.env.CODEX_HOME || path.join(os.homedir(), '.codex');
@@ -205,6 +207,8 @@ export function createCodexControl({ workspace, home, command = 'codex', spawnIm
   let active;
   let buffer = '';
   let received = 0;
+  let lastTrafficTime;
+  const trafficBuckets = [];
   let killDeadline;
   const decoder = new StringDecoder('utf8');
   const pending = new Map();
@@ -225,6 +229,25 @@ export function createCodexControl({ workspace, home, command = 'codex', spawnIm
       child.kill('SIGTERM');
       killDeadline ||= setTimeout(() => { if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL'); }, 300);
     }
+  };
+  const accountTraffic = bytes => {
+    let time;
+    try { time = now(); } catch { fail('codex-clock-error'); return false; }
+    if (!Number.isFinite(time) || (lastTrafficTime !== undefined && time < lastTrafficTime)) {
+      fail('codex-clock-error'); return false;
+    }
+    lastTrafficTime = time;
+    // Keep at most 61 one-second buckets. Expire a bucket only after its END
+    // leaves the rolling minute, conservatively enforcing the 32 MiB limit.
+    while (trafficBuckets.length && (trafficBuckets[0].second + 1) * 1000 <= time - 60000) {
+      received -= trafficBuckets.shift().bytes;
+    }
+    const second = Math.floor(time / 1000);
+    if (trafficBuckets.at(-1)?.second === second) trafficBuckets.at(-1).bytes += bytes;
+    else trafficBuckets.push({ second, bytes });
+    received += bytes;
+    if (received > 33554432) { fail('codex-output-limit'); return false; }
+    return true;
   };
   const write = message => {
     if (message.method && !METHODS.has(message.method)) throw new ControlError('method-blocked');
@@ -280,10 +303,10 @@ export function createCodexControl({ workspace, home, command = 'codex', spawnIm
     const overrides = Object.entries(POLICY).flatMap(([key, value]) => ['-c', key + '=' + toml(value)]);
     child = spawnChild(['app-server', '--listen', 'stdio://', ...overrides]);
     child.once('error', () => fail()); child.once('close', () => { clearTimeout(killDeadline); fail(); }); child.stdin.on('error', () => fail());
-    child.stderr.on('data', chunk => { received += chunk.length; if (received > 33554432) fail('codex-output-limit'); });
+    child.stderr.on('data', chunk => { if (!broken && !closed) accountTraffic(chunk.length); });
     child.stdout.on('data', chunk => {
       if (broken || closed) return;
-      received += chunk.length; if (received > 33554432) return fail('codex-output-limit');
+      if (!accountTraffic(chunk.length)) return;
       buffer += decoder.write(chunk); if (Buffer.byteLength(buffer) > 2097152) return fail('codex-output-limit');
       let newline;
       while (!broken && (newline = buffer.indexOf('\n')) >= 0) {
@@ -311,7 +334,10 @@ export function createCodexControl({ workspace, home, command = 'codex', spawnIm
     });
     await request('initialize', { clientInfo: { name: 'leverage50xagents_local_control', version: '0.3.0' }, capabilities: { experimentalApi: false } });
     write({ method: 'initialized' });
-  })();
+  })().catch(error => {
+    fail(error instanceof ControlError ? error.code : 'codex-unavailable');
+    throw broken;
+  });
   const accountStatus = async () => {
     try {
       await ensure();
@@ -320,14 +346,17 @@ export function createCodexControl({ workspace, home, command = 'codex', spawnIm
       const status = authenticated ? 'authenticated' : (result?.account == null ? 'not-authenticated' : 'unavailable');
       result = null;
       return { status };
-    } catch { return { status: 'unavailable' }; }
+    } catch (error) {
+      fail(error instanceof ControlError ? error.code : 'codex-unavailable');
+      return { status: 'unavailable' };
+    }
   };
   const listSessions = async () => {
     try {
       await ensure(); assertWorkspace();
       let result = await request('thread/list', { cwd: canonical, useStateDbOnly: true, limit: 40,
         archived: false, sourceKinds: SOURCE_KINDS, sortKey: 'updated_at', sortDirection: 'desc' });
-      if (!Array.isArray(result?.data) || result.data.length > 100) throw new ControlError();
+      if (!Array.isArray(result?.data) || result.data.length > 100) throw new ControlError('codex-protocol-error');
       const sessions = [];
       for (const thread of result.data) {
         if (!thread || !UUID.test(thread.id) || thread.cwd !== canonical || !Number.isSafeInteger(thread.updatedAt)) continue;
@@ -341,7 +370,10 @@ export function createCodexControl({ workspace, home, command = 'codex', spawnIm
       const truncated = Boolean(result.nextCursor) || result.data.length > 40;
       result = null;
       return { status: 'available', source: 'app-server', truncated, sessions };
-    } catch { return { status: 'unavailable', source: 'app-server', truncated: false, sessions: [] }; }
+    } catch (error) {
+      fail(error instanceof ControlError ? error.code : 'codex-unavailable');
+      return { status: 'unavailable', source: 'app-server', truncated: false, sessions: [] };
+    }
   };
   const run = async (input, onEvent) => {
     if (!input || !['new', 'resume'].includes(input.mode) || input.workspaceId !== 'project' || input.confirmed !== true ||
@@ -399,6 +431,8 @@ export function createCodexControl({ workspace, home, command = 'codex', spawnIm
       emit(status === 'completed' ? 'completed' : 'error', status === 'completed' ? 'Local read-only Codex turn completed.' : 'Local Codex turn stopped.');
       return { status, output, threadId: state.threadId, ...(result.errorCode ? { errorCode: result.errorCode } : {}) };
     } catch (error) {
+      if (error instanceof ControlError && ['codex-policy-mismatch', 'codex-protocol-error',
+        'method-blocked', 'workspace-changed'].includes(error.code)) fail(error.code);
       emit('error', 'Local Codex request could not be completed safely.');
       return { status: closed ? 'interrupted' : 'failed', output: '', ...(state?.threadId ? { threadId: state.threadId } : {}),
         errorCode: error instanceof ControlError ? error.code : 'codex-unavailable' };
@@ -407,7 +441,11 @@ export function createCodexControl({ workspace, home, command = 'codex', spawnIm
       for (const release of releases.reverse()) release();
     }
   };
-  return { accountStatus, listSessions, run, async close() {
+  const recoveryState = () => ({
+    recoverable: !closed && !active && ['codex-unavailable', 'codex-timeout'].includes(broken?.code),
+    errorCode: closed ? 'codex-closed' : broken?.code || null,
+  });
+  return { accountStatus, listSessions, run, recoveryState, async close() {
     closed = true; fail('codex-closed'); buffer = ''; loaded.clear(); await stop(child); clearTimeout(killDeadline);
   } };
 }

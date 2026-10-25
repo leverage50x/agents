@@ -2768,4 +2768,1223 @@ Root a adăugat aceeași așteptare fără semnal în cazul când procesul este 
 
 Serviciile reale nu au fost oprite de aceste probe; răspunsul real README rămâne în dashboard. Urmează commit separat de remediere și noul CI, fără amend/force push, fără modificarea main/tagurilor sau a autentificării/politicilor de execuție.
 
+Checkpointul de remediere și verificarea finală (cwd `[WORKSPACE]`):
+
+- `node .local-run/review-publication.mjs stage2b-local-control` — cod0 înainte de staging:4commituri/82bloburi/47fișiere, zero constatări.
+- `git diff --check` — cod0.
+- `git add -- src/launcher.mjs test/launcher.test.mjs VERIFICARE.md 'comenzi executate agent.md'` — cod0 prin aprobarea platformei.
+- `git diff --cached --check` — cod0.
+- `git diff --cached --name-only` — cod0: exact cele4fișiere de mai sus.
+- `git commit -m 'fix: confirm launcher process exit before completing rollback'` — cod0 prin aprobarea platformei: **b1e90058ce153bbe5249a6f16143babe4d6dc9e1**,4fișiere,307inserări/13eliminări. Nu s-a amendat commitul inițial.
+- `git push origin stage2b-local-control` — cod0 prin aprobarea platformei:5e816e6→b1e9005, fără force push.
+- `git rev-parse HEAD main stage2-device-discovery 'v0.1.1-stage1-demo^{}'` — cod0: HEADb1e90058ce153bbe5249a6f16143babe4d6dc9e1; main/tag906c24f15f8b364d9bec6da8cebb74b57caa8862;2A6136fe5478586ed9dda31c165dbb75ca211baaab.
+- `gh run list --repo leverage50x/agents --branch stage2b-local-control --limit 3 --json databaseId,status,conclusion,url,headSha` — cod0 prin aprobarea platformei: noulrun40221360770 eraqueued, runulprecedentrămânefialure (istoric păstrat).
+- `node .local-run/review-publication.mjs stage2b-local-control` — cod0 după commit/push: **5commituri/86bloburi/47fișiere**, zero constatări/căi interzise; primul checkpoint păstrat. Comenzile interne read-only sunt aceleași forme argv documentate în auditul anterior, plus ls-tree/cat-file/show pentru noul commit; nu se afișează conținut privat.
+- `git status --short --branch` — cod 0.
+- `./leverage status` — cod 0.
+- `node .local-run/verify-local-control.mjs` — cod 0.
+
+Starea finală verificată: branch sincronizat, inițialcurat înaintea acestei completări; Hub/agent rămânownedRunningtrue și agentOnline la http://127.0.0.1:8765. InspecțiaHTTP200 confirmă authenticated,2sesiunidescoperite/1cunoscutăcontrollerului/0busy în metadatele lui. Nu a fost pornit un nou turn real pentru verificările finale.
+
+- `gh run view 40221360770 --repo leverage50x/agents --json status,conclusion,url,headSha,jobs` — cod0 prin aprobarea platformei: **completed/SUCCESS**, commitb1e90058ce153bbe5249a6f16143babe4d6dc9e1, jobtest și toateetapeleSUCCESS.
+- `gh run view 40221360770 --repo leverage50x/agents --log` — cod0: logurile confirmă Nodev22.23.3, npmci reușit/0vulnerabilități, npmtest **100tests/100pass/0fail/0skipped**. Au fost afișate numai liniile necesare de probă.
+- `gh api repos/leverage50x/agents --jq '{full_name,private}'` — cod0: PRIVATEtrue, leverage50x/agents.
+- `git show -s --format='%H%n%s%nAuthor: %an' HEAD` — cod0: b1e90058ce153bbe5249a6f16143babe4d6dc9e1, fix:confirm launcherprocess exitbeforecompletingrollback, autorleverage50x.
+
+CI final: https://github.com/leverage50x/agents/actions/runs/40221360770 . Branch publicat în repository-ul PRIVATE: https://github.com/leverage50x/agents/tree/stage2b-local-control . Main/2A/taguri nu au fost modificate, nu s-a creat PR sau făcut merge. Configurația .codex este numai locală, șablonul fără secrete și politica sunt publicate. Regulile de prefix rămân doar propuneri.
+
+Această completare înregistrează rezultatele de după ultimul commit și rămâne locală nestaged; nu pretindem că este deja pe GitHub. Aplicația rămâne pornită conform cererii, oprire prin ./leverage stop. Nu se începe scrierea, laptopul2 sau altă etapă. Nu există aprobări restante pentru livrarea curentă; instalarea regulilor propuse, modificările de sistem/globale/autentificare, mergeînmain, scrierea prin Codex și alte dispozitive necesită autorizare explicită separată.
+
+Ultimele verificări după completarea jurnalului, cwd `[WORKSPACE]`:
+
+- `git status --short --branch` — cod 0: branch sincronizat cu origin/stage2b-local-control; numai jurnalul modificat local.
+- `git diff --check` — cod 0, fără erori whitespace.
+- `node .local-run/review-publication.mjs stage2b-local-control` — cod 0: 5 commituri, 86 bloburi istorice, 47 fișiere de lucru, zero constatări/căi interzise; primul checkpoint păstrat.
+
+Această înregistrare finală descrie numai rezultatele deja obținute și rămâne în jurnalul local nestaged. Livrarea curentă este finalizată: politica permanentă aplicată, Stage 2B publicat și CI final SUCCESS 100/100. Serviciile locale rămân pornite, fără autostart sau activarea scrierii/altor dispozitive.
+
+## 2026-10-25 — investigație Git/VS Code și Codex Unavailable
+
+Operatorul a autorizat investigarea completă și remedieri validate numai pe stage2b-local-control, fără commit automat al modificărilor necunoscute, fără reset/clean/restore/force push, fără main/taguri/globale și fără ștergerea autentificării/sesiunilor. Se investighează separat raportul VSCode21Modified și agentOnline/CodexUnavailable. Un singur turn real READ-ONLY este permis numai dacă necesar; până aici nu s-a lansat niciunul pentru această investigație.
+
+Citiri inițiale în `[WORKSPACE]` (căile personale sunt anonimizate):
+
+- `pwd` — cod 0.
+- `git rev-parse --show-toplevel --git-dir --show-prefix` — cod 0.
+- `git status --short --branch` — cod 0.
+- `git log -4 --format='%H %s'` — cod 0.
+- `git diff --stat` — cod 0.
+- `git diff --check` — cod 0.
+- `git diff --numstat` — cod 0.
+- `git diff --summary` — cod 0.
+- `git ls-files --eol` — cod 0.
+- `cat AGENTS.md` — cod 0.
+- `cat [USER_HOME]/.codex/skills/.system/openai-docs/SKILL.md` — cod 0.
+
+Rezultat inițial: checkoutul real este [WORKSPACE], Gitdir.git, branchstage2b-local-control, HEADb1e90058ce153bbe5249a6f16143babe4d6dc9e1. Singura modificare reală raportată de Git este jurnalul,35linii adăugate după checkpointul anterior. Toate cele47fișiere au LF atât în index cât și pe disc. Nu s-a făcut commit în acest punct. Skill-ul OpenAI Docs a fost aplicat pentru protocolul account/read/thread/list, cu pagina oficială https://learn.chatgpt.com/docs/app-server căutată și deschisă. Nu s-a folosit login nou sau acces la configurații Windows.
+
+Verificări suplimentare:
+
+- `git config --show-origin --get-regexp '^core\.(filemode|autocrlf|eol|worktree|ignorecase)$'` — cod 0.
+- `git -c core.filemode=true status --short` — cod 0.
+- `git -c core.filemode=true diff --summary` — cod 0.
+- `git worktree list --porcelain` — cod 0.
+- `git remote get-url origin` — cod 0.
+- `git rev-parse HEAD origin/stage2b-local-control` — cod 0.
+- `./leverage status` — cod 0.
+- `./leverage logs` — cod 0.
+
+core.filemode este true în configurația repository-ului; forțarea lui true percomandă nu arată alte modificări. Un singur worktree. HEAD și origin/stage2b-local-control sunt identice. Origin este repository-ul autorizat https://github.com/leverage50x/agents.git. Launcherul confirmă Hub/agentpropriiOnline pe127.0.0.1:8765; logurile au numai evenimente operaționale, fără diagnostice brute Codex.
+
+- `git diff -- 'comenzi executate agent.md'` — cod 0.
+- `git diff --name-status HEAD` — cod 0.
+- `git diff --name-status origin/stage2b-local-control` — cod 0.
+- `git diff --raw HEAD` — cod 0.
+- `git diff --cached --name-status` — cod 0.
+- `git status --porcelain=v2 --untracked-files=all` — cod 0.
+- `codex --version` — cod 0.
+- `node --input-type=module -e 'import {spawnSync} from "node:child_process"; const r=spawnSync("codex",["login","status"],{encoding:"utf8",timeout:10000}); const s=(r.stdout||"")+"\n"+(r.stderr||""); console.log(JSON.stringify({exitCode:r.status,state:r.status===0&&/logged in/i.test(s)?"authenticated":/not logged|not authenticated|login required/i.test(s)?"not-authenticated":"unavailable"}));'` — cod 0.
+
+Diff-ul jurnalului a fost revizuit: doar rezultatele finale postcommit din etapa anterioară, fără modificări ale codului. Indexul este gol. CodexCLI0.163.0; loginstatuscapturat privat și redus la authenticated/exit0, fără date de cont/tokenuri. `node .local-run/verify-local-control.mjs` a terminat cod0: dashboardHTTP200, localEnabledtrue, agentOnline, codexAuthunavailable, sessions0/busy0/confirmed0. Deci problemaUIauth este reprodusă, nu presupusă.
+
+- `git ls-remote --heads origin stage2b-local-control` — cod0 prin aprobarea platformei: remoteGitHubrealb1e90058ce153bbe5249a6f16143babe4d6dc9e1, egal cu HEAD/tracking.
+- `python3 -c 'from pathlib import Path; import json; p=Path(".local-run/launcher/state.json"); s=json.loads(p.read_text()); print(json.dumps({"hubPid":s.get("hub",{}).get("pid"),"agentPid":s.get("agent",{}).get("pid"),"port":s.get("port")}))'` — cod0: Hub213196/agent213205,port8765; numai metadate, fără mediu sau secrete.
+- apply_patch helper ignorat .local-run/preserve-investigation.mjs.
+- `node .local-run/preserve-investigation.mjs` — inițial cod1, subprocesGitEPERM în sandbox (a fost creat doar directorul temporar gol; nu este considerat backup complet). Reluat prin aprobarea platformei cod0: copie sigură `.local-run/investigation-backup-CmKzj7`, director700/fișiere600, conținând diff unstaged/staged, status și ref-uri. Nu au fost copiate .env/.codex/auth/runtime credentials și nu s-au eliminat modificări.
+
+Verificări Git directe suplimentare, toate cod0:
+
+- `git rev-parse --path-format=absolute --git-dir --git-common-dir` — cod 0.
+- `git symbolic-ref --short HEAD` — cod 0.
+- `git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}'` — cod 0.
+- `git rev-list --left-right --count HEAD...origin/stage2b-local-control` — cod 0.
+- `git diff --no-ext-diff --name-only HEAD origin/stage2b-local-control` — cod 0.
+- `git ls-files -v` — cod 0.
+
+Gitdirreal și common-dir sunt același [WORKSPACE]/.git; upstreamcorect; ahead/behind0/0; toate intrările sunt H normale, fără assume-unchanged/skip-worktree care să ascundă cod. Celelalte46fișiere nu au diferențe Git față de HEAD/origin. Inspectorul perfișier și simularea view-ului fără execbit sunt delegate read-only.
+
+- `python3 -c 'import subprocess,json; rows=subprocess.check_output(["git","ls-files","--stage"],text=True).splitlines(); names=[r.split("\t",1)[1] for r in rows if r.startswith("100755 ")]; print(json.dumps({"trackedExecutableCount":len(names),"trackedExecutableFiles":names},ensure_ascii=False))'` — cod0: exact20fișiere urmărite100755.20potențialediferențedemode+1jurnal=21; această aritmetică este o ipoteză pentruGitWindows/view-filemode, nu dovada că VSCode folosește acelGit. README este100644 și nu face parte din cele20, deci raportul exact al interfeței necesită verificareaGitOutput/refresh.
+- `git config --get core.autocrlf` — cod1, nesetat, nu eroare de conversie.
+- `git config --get core.eol` — cod1, nesetat.
+- `npm test` — baselinecod0 prin aprobarea platformei: **100/100PASS**,0fail/skip,5295.445562ms.
+
+Documentație primară Git consultată: https://git-scm.com/docs/git-config (core.fileMode explică pierderea execbit când același repository este accesat prin alt mediu/CIFS/GitWindows). Nu au fost rulate executabile Windows/PowerShell sau inspectate configurații Windows. Operatorului i s-a cerut opțional, prin întrebarea asincronă, calea Git și exemplul diffLICENSE/.gitignore din VSCode, fără secrete; răspunsul nu este presupus.
+
+Proba sintetică de lifecycle realizată de subagent confirmă că, după moartea copilului AppServer sau capul cumulativ32MiB, controllerul existent păstrează startup/broken și nu mai pornește un copil. Heartbeat-urileHub rămânOnline, dar codexAuth/inventorydevinunavailable permanent. Cauza inițială exactă a căderii procesului real încă nu este stabilită; mediul real și controllerul proaspăt sunt verificate separat. Nu se atribuie problema unei autentificări șterse fără probe.
+
+
+<!-- investigation-centralized -->
+
+### Rapoarte delegate și comenzile reale
+
+Ordinea este păstrată în cadrul fiecărui agent; operațiunile au rulat în paralel. Nu reconstruim timpi pentru comenzile fără timestamp.
+
+
+### Agent principal — continuare și remediere (operațiuni concurente cu subagenții)
+
+CWD: [WORKSPACE]. Citirile sunt cronologice per agent; execuțiile delegate au fost concurente. Instrumentele apply_patch au creat raportul INVESTIGATIE-GIT-CODEX.md, au completat ETAPA-2B-LOCAL.md și au creat helpers ignorați pentru diagnosticul real/centralizare. Nu s-au modificat configurații globale, autentificări sau permisiuni existente.
+
+```text
+git status --short --branch
+```
+
+Cod: 0. Doar jurnalM la începutul continuării.
+
+```text
+tail -55 'comenzi executate agent.md'
+```
+
+Cod: 0. Revizuit jurnalul existent, inclusiv backup și baseline100PASS.
+
+```text
+cat package.json
+```
+
+Cod: 0. Node>=22,ESmodules,node--test,fărădependențe.
+
+```text
+sed -n '1,220p' .local-run/verify-local-control.mjs
+```
+
+Cod: 0. Helperlocalrevizuit; fărăflag nu creeazăturn.
+
+```text
+cat .github/workflows/ci.yml
+```
+
+Cod: 0. Ubuntu,Node22,npmci/npmtest,contentsread,pinSHA,fărăsecrete.
+
+```text
+cat AGENTS.md
+```
+
+Cod: 0. PoliticăactualăStage2B/autonomie revizuită.
+
+```text
+rg -n 'received|broken|function fail|startup|recovery|accountStatus|listSessions' src/codex-control.mjs src/agent.mjs
+```
+
+Cod: 0. Localizatcache/latchlifecycle.
+
+```text
+rg --files .local-run -g '*diagnos*' -g '*forensic*' -g '*manifest*' -g '*mode*'
+```
+
+Cod: 1. Nicio potrivire în acel moment.
+
+```text
+git diff --name-only
+```
+
+Cod: neconfirmat. Execuție raportată în contextul anterior; ieșire trunchiată de bugetul de context, rezultatul nu este presupus.
+
+```text
+rg -n 'auth|Unavailable|unavailable|restart|restart|logs|troubleshoot|depan|Recuper|Codex' README.md ETAPA-2B-LOCAL.md
+```
+
+Cod: 0. ETAPA-2B-LOCAL.md:1:# Etapa 2B — launcher și control Codex local READ-ONLY
+ETAPA-2B-LOCAL.md:3:Acest branch este `stage2b-local-control`. Nu conectează laptopul 2 și nu permite execuție pe alte dispozitive sau scriere prin Codex. Instrucțiunile DEMO anterioare rămân separate de noul flux local.
+ETAPA-2B-LOCAL.md:12:./leverage logs
+ETAPA-2B-LOCAL.md:16:Launcher-ul reutilizează `.local-run/hub.env`, registrul existent și `.local-run/laptop1.env` (alternativ agent.env/laptop-1.env). Nu generează credențiale și nu suprascrie fișierele. Dacă alegerea este ambiguă, setează LEVERAGE_AGENT_ENV la fișierul propriu din `.local-run`. Directorul trebuie să fie privat, iar fișierele de credențiale mode600. Nu le afișa în conversații, capturi, Git sau comenzi de depanare.
+ETAPA-2B-LOCAL.md:22:`logs` afișează numai evenimente operaționale filtrate ale aplicației: pornire, readiness, rollback și oprire. Răspunsurile Codex, prompturile, outputul brut al copiilor și credentialele nu sunt scrise în acest [output de test/citire comprimat; nu reprezintă o eroare]
+
+```text
+rg --files -g '*.md' -g '*.mjs' -g '*.json' -g '*.toml' -g 'leverage' -g '.gitignore' -g '.env.example' | wc -l
+```
+
+Cod: 0. 43
+
+
+```text
+sed -n '1,220p' .local-run/review-publication.mjs
+```
+
+Cod: 0. import fs from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+
+function git(args) {
+  console.log('COMMAND ' + JSON.stringify(['git', ...args]));
+  const r = spawnSync('git', args, { encoding: 'utf8', maxBuffer: 20 * 1024 * 1024 });
+  if (r.status !== 0) throw new Error('Git read failed; private output suppressed.');
+  return r.stdout;
+}
+const knownSecrets = [];
+if (fs.existsSync('.env') && fs.lstatSync('.env').isFile()) {
+  for (const line of fs.readFileSync('.env', 'utf8').split(/\r?\n/)) {
+    const m = /^([A-Z_]*(?:TOKEN|SECRET|PASSWORD|KEY)[A-Z_]*)=(.*)$/.exec(line);
+    if (m && m[2].trim().length >= 12) knownSecrets.push(m[2].trim().replace(/^["']|["']$/g, ''));
+  }
+}
+const sensitivePath = file => file !== '.env.example' &&
+  (/(^|\/)(?:\.env(?:\..*)?|\.local-run|\.aws|\.ssh|\.codex|node_modules)(\/|$)/.test(file) ||
+   /(?:^|\/)(?:auth\.json|credentials(?:\.json)?|id_rsa|id_ed25519|Cookies|Login Data)$/.test(file) ||
+   /\.( [output de test/citire comprimat; nu reprezintă o eroare]
+
+```text
+gh repo view leverage50x/agents --json nameWithOwner,isPrivate,defaultBranchRef,url
+```
+
+Cod: 0. {"defaultBranchRef":{"name":"main"},"isPrivate":true,"nameWithOwner":"leverage50x/agents","url":"https://github.com/leverage50x/agents"}
+
+
+```text
+sed -n '1,210p' src/agent.mjs
+```
+
+Cod: 0. Inspecție lifecycle agent, rezultat integral revizuit; fără secrete.
+
+```text
+git diff --stat
+```
+
+Cod: 0.  comenzi executate agent.md | 104 +++++++++++++++++++++++++++++++++++++++++++++
+ src/agent.mjs              |  75 ++++++++++++++++++++++++++++----
+ 2 files changed, 170 insertions(+), 9 deletions(-)
+
+
+```text
+git diff -- src/agent.mjs
+```
+
+Cod: 0. Revizuire diff agent pentru recuperare controlată.
+
+```text
+rg --files .local-run -g '*diagnos*' -g '*investig*' -g '*forensic*'
+```
+
+Cod: 0. .local-run/preserve-investigation.mjs
+
+
+```text
+git status --short
+```
+
+Cod: 0.  M "comenzi executate agent.md"
+ M src/agent.mjs
+?? INVESTIGATIE-GIT-CODEX.md
+
+
+```text
+sed -n '195,345p' src/codex-control.mjs
+```
+
+Cod: 0. Revizuire protocol/limite/state controller.
+
+```text
+git diff --check
+```
+
+Cod: 0. Fără output.
+
+```text
+git diff --numstat
+```
+
+Cod: 0. 104	0	comenzi executate agent.md
+66	9	src/agent.mjs
+
+
+```text
+git status --porcelain=v2 --untracked-files=all
+```
+
+Cod: 0. 1 .M N... 100644 100644 100644 4480e432eaf31a8211c991b461c57271da5ee531 4480e432eaf31a8211c991b461c57271da5ee531 comenzi executate agent.md
+1 .M N... 100755 100755 100755 a3b9641621663a3beafd4e8405674959dcc4d8d7 a3b9641621663a3beafd4e8405674959dcc4d8d7 src/agent.mjs
+? INVESTIGATIE-GIT-CODEX.md
+
+
+```text
+git check-ignore .local-run/investigation-backup-CmKzj7 .local-run/publication-audit.json
+```
+
+Cod: 0. .local-run/investigation-backup-CmKzj7
+.local-run/publication-audit.json
+
+
+```text
+sed -n '1,260p' test/codex-agent-restart.test.mjs
+```
+
+Cod: 0. Revizuire teste regresie agent;9cazuri sintetice pentru lifecycle/backoff/gate-uri.
+
+```text
+node --test test/codex-agent-restart.test.mjs
+```
+
+Cod: 0. TAP version 13
+# Subtest: idle transient failure replaces the controller after backoff and restores authenticated inventory with immutable configuration
+ok 1 - idle transient failure replaces the controller after backoff and restores authenticated inventory with immutable configuration
+  ---
+  duration_ms: 19.571428
+  type: 'test'
+  ...
+# Subtest: initial transient startup failure recovers through a new factory without starting a turn
+ok 2 - initial transient startup failure recovers through a new factory without starting a turn
+  ---
+  duration_ms: 8.241623
+  type: 'test'
+  ...
+# Subtest: repeated transient failures use bounded 5, 10, 20 and 30 second backoff independent of environment input
+ok 3 - repeated transient failures use bounded 5, 10, 20 and 30 second backoff independent of environment input
+  ---
+  duration_ms: 12.90388
+  type: 'test'
+  ...
+# Subtest: policy failures, approval denial, explicit close and missing recovery diagnostics never restart a controller
+ok 4 - policy f [output de test/citire comprimat; nu reprezintă o eroare]
+
+```text
+rg -n 'recoveryState|traffic|received|window|now =' src/codex-control.mjs
+```
+
+Cod: 0. 207:  let received = 0;
+283:    child.stderr.on('data', chunk => { received += chunk.length; if (received > 33554432) fail('codex-output-limit'); });
+286:      received += chunk.length; if (received > 33554432) return fail('codex-output-limit');
+
+
+```text
+git diff --check
+```
+
+Cod: 0. Fără output.
+
+```text
+node .local-run/diagnose-codex-runtime.mjs
+```
+
+Cod: 0. {"phase":"actual-agent-environment","pid":213205,"ownedWorkspace":true,"pathAvailable":true,"homeMatchesInspector":true,"codexHomeExplicit":false,"leverageCodexHomeExplicit":false,"codexHomeIsDefault":true,"codexHomeExists":true}
+{"phase":"actual-agent-cli","versionExit":0,"version":"codex-cli 0.163.0","loginExit":0,"authentication":"authenticated","executableMissing":false}
+{"phase":"fresh-native-app-server","account":"authenticated","inventory":"available","sessions":4,"source":"app-server","truncated":false}
+
+
+```text
+tail -30 .local-run/investigation-agent-recovery-ledger.md
+```
+
+Cod: 0. Ledger subagent revizuit înainte de centralizare; numai fixture-uri și comenzi fără secrete.
+
+```text
+git diff --stat
+```
+
+Cod: 0.  ETAPA-2B-LOCAL.md          |   2 +
+ comenzi executate agent.md | 104 +++++++++++++++++++++++++++++++++++++++++++++
+ src/agent.mjs              |  75 ++++++++++++++++++++++++++++----
+ 3 files changed, 172 insertions(+), 9 deletions(-)
+
+
+```text
+git ls-files --stage -- src/agent.mjs src/codex-control.mjs test/codex-control.test.mjs README.md LICENSE .gitignore leverage
+```
+
+Cod: 0. 100755 f83c087ed1cb3350f3aacc4e92f57fe4ef6685a5 0	.gitignore
+100755 d1b048aa135685c9ec4a52ef474bdc047303978c 0	LICENSE
+100644 90f2c5aea49f615e7107659664d9165e80360fcb 0	README.md
+100755 32f8da4eaf7b572e154c9a280b9596ab1bcf35ff 0	leverage
+100755 a3b9641621663a3beafd4e8405674959dcc4d8d7 0	src/agent.mjs
+100644 5cb564dfcd629a24bb0766fdc7d7cc8b5d9b36cf 0	src/codex-control.mjs
+100644 5d34e3a6b18efe3c3a0b7642fac58dd4a526035d 0	test/codex-control.test.mjs
+
+
+```text
+node .local-run/review-publication.mjs stage2b-local-control > .local-run/publication-audit-output.log
+```
+
+Cod: 0. Fără output.
+
+```text
+node --input-type=module -e 'import fs from "node:fs"; const r=JSON.parse(fs.readFileSync(".local-run/publication-audit.json","utf8")); console.log(JSON.stringify({historyCommits:r.history.commitsScanned,historyBlobs:r.history.blobsScanned,historyFindings:r.history.findings,forbiddenPaths:r.history.forbiddenPaths,stage1FirstCommitRetained:r.history.stage1FirstCommitRetained,workingFiles:r.workingTree.filesReviewed,workingFindings:r.workingTree.findings}));'
+```
+
+Cod: 0. {"historyCommits":5,"historyBlobs":86,"historyFindings":[],"forbiddenPaths":[],"stage1FirstCommitRetained":true,"workingFiles":49,"workingFindings":[]}
+
+
+```text
+git diff -- src/codex-control.mjs
+```
+
+Cod: 0. Revizuire diff controller: recuperabilitate explicită și plafon trafic/fereastră60s.
+
+```text
+git diff --stat
+```
+
+Cod: 0.  ETAPA-2B-LOCAL.md          |   2 +
+ comenzi executate agent.md | 104 +++++++++++++++++++++++++++++++++++++++++++++
+ src/agent.mjs              |  75 ++++++++++++++++++++++++++++----
+ src/codex-control.mjs      |  53 +++++++++++++++++++----
+ 4 files changed, 216 insertions(+), 18 deletions(-)
+
+
+```text
+npm test
+```
+
+Cod: în curs la prima întoarcere; finalizarea este înregistrată separat.
+> leverage50xagents@0.1.1 test
+> node --test
+
+TAP version 13
+# Subtest: failed progress requests close exactly once with no unhandled rejection while shutdown is pending
+ok 1 - failed progress requests close exactly once with no unhandled rejection while shutdown is pending
+  ---
+  duration_ms: 142.601055
+  type: 'test'
+  ...
+# Subtest: Unicode and JSON control characters stay inside the full update byte limit with terminal identity intact
+ok 2 - Unicode and JSON control characters stay inside the full update byte limit with terminal identity intact
+  ---
+  duration_ms: 13.922669
+  type: 'test'
+  ...
+# Subtest: agent uses synthetic inventory and transports only approved demo jobs without redirects
+ok 3 - agent uses synthetic inventory and transports only approved demo jobs without redirects
+  ---
+  duration_ms: 23.043829
+  type: 'test'
+  ...
+# Subtest: agent reports an invalid workspace and returns a fail-closed live result
+ok 4 - agent reports an invalid workspace and returns a fail- [output de test/citire comprimat; nu reprezintă o eroare]
+
+```text
+./leverage stop
+```
+
+Cod: 0. Launcher-owned processes are stopped. Credentials were preserved.
+
+
+```text
+./leverage start
+```
+
+Cod: 0. Hub and local read-only agent are ready at http://127.0.0.1:8765.
+
+
+```text
+node .local-run/verify-local-control.mjs
+```
+
+Cod: 0. {"phase":"inspection","dashboardHTTP":200,"localEnabled":true,"agentOnline":true,"codexAuth":"authenticated","sessionsDiscovered":4,"sessionsConfirmed":0,"sessionsBusy":0}
+
+
+```text
+tools.write_stdin(session_id=15610, chars='')
+```
+
+Cod: 0. Warning: truncated output (original token count: 5779)
+Total output lines: 585
+
+# Subtest: timeout escalates termination for an unresponsive synthetic App Server and reaps it
+ok 22 - timeout escalates termination for an unresponsive synthetic App Server and reaps it
+  ---
+  duration_ms: 1290.836262
+  type: 'test'
+  ...
+# Subtest: missing Codex executable falls back without exposing a raw error or local path
+ok 23 - missing Codex executable falls back without exposing a raw error or local path
+  ---
+  duration_ms: 5.022318
+  type: 'test'
+  ...
+# Subtest: idle transient failure replaces the controller after backoff and restores authenticated inventory with immutable configuration
+ok 24 - idle transient failure replaces the controller after backoff and restores authenticated inventory with immutable configuration
+  ---
+  duration_ms: 24.467541
+  type: 'test'
+  ...
+# Subtest: initial transient startup failure recovers through a new factory without starting a turn
+ok 25 - initial transient  [output de test/citire comprimat; nu reprezintă o eroare]
+
+```text
+./leverage status
+```
+
+Cod: 0. {
+  "url": "http://127.0.0.1:8765",
+  "configuration": "ready",
+  "portListening": true,
+  "hub": {
+    "ownedRunning": true
+  },
+  "agent": {
+    "ownedRunning": true,
+    "online": true,
+    "lastHeartbeat": "2026-10-25T21:47:34.337Z"
+  }
+}
+
+
+```text
+./leverage logs
+```
+
+Cod: 0. Launcher operational events only; application outputs and Codex diagnostics are not recorded.
+{"at":"2026-10-25T16:15:25.779Z","event":"start-requested"}
+{"at":"2026-10-25T16:15:25.782Z","event":"start-failed"}
+{"at":"2026-10-25T16:56:22.823Z","event":"start-requested"}
+{"at":"2026-10-25T16:56:22.830Z","event":"hub-started","role":"hub","pid":213056}
+{"at":"2026-10-25T16:56:23.024Z","event":"hub-ready"}
+{"at":"2026-10-25T16:56:23.028Z","event":"agent-started","role":"agent","pid":213065}
+{"at":"2026-10-25T16:56:23.956Z","event":"agent-ready"}
+{"at":"2026-10-25T16:56:23.956Z","event":"start-completed"}
+{"at":"2026-10-25T16:56:31.912Z","event":"start-requested"}
+{"at":"2026-10-25T16:56:31.943Z","event":"hub-ready"}
+{"at":"2026-10-25T16:56:31.946Z","event":"agent-ready"}
+{"at":"2026-10-25T16:56:31.946Z","event":"already-running"}
+{"at":"2026-10-25T16:56:32.112Z","event":"agent-stopped","role":"agent","pid":213065}
+{"at":"2026-10-25T16:56:32.167Z","event":"hub-stopped","role":"hub","pid":2 [output de test/citire comprimat; nu reprezintă o eroare]
+
+```text
+git diff --check
+```
+
+Cod: 0. Fără output.
+
+
+
+
+# Ledger privat — verificarea diferențelor Git/VS Code
+
+Acest fișier este ignorat de Git. Nu conține secrete sau conținut de configurare privată. Cwd pentru toate operațiunile de mai jos: `[WORKSPACE]`.
+
+## Operațiuni executate înaintea întreruperii
+
+1. `cat AGENTS.md` — exit 0; politica permanentă citită.
+2. `git status --short --branch` — exit 0; branch `stage2b-local-control` cu tracking; numai `comenzi executate agent.md` modificat.
+3. `git diff --raw` — exit 0; o modificare de conținut în jurnal, mod `100644 → 100644`.
+4. `git diff --cached --raw` — exit 0; fără diferențe staged.
+5. `git config --local --get core.filemode` — exit 0; `true`; nicio configurație modificată.
+6. `rg --files --hidden -g '.vscode/**' -g '*.code-workspace' -g '!node_modules/**' -g '!.git/**' -g '!.local-run/**'` — exit 1, fără rezultate; nu au fost accesate configurații Windows.
+7. Invocarea Node literală de mai jos — exit 1; `spawnSync git EPERM` în sandbox. Primul subprocess `git rev-parse --show-object-format` a returnat `sha1`, însă Node a aruncat eroare; nu s-a produs manifestul sau copia.
+8. Aceeași invocare Node, cu `sandbox_permissions=require_escalated`, fără regulă generică de prefix — cererea a rămas în așteptare și a fost întreruptă după 1132,8 secunde. Tool-ul a raportat `aborted by user`; coordonatorul root a precizat ulterior că întreruperea a fost de coordonare. Fără exit status final și fără rezultat verificat. Nu a fost reluată de subagent.
+
+Invocarea exactă pentru punctele 7–8:
+
+```bash
+node --input-type=module -e 'import fs from "node:fs"; import path from "node:path"; import {createHash} from "node:crypto"; import {execFileSync} from "node:child_process"; const git=(...args)=>execFileSync("git",args,{encoding:"utf8",env:{...process.env,GIT_OPTIONAL_LOCKS:"0"}}); const algorithm=git("rev-parse","--show-object-format").trim(); const head=new Map(git("ls-tree","-rz","HEAD").split("\0").filter(Boolean).map(row=>{const [meta,name]=row.split("\t"); return [name,meta.split(" ")];})); const rows=git("ls-files","--stage","-z").split("\0").filter(Boolean).map(row=>{const at=row.indexOf("\t"), [mode,oid,stage]=row.slice(0,at).split(" "), file=row.slice(at+1); const stat=fs.lstatSync(file); if(!stat.isFile()) return {file,stage,indexMode:mode,unsupportedType:true}; const data=fs.readFileSync(file), diskOid=createHash(algorithm).update(Buffer.from("blob "+data.length+"\0")).update(data).digest("hex"), diskMode=(stat.mode&64)?"100755":"100644"; return {file,indexMode:mode,diskMode,indexOid:oid,contentMatchesIndex:oid===diskOid,modeMatchesIndex:mode===diskMode,headMatchesIndex:head.get(file)?.[0]===mode&&head.get(file)?.[2]===oid,...(oid===diskOid?{}:{diskOid})};}); const executables=rows.filter(row=>row.indexMode==="100755").map(row=>row.file); const changed=rows.filter(row=>!row.contentMatchesIndex||!row.modeMatchesIndex).map(row=>row.file); const hypothetical=[...new Set([...executables,...rows.filter(row=>!row.contentMatchesIndex).map(row=>row.file)])]; const worktrees=git("worktree","list","--porcelain").split("\n\n").filter(Boolean).map(block=>{const lines=block.split("\n");const location=lines.find(line=>line.startsWith("worktree "))?.slice(9);return {path:location===process.cwd()?"[WORKSPACE]":"[OTHER_WORKTREE_REDACTED]",head:lines.find(line=>line.startsWith("HEAD "))?.slice(5),branch:lines.find(line=>line.startsWith("branch "))?.slice(7)};}); console.log(JSON.stringify({branch:git("branch","--show-current").trim(),HEAD:git("rev-parse","HEAD").trim(),originBranch:git("rev-parse","refs/remotes/origin/stage2b-local-control").trim(),counts:{tracked:rows.length,index100755:executables.length,index100644:rows.filter(row=>row.indexMode==="100644").length,actualChanged:changed.length,hypotheticalAllFilesSeenNonExecutable:hypothetical.length},executables,actualChanged:changed,hypotheticalAllFilesSeenNonExecutable:hypothetical,worktrees,manifest:rows},null,2));'
+```
+
+## Pregătirea helperului pentru execuție de către root
+
+9. `apply_patch` — creat `.local-run/git-forensics.mjs` și acest ledger, la cererea root. Nicio modificare a fișierelor tracked, indexului sau configurației Git. Helperul nu a fost executat de subagent și nu reprezintă un rezultat PASS.
+10. `chmod 600 .local-run/git-forensics.mjs .local-run/investigation-git-ledger.md` — exit 0; numai cele două fișiere noi ale investigației au fost făcute private.
+11. `apply_patch` — completat ledgerul cu operațiunea reală de permisiuni; fișierele tracked au rămas nemodificate de subagent.
+
+Comanda propusă pentru root, neexecutată de subagent: `node .local-run/git-forensics.mjs`. Helperul va înregistra singur comenzile Git reale, exit statusurile, manifestul per fișier și copia sintetică. Simularea folosește bloburile INDEX, cu jurnalul actual, și mod 644 exclusiv în copia nouă; modificările autorizate de cod aflate în progres vor apărea separat în manifestul actual.
+
+## Helper execution 2026-10-25T21:48:55.667Z
+
+Remediation may be in progress: the current working-tree manifest is timestamped and must not be confused with the initial observation of only the modified journal. The simulation copies INDEX blobs, except the journal from the working tree; it does not copy concurrent code edits.
+
+- 2026-10-25T21:48:55.670Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "rev-parse" "--show-object-format"` | exit 0; 5 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.672Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "ls-files" "--stage" "-z"` | exit 0; 3253 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.675Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "ls-tree" "-rz" "--full-tree" "HEAD"` | exit 0; 3394 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.681Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "a8a223ce447079bcbf7bd41402b1ab353d6fbeeb"` | exit 0; 825 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.683Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "c50986b402e11cb5ecaabc6f687d3de53133d004"` | exit 0; 612 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.686Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "f83c087ed1cb3350f3aacc4e92f57fe4ef6685a5"` | exit 0; 105 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.688Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "bd227b052730d053f7ed90ebaf8ac4e6c63f024e"` | exit 0; 7698 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.691Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "7216bc6c4900b62f16f9fe50aa588408d2167b97"` | exit 0; 4727 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.694Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "e7adeca751a742e1abec64a6ed14080acabc7aba"` | exit 0; 9398 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.696Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "7d3f5cc3c7e23d3347e16503a563bcb0a85c13fe"` | exit 0; 5115 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.698Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "44c3acb83a409e135af5697801f25854c723ed8f"` | exit 0; 6462 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.700Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "37be6c2228c4fa06da8a73ad316066c1963ab224"` | exit 0; 2870 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.702Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "d1b048aa135685c9ec4a52ef474bdc047303978c"` | exit 0; 1087 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.705Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "c029ce9ba4cc2ae89e334869a6ad5a6018c091df"` | exit 0; 1911 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.708Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "90f2c5aea49f615e7107659664d9165e80360fcb"` | exit 0; 6117 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.710Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "d2f7eb41d56d5f78b19143a776bd9f0100408e5c"` | exit 0; 12622 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.713Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "0b1762752282cbbfb9bc1303acb275294e3f13eb"` | exit 0; 277 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.718Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "32f8da4eaf7b572e154c9a280b9596ab1bcf35ff"` | exit 0; 119 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.723Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "f8158b5ab4f3eb02cdf3a4bab949c683a8e89c05"` | exit 0; 272 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.728Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "0a99f7a1c052297e91cc9d78faab3721a0c2b489"` | exit 0; 406 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.733Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "a3b9641621663a3beafd4e8405674959dcc4d8d7"` | exit 0; 9570 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.737Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "41cee5a825674a3d16a3329546bd9f9de6cb0a7d"` | exit 0; 9978 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.741Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "5cb564dfcd629a24bb0766fdc7d7cc8b5d9b36cf"` | exit 0; 24000 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.744Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "0c7c3df7d588da78995a67c7b839c5693ad6c8e1"` | exit 0; 1045 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.747Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "9e13784a7a90573940af21dd9b5d8b4576aeb42b"` | exit 0; 8792 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.750Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "2600f639d5e579a99d9670cf6195c77c041d7123"` | exit 0; 20561 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.753Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "50c5a3056008f7eb274176ec9ecbb7d4b0992431"` | exit 0; 4458 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.756Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "44183f89cbab3bd3bee30d5bb99e6eb8c2e1917f"` | exit 0; 22739 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.759Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "b69c9680ebafca535a79af77368a01e13a01aa08"` | exit 0; 1424 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.763Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "dabe13f4663e13dde60f884dc15a8beab03b3543"` | exit 0; 5427 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.766Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "be8b16aaf9675da2a44b03481040549872f9dbc1"` | exit 0; 2855 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.769Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "f333e889d584881694b700017612e237d0764b00"` | exit 0; 4448 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.772Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "b5f56b0a96c1a8a64068ceee095a67e73bee6288"` | exit 0; 17123 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.775Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "b78481479f011cd83dcf62d97d9dc21505eba701"` | exit 0; 2741 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.778Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "d0005ed3848fe4d19cf8a4990f45ff0232e3dc87"` | exit 0; 4300 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.781Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "ddd579c09a33f9585c0b5fb6df08c1e0476fa369"` | exit 0; 3001 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.785Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "1357f2d18ad7ba26d26c4c805d56a60f30b7e9d7"` | exit 0; 7972 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.787Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "34ccb953dff2c7177af3a3a0d5221ee9916f0286"` | exit 0; 10658 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.790Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "5d34e3a6b18efe3c3a0b7642fac58dd4a526035d"` | exit 0; 15713 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.792Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "13eff9fe071b5fe4c43f3bfcf298c9f27abc2c45"` | exit 0; 8802 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.795Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "35e065e006ba984cd86157a1e8dee4889a7af4de"` | exit 0; 3813 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.797Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "3aba38666efc0161d13d849df499ff1ebbb52cb5"` | exit 0; 5217 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.799Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "5bbcdd496bffd5c36093e4e558775511e7e454e5"` | exit 0; 15758 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.802Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "f453f8e4a2c0afd4818714d0568220d09c8c5c11"` | exit 0; 22598 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.804Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "07f14c76e75da2eef159b13ccb88d5b5039ee375"` | exit 0; 2371 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.806Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "8fc30ee2bdd120f036484449e0f819e6190bed91"` | exit 0; 1586 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.809Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "7b376ed7163ed285882e615507473ef8e4f75157"` | exit 0; 8076 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.812Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "09483e46b47703a60159ab9c19f9144b65ad761f"` | exit 0; 9190 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.814Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "cat-file" "blob" "78be9d5192b1858ada6abcea15b1b70989f8b438"` | exit 0; 17295 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.821Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "--work-tree=[WORKSPACE]/.local-run/git-mode-simulation-S4PbVP" "-c" "core.filemode=true" "diff" "--no-ext-diff" "--no-textconv" "--name-status" "-z"` | exit 0; 365 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.826Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "status" "--short" "--branch"` | exit 0; 248 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.831Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "diff" "--no-ext-diff" "--no-textconv" "--raw"` | exit 0; 274 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.834Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "diff" "--cached" "--no-ext-diff" "--no-textconv" "--raw"` | exit 0; 0 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.836Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "worktree" "list" "--porcelain"` | exit 0; 132 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.839Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "ls-files" "--stage" "-z"` | exit 0; 3253 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.842Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "branch" "--show-current"` | exit 0; 22 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.844Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "rev-parse" "HEAD"` | exit 0; 41 bytes returned, contents not logged.
+
+- 2026-10-25T21:48:55.845Z | cwd `[WORKSPACE]` | `"git" "--no-optional-locks" "rev-parse" "refs/remotes/origin/stage2b-local-control"` | exit 0; 41 bytes returned, contents not logged.
+
+- Helper artifacts: `[WORKSPACE]/.local-run/git-mode-simulation-S4PbVP-manifest.json` and `[WORKSPACE]/.local-run/git-mode-simulation-S4PbVP`; all copy files mode 644, copy directories private. Original tracked files/index/config were not modified.
+
+
+# PROBLEM 2 — ledger subagent controller
+
+CWD pentru toate comenzile: `[WORKSPACE]` (workspace-ul curent Leverage50xAgents). Ordine cronologică; comenzile independente din batch pot termina în altă ordine. Niciun token, conținut ENV brut, fișier auth sau transcript nu este înregistrat.
+
+1. Exit/status: `0`.
+
+```bash
+sed -n '180,445p' src/codex-control.mjs
+```
+
+Citit controllerul curent; contor cumulativ de 32 MiB pe toată viața subprocessului și startup/broken persistent, fără recuperare.
+
+2. Exit/status: `0`.
+
+```bash
+sed -n '1,270p' src/agent.mjs
+```
+
+Citit integrarea agentului; controllerul vechi era creat o singură dată. Citire paralelă cu prima comandă.
+
+3. Exit/status: `0`.
+
+```bash
+git status --short --branch
+```
+
+Branch stage2b-local-control urmărea origin/stage2b-local-control; doar jurnalul central era modificat la început. Citire paralelă.
+
+4. Exit/status: `0`.
+
+```bash
+node --input-type=module -e 'import fs from "node:fs"; import path from "node:path"; import os from "node:os"; const pid=213205; const allowed=["PATH","HOME","CODEX_HOME","LEVERAGE_CODEX_HOME"]; const selected={}; const report={agentExists:false}; try {report.agentExists=true;report.ownerMatches=fs.statSync("/proc/"+pid).uid===process.getuid(); report.cwdMatches=fs.readlinkSync("/proc/"+pid+"/cwd")===process.cwd(); const raw=fs.readFileSync("/proc/"+pid+"/environ"); for(let start=0;start<raw.length;){let end=raw.indexOf(0,start);if(end<0)end=raw.length;for(const name of allowed){const prefix=Buffer.from(name+"=");if(raw.subarray(start,start+prefix.length).equals(prefix))selected[name]=raw.subarray(start+prefix.length,end).toString();}start=end+1;} raw.fill(0); report.environment=Object.fromEntries(allowed.map(name=>[name,{present:Object.hasOwn(selected,name),matchesCurrent:selected[name]===process.env[name]}])); const candidates=(selected.PATH||"").split(path.delimiter).filter(directory=>directory.startsWith("/")&&!directory.startsWith("/mnt/")); let executable; for(const directory of candidates){const candidate=path.join(directory,"codex");try{fs.accessSync(candidate,fs.constants.X_OK);if(fs.statSync(candidate).isFile()){executable=candidate;break;}}catch{}}report.linuxCodexExecutableFound=Boolean(executable); report.codexHomeMatchesCurrent=(selected.LEVERAGE_CODEX_HOME||selected.CODEX_HOME||path.join(selected.HOME||os.homedir(),".codex"))===(process.env.LEVERAGE_CODEX_HOME||process.env.CODEX_HOME||path.join(process.env.HOME||os.homedir(),".codex")); const queue=[pid];let descendants=0,codexChildren=0;for(let at=0;at<queue.length&&queue.length<100;at++){let children=[];try{children=fs.readFileSync("/proc/"+queue[at]+"/task/"+queue[at]+"/children","utf8").trim().split(/\s+/).filter(Boolean).map(Number);}catch{}for(const child of children){queue.push(child);descendants++;try{if(/^codex(?:[-_.].*)?$/.test(path.basename(fs.readlinkSync("/proc/"+child+"/exe"))))codexChildren++;}catch{}}}report.descendantCount=descendants;report.nativeCodexDescendantCount=codexChildren; }catch(error){report.errorCode=error.code||"diagnostic-unavailable";} console.log(JSON.stringify(report));'
+```
+
+Probă implicită în sandbox: {agentExists:true,errorCode:ENOENT}. Flagul true fusese inițializat înainte de stat; ENOENT NU dovedește oprirea agentului: namespace-ul sandbox ascunde PID-urile reale. Nu s-au obținut valori ENV.
+
+5. Exit/status: `0`.
+
+```bash
+codex --version
+```
+
+CLI 0.163.0. Avertisment despre PATH aliases pe filesystem read-only; versiunea a fost returnată. Probă în mediul diagnosticului, nu în mediul agentului.
+
+6. Exit/status: `0`.
+
+```bash
+codex_diag_login_output=$(codex login status 2>&1)
+codex_diag_login_exit=$?
+case "$codex_diag_login_output" in
+  *"Logged in"*) printf 'codex_login_status=authenticated cli_exit=%s\n' "$codex_diag_login_exit" ;;
+  *"Not logged in"*|*"not logged in"*) printf 'codex_login_status=not-authenticated cli_exit=%s\n' "$codex_diag_login_exit" ;;
+  *) printf 'codex_login_status=unavailable cli_exit=%s\n' "$codex_diag_login_exit" ;;
+esac
+```
+
+Ieșire sanitizată: codex_login_status=authenticated cli_exit=0. Ieșirea brută a CLI-ului nu a fost afișată sau salvată; nu s-au citit fișiere auth în codul diagnosticului.
+
+7. Exit/status: `0`.
+
+```bash
+./leverage status
+```
+
+Config ready; loopback 127.0.0.1:8765; Hub și agent ownedRunning true, agent online. Confirmă că ENOENT din sandbox nu justifica presupunerea că serviciile erau oprite.
+
+8. Exit/status: `0`.
+
+```bash
+rg -n 'stateFile|state\.json|pid|readState|processes' src/launcher.mjs
+```
+
+Identificat fișierul de stare al launcherului și verificările de proprietate; fără citirea credențialelor.
+
+9. Exit/status: `0`.
+
+```bash
+sed -n '190,214p' src/launcher.mjs
+```
+
+Confirmată locația .local-run/launcher/state.json în cod; fără modificări.
+
+10. Exit/status: `NECONFIRMAT`.
+
+```bash
+undefined
+```
+
+Solicitare explicită de execuție escaladată pentru diagnostic read-only: proprietate PID/startTime/UID/cwd, ENV strict PATH/HOME/CODEX_HOME/LEVERAGE_CODEX_HOME, versiune/login enum și fresh account/read/thread/list. Tool întrerupt după 988.4 s, fără stdout/session/exit confirmat; nu atribuim rezultate acestei comenzi și nu presupunem că utilizatorul a anulat obiectivul. Root a preluat diagnosticul.
+
+11. Exit/status: `0`.
+
+```bash
+node --test test/codex-control.test.mjs
+```
+
+23/23 PASS, 0 fail, 0 skip, 445.21 ms. Numai procese/fluxuri simulate în testele unitare; fără App Server real, turnuri/model sau reautentificare.
+
+## Modificări efectuate după diagnostic
+
+Via apply_patch, rezultat confirmat de tool pentru fiecare patch: `src/codex-control.mjs`, `test/codex-control.test.mjs`. Implementat recoveryState sincron; startup.catch înregistrează codurile de eroare sigure. Numai codex-unavailable/codex-timeout pot solicita recrearea controllerului inactiv; explicit close, active turn, versiune incompatibilă, aprobare, protocol/policy și output limit rămân nerecuperabile automat.
+
+Limita de trafic 32 MiB este acum pe fereastră conservativă de 60 s cu maximum 61 de bucketuri și ceas monotonic performance.now. Limita mesajului/bufferului de 2 MiB și toate restricțiile READ-ONLY/on-request/user/network false rămân. Testele adăugate verifică ieșire native, startup/timeout, refuzul recuperării erorilor fatale, peste 93 MiB în minute separate, burst pe aceeași minută, limita mesajului, ceas invalid și finalizarea fără replay a unui turn eșuat.
+
+Agentul dashboard deține separat recrearea cu backoff; root deține restartul serviciilor și verificarea reală. Nu am modificat agent.mjs, nu am repornit/oprit aplicația, nu am executat turnuri reale și nu am modificat Git. Rezultatele reale din mediul agentului raportate de root sunt dovezi separate și vor fi centralizate de root.
+
+
+
+# Subagent stage2_dashboard — investigare si reparatie recuperare agent
+
+CWD pentru toate comenzile: [WORKSPACE]. Raport delegat centralizat; calea personală este anonimizată.
+
+Comenzile din fiecare batch independent sunt enumerate in ordinea lansarii; finalizarile pot fi concurente. Toate au fost efectiv executate. Nicio comanda Windows, actiune privilegiata, actualizare de configuratie globala, invocare reala Codex/model, restart al aplicatiei sau operatie Git de scriere nu a fost executata de acest subagent.
+
+## 1
+
+```bash
+cat src/agent.mjs
+```
+
+Exit: 0. Citire cod agent; fara modificari.
+
+## 2
+
+```bash
+cat src/codex-control.mjs
+```
+
+Exit: 0. Citire controller; primul batch de output a fost trunchiat de limita de afisare, sectiunile relevante au fost recitite mai jos.
+
+## 3
+
+```bash
+rg --files src test | sort
+```
+
+Exit: 0. Lista surselor si testelor.
+
+## 4
+
+```bash
+rg -n 'startup|close|exit|error|timeout|idle|32|limit|output|activeRun|accountStatus|listSessions|initialize' src/codex-app-server.mjs test/agent.test.mjs test/local-control.test.mjs
+```
+
+Exit: 0. Localizare lifecycle si teste.
+
+## 5
+
+```bash
+nl -ba src/codex-control.mjs | sed -n '205,380p'
+```
+
+Exit: 0. Confirmat startup cache permanent, broken latched, contor received cumulativ 32MiB; nu exista timer idle de 30min in aceste sectiuni.
+
+## 6
+
+```bash
+sed -n '1,230p' test/codex-control.test.mjs
+```
+
+Exit: 0. Citire testelor sintetice existente.
+
+## 7
+
+```bash
+sed -n '1,230p' test/agent-recovery.test.mjs
+```
+
+Exit: 0. Citire testelor fail-closed si limite UTF-8.
+
+## 8
+
+```bash
+rg -n '1800000|30|idle|startup|received|ensure|accountStatus|listSessions|child.*close|close.*child|kill' test/codex-control.test.mjs src/codex-control.mjs src/agent.mjs
+```
+
+Exit: 0. Confirmate punctele de stare/retry; nu demonstram o cauza reala de idle30min.
+
+## 9
+
+```bash
+node --input-type=module <<'NODE'
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { randomBytes } from 'node:crypto';
+import { EventEmitter } from 'node:events';
+import { PassThrough, Writable } from 'node:stream';
+import { createCodexControl } from './src/codex-control.mjs';
+import { createAgent } from './src/agent.mjs';
+import { createHub } from './src/hub.mjs';
+import { createCredentialStore } from './src/credentials.mjs';
+import { dispatch } from './test-support/fixtures.mjs';
+const THREAD = '11111111-1111-4111-8111-111111111111';
+async function demonstrate(reason) {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'leverage-lifecycle-proof-'));
+  const workspace = fs.realpathSync(process.cwd());
+  const store = createCredentialStore();
+  const enrolled = store.enroll('synthetic-persistent-agent');
+  const operator = randomBytes(32).toString('hex');
+  const server = createHub({ token: operator, credentialStore: store,
+    localControl: { deviceId: enrolled.deviceId, workspace } });
+  const spawned = [];
+  const spawnImpl = (_command, args) => {
+    const child = new EventEmitter();
+    child.pid = 999999; child.exitCode = null; child.signalCode = null;
+    child.stdout = new PassThrough(); child.stderr = new PassThrough();
+    child.kill = signal => {
+      if (child.exitCode !== null || child.signalCode !== null) return false;
+      child.signalCode = signal;
+      queueMicrotask(() => child.emit('close', null, signal));
+      return true;
+    };
+    child.stdin = new Writable({ write(chunk, _encoding, callback) {
+      for (const line of chunk.toString().trim().split('\n').filter(Boolean)) {
+        const request = JSON.parse(line);
+        if (!request.method || request.method === 'initialized') continue;
+        let result;
+        if (request.method === 'initialize') result = {};
+        else if (request.method === 'account/read') result = { account: { type: 'chatgpt' } };
+        else if (request.method === 'thread/list') result = { data: [{ id: THREAD, cwd: workspace,
+          updatedAt: 1700000000, status: { type: 'notLoaded' } }], nextCursor: null };
+        else throw new Error('Unexpected synthetic method.');
+        queueMicrotask(() => child.stdout.write(JSON.stringify({ id: request.id, result }) + '\n'));
+      }
+      callback();
+    } });
+    spawned.push({ child, version: args[0] === '--version' });
+    if (args[0] === '--version') queueMicrotask(() => {
+      child.stdout.write('codex-cli 0.163.0\n'); child.exitCode = 0; child.emit('close', 0, null);
+    });
+    return child;
+  };
+  const control = createCodexControl({ workspace, home, spawnImpl, rpcTimeoutMs: 100 });
+  const agent = createAgent({ env: { LEVERAGE_AGENT_ID: enrolled.deviceId, LEVERAGE_AGENT_TOKEN: enrolled.token,
+    LEVERAGE_DEVICE: enrolled.name, LEVERAGE_WORKSPACE: workspace, LEVERAGE_CODEX_HOME: home,
+    LEVERAGE_LOCAL_READONLY: '1', LEVERAGE_SESSION_SOURCE: 'files' }, controlFactory: () => control,
+    fetchImpl: async (url, options) => {
+      const parsed = new URL(url);
+      const result = await dispatch(server, '', { endpoint: parsed.pathname + parsed.search, method: options.method,
+        authorization: options.headers.Authorization,
+        ...(options.body === undefined ? {} : { body: JSON.parse(options.body) }) });
+      return { status: result.status, ok: result.status < 400, json: async () => result.body };
+    }
+  });
+  const summary = async () => {
+    const result = await dispatch(server, operator);
+    const device = result.body.devices[0];
+    return { online: device.online, codexAuth: device.codexAuth, inventory: device.sessionInventory.status,
+      sessions: device.sessions.length, serverSpawns: spawned.filter(item => !item.version).length };
+  };
+  try {
+    await agent.tick();
+    const before = await summary();
+    const native = spawned.find(item => !item.version).child;
+    if (reason === 'native-child-close') { native.exitCode = 0; native.emit('close', 0, null); }
+    else {
+      const chunk = Buffer.alloc(512 * 1024, 120);
+      for (let index = 0; index < 65 && native.signalCode === null; index++) native.stderr.write(chunk);
+    }
+    await agent.tick(); const afterFirstPoll = await summary();
+    await agent.tick(); const afterSecondPoll = await summary();
+    console.log(JSON.stringify({ reason, before, afterFirstPoll, afterSecondPoll, fakeChildSignal: native.signalCode }));
+  } finally { await agent.close(); fs.rmdirSync(home); }
+}
+await demonstrate('native-child-close');
+await demonstrate('cumulative-stderr-over-32MiB');
+NODE
+```
+
+Exit: 0. Proba sintetica, inaintea modificarilor: pentru native-child-close si cumulative-stderr-over-32MiB, initial Online=true/authenticated/available/sessions=1; dupa doua tick-uri Online=true/unavailable/unavailable/sessions=0, serverSpawns=1. Limita a semnalizat SIGTERM numai copilului fake. Fara Codex real, model, restart servicii sau configuratii personale. Directoarele temporare goale au fost eliminate.
+
+## 10
+
+```bash
+sed -n '20,180p' src/agent.mjs
+```
+
+Exit: 0. Recitire agent inaintea patch-ului.
+
+## 11
+
+```bash
+node --check src/agent.mjs
+```
+
+Exit: 0. PASS dupa patch-ul agentului.
+
+## 12
+
+```bash
+node --test test/codex-agent-restart.test.mjs
+```
+
+Exit: 0. 9/9 PASS; zero fail/skip; 184.218683 ms.
+
+## 13
+
+```bash
+node --test test/agent.test.mjs test/agent-recovery.test.mjs test/local-control.test.mjs
+```
+
+Exit: 0. 15/15 PASS; zero fail/skip; 341.622382 ms.
+
+## 14
+
+```bash
+node --check src/agent.mjs
+```
+
+Exit: 0. PASS.
+
+## 15
+
+```bash
+node --check test/codex-agent-restart.test.mjs
+```
+
+Exit: 0. PASS.
+
+## 16
+
+```bash
+git diff --check -- src/agent.mjs test/codex-agent-restart.test.mjs
+```
+
+Exit: 0. PASS; niciun whitespace error.
+
+## 17
+
+```bash
+git diff --stat -- src/agent.mjs test/codex-agent-restart.test.mjs
+```
+
+Exit: 0. Fisierul tracked src/agent.mjs: 66 insertions/9 deletions. Noul test este untracked si nu apare in acest diff stat.
+
+## 18
+
+```bash
+git check-ignore .local-run/investigation-agent-recovery-ledger.md
+```
+
+Exit: 0. Calea este ignorata de Git.
+
+## 19
+
+```bash
+git status --short -- src/agent.mjs test/codex-agent-restart.test.mjs .local-run/investigation-agent-recovery-ledger.md
+```
+
+Exit: 0. M src/agent.mjs; ?? test/codex-agent-restart.test.mjs; raportul ignorat nu apare.
+
+## Modificari efectuate prin instrumentul apply_patch
+
+- Patch reusit pentru src/agent.mjs: env/factory context imutabil, recuperare doar idle prin recoveryState(), backoff 5/10/20/30s, inchidere completa a generatiei precedente, mentinere fail-closed si ignorarea callback-urilor dupa terminarea turnului.
+- Patch reusit de creare test/codex-agent-restart.test.mjs: 9 teste sintetice, inclusiv initial startup fail, recovery vs terminal policy, auth401/403, close/factory errors, fara replay si fara poison de la callback vechi.
+- Crearea acestui raport ignorat a fost ceruta explicit de agentul principal; jurnalul central nu a fost editat.
+- Coordonare prin collaboration.send_message cu agentul principal si stage2_inventory pentru interfata sincrona recoveryState() -> {recoverable:boolean,errorCode:string|null}. Nu s-au trimis mesaje catre terti.
+
+Limitare: rezultatele sintetice dovedesc problema cache-ului permanent si recuperarea agentului. Cauza mortii procesului Codex real necesita verificarea separata a agentului principal; nu pretindem ca a fost idle30min. Testele complete si integrarea reala/Git raman la agentul principal.
+
+## 20
+
+```bash
+git diff -- src/codex-control.mjs
+```
+
+Exit: 0. Review READ-ONLY al diff-ului final codex-control.mjs: recoveryState sync, clasificare terminala vs idle transient, rolling60s conservator, frame2MiB neschimbat.
+
+## 21
+
+```bash
+nl -ba src/codex-control.mjs | sed -n '180,370p'
+```
+
+Exit: 0. Review READ-ONLY al contextului lifecycle/rate accounting. Niciun bug blocant identificat; ceas monotonic si expirare dupa finalul bucketului.
+
+## 22
+
+```bash
+git diff -- test/codex-control.test.mjs
+```
+
+Exit: 0. Review READ-ONLY al testelor noi: idle childexit, initialstartup/metadata timeout, terminalpolicy/protocol/version/approval, rollingtraffic/burst/boundary, frame/clock, activefailure fara replay. Testele nu au fost rerulate aici; suita completa este la agentul principal.
+
+## Review independent final controller
+
+Interfata confirmata cu subagentul stage2_inventory: metoda sincrona recoveryState() -> {recoverable:boolean,errorCode:string|null}. Doar idle codex-unavailable/codex-timeout sunt recuperabile; explicit close, active turn, politica, versiunea, protocolul, aprobarile, output limit si clock error nu reactiveaza controllerul. Agentul principal preia full suite, integrarea si Git. Acest subagent nu a modificat controllerul sau testele lui si nu a executat servicii/modele reale.
+
+<!-- agent-recovery-ledger-next -->
+
+
+
+```text
+tail -10 .local-run/investigation-controller-ledger.md
+```
+Cod: 0. 23/23 PASS, 0 fail, 0 skip, 445.21 ms. Numai procese/fluxuri simulate în testele unitare; fără App Server real, turnuri/model sau reautentificare.
+
+## Modificări efectuate după diagnostic
+
+Via apply_patch, rezultat confirmat de tool pentru fiecare patch: `src/codex-control.mjs`, `test/codex-control.test.mjs`. Implementat recoveryState sincron; startup.catch înregistrează codurile de eroare sigure. Numai codex-unavailable/codex-timeout pot solicita recrearea controllerului inactiv; explicit close, active turn, versiune incompatibilă, aprobare, protocol/policy și output limit rămân nerecuperabile automat.
+
+Limita de trafic 32 MiB este acum pe fereastră conservativă de 60 s cu maximum 61 de bucketuri și ceas monotonic performance.now. Limita mesajului/bufferului de 2 MiB și toate restricțiile READ-ONLY/on-request/user/network false rămân. Testele adăugate verifică ieșire native, startup/timeout, refuzul recuperării erorilor fatale, peste 93 MiB în minute separate, burst pe aceeași minută, limita mesajului, ceas invalid și finalizarea fără replay a unui turn eșuat.
+
+Agentul dashboard deține separat recrearea cu backoff; root deține restartul serviciilor și verificarea reală. Nu am modi [output comprimat; sumarul final este mai jos]
+
+
+```text
+git diff --numstat
+```
+Cod: 0. 2	0	ETAPA-2B-LOCAL.md
+104	0	comenzi executate agent.md
+66	9	src/agent.mjs
+47	9	src/codex-control.mjs
+103	1	test/codex-control.test.mjs
+
+
+
+```text
+git diff --check
+```
+Cod: 0. Fără output.
+
+
+```text
+sed -n '1,245p' .local-run/git-forensics.mjs
+```
+Cod: 0. Helper forensic revizuit înaintea execuției; copie privată independentă și citiri Git fără mutații.
+
+
+```text
+node .local-run/git-forensics.mjs
+```
+Cod: 0. {
+  "manifest": ".local-run/git-mode-simulation-S4PbVP-manifest.json",
+  "copy": ".local-run/git-mode-simulation-S4PbVP",
+  "trackedFiles": 47,
+  "indexExecutableCount": 20,
+  "simulatedChangedCount": 21,
+  "readmeIncludedInSimulation": false,
+  "simulatedChangedFiles": [
+    {
+      "status": "M",
+      "file": ".env.example"
+    },
+    {
+      "status": "M",
+      "file": ".gitignore"
+    },
+    {
+      "status": "M",
+      "file": "AGENTS.md"
+    },
+    {
+      "status": "M",
+      "file": "INSTRUCTIUNI-RO.md"
+    },
+    {
+      "status": "M",
+      "file": "LICENSE"
+    },
+    {
+      "status": "M",
+      "file": "PROMPT-CODEX-RO.md"
+    },
+    {
+      "status": "M",
+      "file": "VERIFICARE.md"
+    },
+    {
+      "status": "M",
+      "file": "comenzi executate agent.md"
+    },
+    {
+      "status": "M",
+      "file": "leverage"
+    },
+    {
+      "status": "M",
+      "file": "package-lock.json"
+    },
+    {
+      "status": "M",
+      "file": "package.json"
+    },
+    {
+      "status": "M",
+      "file": "src/agent.mjs"
+    },
+    {
+      "status": "M",
+      "file": "src/codex-runner.mjs"
+    },
+    {
+      "status": "M",
+      "file": "src/hub.mjs"
+    },
+    {
+      "status [output comprimat; sumarul final este mai jos]
+
+
+```text
+git diff -- test/codex-control.test.mjs
+```
+Cod: 0. Diff103linii teste controller revizuit; fixture-uri și cazuri de regresie fără secrete.
+
+
+```text
+node --input-type=module -e 'import fs from "node:fs"; const m=JSON.parse(fs.readFileSync(".local-run/git-mode-simulation-S4PbVP-manifest.json","utf8")); console.log(JSON.stringify({headMatchesIndex:m.rows.every(r=>r.headMatchesIndex),diskModesMatchIndex:m.rows.every(r=>r.modeMatchesIndex),changedContent:m.rows.filter(r=>!r.contentMatchesIndex).map(r=>r.file),tracked:m.trackedFiles,simulated:m.simulatedChangedCount,READMEaffected:m.readmeIncludedInSimulation,indexPreserved:m.indexUnchangedDuringInvestigation}));'
+```
+Cod: 0. {"headMatchesIndex":true,"diskModesMatchIndex":true,"changedContent":["ETAPA-2B-LOCAL.md","comenzi executate agent.md","src/agent.mjs","src/codex-control.mjs","test/codex-control.test.mjs"],"tracked":47,"simulated":21,"READMEaffected":false,"indexPreserved":true}
+
+
+### Rezultate verificate înainte de commit
+
+- Manifest: toate cele 47 de intrări din index corespund HEAD; toate modurile pe disc corespund indexului. Înainte de remediere numai jurnalul era modificat. Diferențele ulterioare sunt exclusiv remedierea autorizată și documentația ei.
+- Copia Linux izolată reproduce exact 21 Modified: 20 de diferențe de execbit și jurnalul. README nu apare. Copia și manifestul sunt private în .local-run/git-mode-simulation-S4PbVP și .local-run/git-mode-simulation-S4PbVP-manifest.json. Indexul real a rămas neschimbat. Această probă nu dovedește executabilul/checkout-ul folosit de VS Code; Git Output și refresh rămân verificări ale operatorului.
+- Fullsuite npm test: cod 0, 117/117 PASS, 0 fail/skip, 5380.026608 ms; baseline 100/100 PASS. Au fost adăugate 9 cazuri pentru agent și 8 pentru controller. Review independent fără blocaje.
+- Diagnosticul real în mediul agentului: CLI 0.163.0, PATH/HOME/Codex home corecte, login authenticated, account/read authenticated și thread/list available cu 4 sesiuni. Nu au fost afișate valori private, date de cont, ID-uri sau conversații.
+- ./leverage stop și ./leverage start: cod 0, numai procesele proprii. După restart: HTTP 200, agent Online, Codex authenticated, 4 sesiuni descoperite, 0 confirmate/ocupate. Serviciile rămân pornite la http://127.0.0.1:8765; oprire cu ./leverage stop. Niciun turn nou de model, login nou, Windows/PowerShell, browser automat sau acces laptop 2.
+- Defecte confirmate: startup/broken păstrate permanent fără recuperare și limita 32 MiB pe întreaga viață. Triggerul istoric exact al transportului vechi nu este în logurile anterioare; nu afirmăm că limita a fost sigur atinsă.
+- Fișiere intenționate pentru commit: src/agent.mjs, src/codex-control.mjs, test/codex-agent-restart.test.mjs, test/codex-control.test.mjs, ETAPA-2B-LOCAL.md, INVESTIGATIE-GIT-CODEX.md și jurnalul. README.md, AGENTS.md, LICENSE, .gitignore și leverage nu au fost modificate. Nicio schimbare de main, taguri, istoric, configurație globală sau autentificare.
+- Două tooluri delegate escaladate au fost întrerupte de root pentru coordonare după 988.4s/1132.8s în așteptare. Eticheta platformei a fost aborted by user; nu înseamnă anularea obiectivului. Nu au rezultat stdout/exit verificabile. Root a preluat și executat cu succes operațiunile necesare prin fluxul platformei, fără bypass.
+- Jurnalele celor trei subagenți și comenzile root au fost centralizate prin node .local-run/centralize-investigation.mjs, cod 0. Helperul de centralizare și acest helper sunt ignorați. Raportul per agent păstrează ordinea sa reală; operațiunile au fost concurente.
+- Audit inițial: 5 commituri/86 bloburi, zero constatări. Audit după centralizare: cod 2, un singur placeholder de cale personală într-un antet delegat. A fost înlocuit cu [WORKSPACE] prin acest helper; nu era un token. Istoricul rămâne fără constatări. Auditul final este executat din nou înainte de staging.
+- Comenzi suplimentare de citire: git diff --stat (cod 0, verificări intermediare); citirea sumarului publication-audit.json prin node --input-type=module și a liniei indicate, cu anonimizare înainte de output (cod 0). Fără afișare de secrete. Helpers create/actualizate prin apply_patch; jurnalul este singurul fișier preexistent modificat păstrat dinaintea investigației.
+
+Documentație primară suplimentară: https://code.visualstudio.com/docs/sourcecontrol/troubleshooting și https://code.visualstudio.com/docs/remote/wsl. Nu s-au folosit clonele din rezultatele căutării drept evidență. Descoperirea metadatelor uneltelor GitHub nu a fost urmată de invocări MCP sau mesaje către terți.
+
+Ultime verificări înainte de staging: `node .local-run/finish-investigation-journal.mjs` cod 0; `node .local-run/review-publication.mjs stage2b-local-control > .local-run/publication-audit-output.log` cod 0, 5 commituri/49 fișiere fără constatări. `git status --short`/`git diff --numstat` cod 0: exact cele 7 fișiere intenționate. `git diff --check` a semnalat un spațiu terminal în jurnal (cod 2); corectat punctual prin apply_patch, fără alte modificări.
+
 <!-- publish-next -->

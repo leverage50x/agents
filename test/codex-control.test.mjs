@@ -20,6 +20,7 @@ function fakeCodex(t, behavior = {}) {
   const children = [];
   const spawnImpl = (command, args, options) => {
     calls.push({ command, args, options });
+    if (behavior.spawnFailure) throw new Error('Synthetic private startup diagnostic.');
     const child = new EventEmitter();
     child.pid = 999999; child.exitCode = null; child.signalCode = null;
     child.stdout = new PassThrough(); child.stderr = new PassThrough();
@@ -85,7 +86,7 @@ function fakeCodex(t, behavior = {}) {
   };
   const control = createCodexControl({ workspace: f.workspace, home: f.home, spawnImpl,
     externalActivityCheck: behavior.defaultActivityCheck ? undefined : () => behavior.externalActivity || 'clear',
-    rpcTimeoutMs: 100, turnTimeoutMs: 100 });
+    rpcTimeoutMs: 100, turnTimeoutMs: 100, ...(behavior.now ? { now: behavior.now } : {}) });
   t.after(() => control.close());
   return { ...f, calls, requests, children, control, spawnImpl };
 }
@@ -258,4 +259,105 @@ test('native Codex children of the owned npm launcher are excluded from external
   t.mock.method(fs, 'readFileSync', (name, ...args) => name === '/proc/4000/stat' ? '4000 (codex) S 999999 0 0 0' : read(name, ...args));
   const result = await f.control.run({ ...newInput, mode: 'resume', threadId });
   assert.equal(result.status, 'completed');
+});
+
+test('idle native exit exposes recoverable state without restarting itself', async t => {
+  const f = fakeCodex(t);
+  assert.deepEqual(f.control.recoveryState(), { recoverable: false, errorCode: null });
+  assert.equal((await f.control.accountStatus()).status, 'authenticated');
+  const native = f.children.at(-1);
+  native.exitCode = 1;
+  native.emit('close', 1, null);
+  assert.deepEqual(f.control.recoveryState(), { recoverable: true, errorCode: 'codex-unavailable' });
+  assert.equal((await f.control.accountStatus()).status, 'unavailable');
+  assert.equal(f.calls.length, 2, 'Only the owning agent may recreate an idle failed controller.');
+  await f.control.close();
+  assert.deepEqual(f.control.recoveryState(), { recoverable: false, errorCode: 'codex-closed' });
+});
+
+test('initial startup failure and metadata timeout are safely classified as recoverable', async t => {
+  const startup = fakeCodex(t, { spawnFailure: true });
+  assert.equal((await startup.control.accountStatus()).status, 'unavailable');
+  assert.deepEqual(startup.control.recoveryState(), { recoverable: true, errorCode: 'codex-unavailable' });
+  const timeout = fakeCodex(t, { hang: 'account/read' });
+  assert.equal((await timeout.control.accountStatus()).status, 'unavailable');
+  assert.deepEqual(timeout.control.recoveryState(), { recoverable: true, errorCode: 'codex-timeout' });
+});
+
+test('unsupported versions, malformed metadata, approval denial and policy mismatch never request automatic recovery', async t => {
+  const version = fakeCodex(t, { version: '0.100.0' });
+  await version.control.accountStatus();
+  assert.deepEqual(version.control.recoveryState(), { recoverable: false, errorCode: 'codex-version-unsupported' });
+  const protocol = fakeCodex(t, { rows: {} });
+  assert.equal((await protocol.control.listSessions()).status, 'unavailable');
+  assert.deepEqual(protocol.control.recoveryState(), { recoverable: false, errorCode: 'codex-protocol-error' });
+  const approval = fakeCodex(t, { serverRequest: 'account/read' });
+  await approval.control.accountStatus();
+  assert.deepEqual(approval.control.recoveryState(), { recoverable: false, errorCode: 'approval-denied' });
+  const policy = fakeCodex(t, { unsafePolicy: true });
+  assert.equal((await policy.control.run(newInput)).errorCode, 'codex-policy-mismatch');
+  assert.deepEqual(policy.control.recoveryState(), { recoverable: false, errorCode: 'codex-policy-mismatch' });
+});
+
+test('long-lived metadata traffic can exceed 32 MiB across separate minutes without poisoning the controller', async t => {
+  let time = 1000;
+  const f = fakeCodex(t, { now: () => time });
+  await f.control.accountStatus();
+  const chunk = Buffer.alloc(1048576);
+  for (let minute = 0; minute < 3; minute++) {
+    time = 1000 + minute * 61000;
+    for (let index = 0; index < 31; index++) f.children.at(-1).stderr.write(chunk);
+    assert.equal((await f.control.accountStatus()).status, 'authenticated');
+    assert.equal((await f.control.listSessions()).status, 'available');
+  }
+  assert.deepEqual(f.control.recoveryState(), { recoverable: false, errorCode: null });
+  assert.equal(f.calls.length, 2, 'Legitimate polling retains one healthy persistent child.');
+});
+
+test('a burst over 32 MiB in one rolling minute remains a fatal output limit', async t => {
+  const f = fakeCodex(t, { now: () => 1000 });
+  await f.control.accountStatus();
+  const chunk = Buffer.alloc(1048576);
+  for (let index = 0; index < 33; index++) f.children.at(-1).stderr.write(chunk);
+  assert.equal((await f.control.accountStatus()).status, 'unavailable');
+  assert.deepEqual(f.control.recoveryState(), { recoverable: false, errorCode: 'codex-output-limit' });
+});
+
+test('rolling-minute accounting retains recent traffic across a calendar-minute boundary', async t => {
+  let time = 1000;
+  const f = fakeCodex(t, { now: () => time });
+  await f.control.accountStatus();
+  const chunk = Buffer.alloc(1048576);
+  for (let index = 0; index < 31; index++) f.children.at(-1).stderr.write(chunk);
+  time = 60999;
+  for (let index = 0; index < 2; index++) f.children.at(-1).stderr.write(chunk);
+  assert.deepEqual(f.control.recoveryState(), { recoverable: false, errorCode: 'codex-output-limit' });
+});
+
+test('message-size bounds remain enforced and a faulty clock fails closed', async t => {
+  const large = fakeCodex(t);
+  await large.control.accountStatus();
+  large.children.at(-1).stdout.write(Buffer.alloc(2097153, 120));
+  assert.deepEqual(large.control.recoveryState(), { recoverable: false, errorCode: 'codex-output-limit' });
+  let time = 1000;
+  const clock = fakeCodex(t, { now: () => time });
+  await clock.control.accountStatus();
+  time = 999;
+  clock.children.at(-1).stderr.write('synthetic');
+  assert.deepEqual(clock.control.recoveryState(), { recoverable: false, errorCode: 'codex-clock-error' });
+});
+
+test('an active failed turn ends before its controller can advertise idle recovery', async t => {
+  const f = fakeCodex(t, { turnHang: true });
+  const running = f.control.run(newInput);
+  await new Promise(resolve => setTimeout(resolve, 10));
+  const native = f.children.at(-1);
+  native.exitCode = 1;
+  native.emit('close', 1, null);
+  assert.equal(f.control.recoveryState().recoverable, false);
+  const result = await running;
+  assert.equal(result.status, 'failed');
+  assert.equal(result.errorCode, 'codex-unavailable');
+  assert.deepEqual(f.control.recoveryState(), { recoverable: true, errorCode: 'codex-unavailable' });
+  assert.equal(f.requests.filter(request => request.method === 'turn/start').length, 1, 'A failed turn is never replayed.');
 });

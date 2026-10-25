@@ -24,7 +24,12 @@ function boundedText(value, budget) {
   return pieces.join('');
 }
 
-export function createAgent({ env = process.env, fetchImpl = fetch, controlFactory = createCodexControl } = {}) {
+export function createAgent({ env = process.env, fetchImpl = fetch, controlFactory = createCodexControl,
+  now = Date.now, recoveryDelayMs = 5000 } = {}) {
+  if (typeof now !== 'function' || !Number.isInteger(recoveryDelayMs) || recoveryDelayMs < 50 || recoveryDelayMs > 30000) {
+    throw new Error('Invalid local controller recovery configuration.');
+  }
+  env = Object.freeze({ ...env });
   // Validate the destination before constructing or sending authorization headers.
   const url = localHubUrl(env.LEVERAGE_URL || 'http://127.0.0.1:8765');
   const token = validateToken(env.LEVERAGE_AGENT_TOKEN);
@@ -39,22 +44,60 @@ export function createAgent({ env = process.env, fetchImpl = fetch, controlFacto
   if (!['app-server', 'files'].includes(source)) throw new Error('Invalid session inventory source.');
   const localMode = env.LEVERAGE_LOCAL_READONLY === '1' && env.LEVERAGE_ENABLE_LIVE_CODEX !== '1';
   if (localMode && !workspaceReady(env.LEVERAGE_WORKSPACE)) throw new Error('An authorized local workspace is required.');
-  const control = localMode ? controlFactory({ workspace: env.LEVERAGE_WORKSPACE, home }) : null;
+  const controlOptions = Object.freeze({ workspace: env.LEVERAGE_WORKSPACE, home });
+  let control = localMode ? controlFactory(controlOptions) : null;
   const workspaceBinding = localMode ? createHash('sha256').update(fs.realpathSync(env.LEVERAGE_WORKSPACE)).digest('hex') : null;
   let activeRun = null;
   let account = 'unavailable';
   let cachedInventory;
   let closing = false;
   let shutdown;
+  let controlClose;
+  let recoveryWork;
+  let nextRecoveryAt = null;
+  let recoveryDelay = recoveryDelayMs;
+  const stopCurrentControl = () => {
+    const current = control;
+    return controlClose ||= Promise.resolve().then(() => current?.close());
+  };
   const closeControl = () => {
     closing = true; account = 'unavailable';
     // Share one immediately handled shutdown, including synchronous failures.
-    shutdown ||= Promise.resolve().then(() => control?.close()).catch(() => {});
+    shutdown ||= stopCurrentControl().catch(() => {});
     return shutdown;
   };
   const failClosed = () => {
     if (control) void closeControl();
   };
+  const recoveryState = () => {
+    try { return control?.recoveryState?.() || { recoverable: false, errorCode: null }; }
+    catch { return { recoverable: false, errorCode: 'recovery-state-unavailable' }; }
+  };
+  const unavailableInventory = () => ({ status: 'unavailable', source: 'app-server', truncated: false, sessions: [] });
+  const scheduleRecovery = () => { nextRecoveryAt ??= now() + recoveryDelay; };
+  async function recoverIdleControl() {
+    if (recoveryWork) return recoveryWork;
+    if (!control || activeRun || closing || recoveryState().recoverable !== true) return;
+    scheduleRecovery();
+    if (now() < nextRecoveryAt) return;
+    recoveryWork = (async () => {
+      try {
+        await stopCurrentControl();
+        if (closing || activeRun) return;
+        // A fresh factory must redo its own version, initialization and policy checks.
+        // It receives the original immutable workspace/home, never dashboard input.
+        control = controlFactory(controlOptions);
+        controlClose = undefined;
+        account = 'unavailable'; cachedInventory = unavailableInventory();
+        nextRecoveryAt = null;
+        recoveryDelay = Math.min(30000, recoveryDelay * 2);
+      } catch {
+        await closeControl();
+        throw new Error('Local controller recovery failed safely; restart after checking authorization.');
+      }
+    })();
+    try { await recoveryWork; } finally { recoveryWork = undefined; }
+  }
 
   async function request(method, endpoint, data, signal) {
     const timeout = AbortSignal.timeout(14000);
@@ -71,10 +114,12 @@ export function createAgent({ env = process.env, fetchImpl = fetch, controlFacto
   }
 
   async function executeReadonly(job, signal) {
+    const runControl = control;
     const events = [];
     let stream = '';
     let lastUpdate = 0;
     let updates = Promise.resolve();
+    let acceptingEvents = true;
     const update = body => {
       const payload = { deviceId, jobId: job.id, ...body,
         output: boundedText(body.output || '', 8000),
@@ -93,7 +138,7 @@ export function createAgent({ env = process.env, fetchImpl = fetch, controlFacto
       return request('POST', '/api/agent/local/update', payload, signal);
     };
     const onEvent = event => {
-      if (closing) return;
+      if (closing || !acceptingEvents) return;
       const type = ['progress', 'output', 'error', 'completed'].includes(event?.type) ? event.type : 'progress';
       const message = typeof event?.message === 'string' ? event.message : '';
       if (type === 'output') stream = boundedText(stream + message, 8000);
@@ -106,8 +151,9 @@ export function createAgent({ env = process.env, fetchImpl = fetch, controlFacto
       }
     };
     let result;
-    try { result = await control.run(job, onEvent); }
+    try { result = await runControl.run(job, onEvent); }
     catch { result = { status: 'failed', output: 'Local READ-ONLY operation failed safely.', errorCode: 'controller-unavailable' }; }
+    finally { acceptingEvents = false; }
     await updates.catch(() => {});
     await update({ status: ['completed', 'failed', 'interrupted'].includes(result?.status) ? result.status : 'failed',
       output: typeof result?.output === 'string' ? boundedText(result.output, 8000) : stream,
@@ -117,13 +163,24 @@ export function createAgent({ env = process.env, fetchImpl = fetch, controlFacto
 
   async function tick({ signal } = {}) {
     if (closing) throw new Error('Local controller stopped safely; restart after checking authorization.');
+    await recoverIdleControl();
+    if (closing) throw new Error('Local controller stopped safely; restart after checking authorization.');
     let discovered;
     if (control) {
       if (!activeRun) {
-        try {
-          account = (await control.accountStatus()).status;
-          cachedInventory = await control.listSessions();
-        } catch { account = 'unavailable'; }
+        if (recoveryState().recoverable !== true) {
+          try {
+            account = (await control.accountStatus()).status;
+            cachedInventory = await control.listSessions();
+          } catch { account = 'unavailable'; }
+        }
+        const recovery = recoveryState();
+        if (recovery.recoverable === true) {
+          account = 'unavailable'; cachedInventory = unavailableInventory(); scheduleRecovery();
+        } else if (!recovery.errorCode && cachedInventory?.status === 'available' &&
+            ['authenticated', 'not-authenticated'].includes(account)) {
+          nextRecoveryAt = null; recoveryDelay = recoveryDelayMs;
+        }
       }
       discovered = cachedInventory || await discoverCodexSessions({ home, source: 'files' });
     } else discovered = await discoverCodexSessions({ home, source });

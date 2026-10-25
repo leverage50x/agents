@@ -2598,4 +2598,174 @@ Audit înainte de commit/push:
 
 Nu există acțiuni globale executate sau reguli de interpret generic instalate. Activarea propunerilor de reguli, schimbările de sistem/autentificare, scrierea prin Codex și alte dispozitive rămân pentru autorizări explicite viitoare. Commitul și push-ul branch-ului Stage2B curent sunt deja autorizate. Aplicația rămâne pornită; nu este necesară o nouă execuție de model pentru documentarea și publicarea rezultatului.
 
+Publicare inițială Stage2B și verificare CI (cwd `[WORKSPACE]`, operațiuni reale):
+
+- `node .local-run/review-publication.mjs stage2b-local-control` — cod0:3commituri/62bloburi,47fișiere, zero constatări și zero căi interzise.
+- `git check-ignore .env .local-run/readme-verification.json .codex/config.toml` — cod0: toate ignorate.
+- `git diff --check` — cod0.
+- `git config --local --get user.name` — cod0:leverage50x; identitatea existentă păstrată.
+- `git rev-parse main stage2-device-discovery 'v0.1.1-stage1-demo^{}'` — cod0:906c24f/6136fe5/906c24f.
+- `git status --short --branch` — cod0, branch2B și exact fișierele așteptate.
+- `git add -- AGENTS.md README.md VERIFICARE.md ETAPA-2B-LOCAL.md CODEX-AUTONOMIE.md codex-project.example.toml leverage src/agent.mjs src/hub.mjs src/codex-control.mjs src/launcher.mjs src/ui.html src/ui.css src/ui.mjs test/agent-recovery.test.mjs test/codex-control.test.mjs test/launcher.test.mjs test/local-control.test.mjs test/ui.test.mjs 'comenzi executate agent.md'` — cod0 prin aprobarea platformei,20fișiere, fără directoare locale/configurație sensibilă.
+- `git diff --cached --check` — cod 0.
+- `git diff --cached --stat` — cod 0.
+- `git diff --cached --name-only` — cod 0.
+- `git diff --cached --summary` — cod 0.
+- `git diff --name-only` — cod 0.
+
+Index:20fișiere,2830inserări/41eliminări, leverage executabil100755; fără diferențe nestaged înainte de commit.
+
+- `git commit -m 'feat: add local read-only Codex control and safe launcher'` — cod0 prin aprobarea platformei; creat5e816e6ca68abdb24521ce685fc99169ffd7c5f0.
+- `git show -s --format='%H%n%s%nAuthor: %an' HEAD` — cod0:5e816e6ca68abdb24521ce685fc99169ffd7c5f0, autorleverage50x.
+- `node .local-run/review-publication.mjs stage2b-local-control` — cod0 după commit:4commituri/82bloburi/47fișiere, zero constatări și primul checkpoint păstrat. Comenzile Git read-only interne efectiv executate (toate cod0, argv literal):
+
+```text
+COMMAND ["git","rev-list","--reverse","stage2b-local-control"]
+COMMAND ["git","ls-tree","-rz","--full-tree","f85f715402c368f5c1b48a983269135342619830"]
+COMMAND ["git","cat-file","blob","0505545ea0450e59e837c49382d9d510f99c4422"]
+COMMAND ["git","cat-file","blob","f83c087ed1cb3350f3aacc4e92f57fe4ef6685a5"]
+COMMAND ["git","cat-file","blob","575f5671e53be2381c4d7de8337391f2a575127b"]
+COMMAND ["git","cat-file","blob","dddea1c3e98e96deb586280e0afafaf7b8729d75"]
+COMMAND ["git","cat-file","blob","d1b048aa135685c9ec4a52ef474bdc047303978c"]
+COMMAND ["git","cat-file","blob","42abf70b785509a180e2a2c6611099976d8aa9b9"]
+COMMAND ["git","cat-file","blob","cf55316d859b7077a5e264a387bf816dc8eb5df4"]
+COMMAND ["git","cat-file","blob","787d01a4e68eb8ea647c9ed6a243e94fe0c8e3a6"]
+COMMAND ["git","cat-file","blob","f8c7f993bec1acfedafffc7f1e52f031ceab6c34"]
+COMMAND ["git","cat-file","blob","f8158b5ab4f3eb02cdf3a4bab949c683a8e89c05"]
+COMMAND ["git","cat-file","blob","8c097c2d9b8d2473508e1ee6f547a3f9672836ec"]
+COMMAND ["git","cat-file","blob","1199c1000e2b815958322dec68dab8791e49e78e"]
+COMMAND ["git","cat-file","blob","0c7c3df7d588da78995a67c7b839c5693ad6c8e1"]
+COMMAND ["git","cat-file","blob","cb5b422e198c65a34006ce2e11ac5a6bf9a4d1c8"]
+COMMAND ["git","cat-file","blob","39b49523b7890bef372444f20b1c020644a1ebaf"]
+COMMAND ["git","cat-file","blob","b6c0d4b3d133c00b5c07c3e5c3f5e04f2a722b08"]
+COMMAND ["git","cat-file","blob","1cf182ce5adeb20e06de31b1c35d1b0749413ee3"]
+COMMAND ["git","cat-file","blob","07f107d367b9561919fbcc035de31dfa15acd0df"]
+COMMAND ["git","cat-file","blob","a33db80fcc54091d69650e0302de94a79555f499"]
+COMMAND ["git","cat-file","blob","1299e9bb5359203d4dd7d5851f65864cea55d6f0"]
+COMMAND ["git","cat-file","blob","d0a2947a7f8c31d8846803d88e532d2bafaed057"]
+COMMAND ["git","cat-file","blob","d4fe8e8354c85035105f386094a2e18ffd5c101d"]
+COMMAND ["git","cat-file","blob","ffe0cd23a36424617f59a6c194e7184448e60a58"]
+COMMAND ["git","cat-file","blob","e4bad6bebaa149bf4d4ef5ee473c5122bc89d89d"]
+COMMAND ["git","cat-file","blob","43fa1266804221d8d78d8a70aa9d1a90545c0411"]
+COMMAND ["git","cat-file","blob","8fc30ee2bdd120f036484449e0f819e6190bed91"]
+COMMAND ["git","cat-file","blob","6bd65d290ebfa503432ba76fc4b639a3291f437f"]
+COMMAND ["git","show","-s","--format=%B","f85f715402c368f5c1b48a983269135342619830"]
+COMMAND ["git","ls-tree","-rz","--full-tree","906c24f15f8b364d9bec6da8cebb74b57caa8862"]
+COMMAND ["git","cat-file","blob","8636bced96117d469930bb2e3290ed84887695d6"]
+COMMAND ["git","cat-file","blob","71a0bf76f0854ca518bdecf76792e277850b4102"]
+COMMAND ["git","cat-file","blob","6b5148cb745c734374358cb1d6e999ccad2dc39b"]
+COMMAND ["git","show","-s","--format=%B","906c24f15f8b364d9bec6da8cebb74b57caa8862"]
+COMMAND ["git","ls-tree","-rz","--full-tree","6136fe5478586ed9dda31c165dbb75ca211baaab"]
+COMMAND ["git","cat-file","blob","a8a223ce447079bcbf7bd41402b1ab353d6fbeeb"]
+COMMAND ["git","cat-file","blob","c50986b402e11cb5ecaabc6f687d3de53133d004"]
+COMMAND ["git","cat-file","blob","ebc189a11a6231fe8b86043bb912e0e994b82620"]
+COMMAND ["git","cat-file","blob","e7adeca751a742e1abec64a6ed14080acabc7aba"]
+COMMAND ["git","cat-file","blob","7d3f5cc3c7e23d3347e16503a563bcb0a85c13fe"]
+COMMAND ["git","cat-file","blob","37be6c2228c4fa06da8a73ad316066c1963ab224"]
+COMMAND ["git","cat-file","blob","c029ce9ba4cc2ae89e334869a6ad5a6018c091df"]
+COMMAND ["git","cat-file","blob","61c476a1ce625a61f8102feebf5becc169ea6efe"]
+COMMAND ["git","cat-file","blob","77ff27af8ba71ca40ec1c26f44c894a784914929"]
+COMMAND ["git","cat-file","blob","353699f3b486e133163e318bee4219d6564c4391"]
+COMMAND ["git","cat-file","blob","0a99f7a1c052297e91cc9d78faab3721a0c2b489"]
+COMMAND ["git","cat-file","blob","f0b1599cabe8e4e633324becb0849fedeb500c77"]
+COMMAND ["git","cat-file","blob","41cee5a825674a3d16a3329546bd9f9de6cb0a7d"]
+COMMAND ["git","cat-file","blob","9e13784a7a90573940af21dd9b5d8b4576aeb42b"]
+COMMAND ["git","cat-file","blob","7c0841a5053e273fb21a7a55ff244c25bbc30f38"]
+COMMAND ["git","cat-file","blob","50c5a3056008f7eb274176ec9ecbb7d4b0992431"]
+COMMAND ["git","cat-file","blob","b69c9680ebafca535a79af77368a01e13a01aa08"]
+COMMAND ["git","cat-file","blob","dabe13f4663e13dde60f884dc15a8beab03b3543"]
+COMMAND ["git","cat-file","blob","c7fd3785e806dc4946f4ac5a11e692ea0242cca8"]
+COMMAND ["git","cat-file","blob","04f3dd04dc21b6226d8282c3fff274f942042101"]
+COMMAND ["git","cat-file","blob","f5fb32816cccf782f544c6f0a2ac50c25f47b188"]
+COMMAND ["git","cat-file","blob","b78481479f011cd83dcf62d97d9dc21505eba701"]
+COMMAND ["git","cat-file","blob","ddd579c09a33f9585c0b5fb6df08c1e0476fa369"]
+COMMAND ["git","cat-file","blob","1357f2d18ad7ba26d26c4c805d56a60f30b7e9d7"]
+COMMAND ["git","cat-file","blob","34ccb953dff2c7177af3a3a0d5221ee9916f0286"]
+COMMAND ["git","cat-file","blob","13eff9fe071b5fe4c43f3bfcf298c9f27abc2c45"]
+COMMAND ["git","cat-file","blob","35e065e006ba984cd86157a1e8dee4889a7af4de"]
+COMMAND ["git","cat-file","blob","3aba38666efc0161d13d849df499ff1ebbb52cb5"]
+COMMAND ["git","cat-file","blob","07f14c76e75da2eef159b13ccb88d5b5039ee375"]
+COMMAND ["git","cat-file","blob","7b376ed7163ed285882e615507473ef8e4f75157"]
+COMMAND ["git","cat-file","blob","09483e46b47703a60159ab9c19f9144b65ad761f"]
+COMMAND ["git","cat-file","blob","f1925ccd70bce9567ac4e896db31ad93b96465e7"]
+COMMAND ["git","show","-s","--format=%B","6136fe5478586ed9dda31c165dbb75ca211baaab"]
+COMMAND ["git","ls-tree","-rz","--full-tree","5e816e6ca68abdb24521ce685fc99169ffd7c5f0"]
+COMMAND ["git","cat-file","blob","bd227b052730d053f7ed90ebaf8ac4e6c63f024e"]
+COMMAND ["git","cat-file","blob","7216bc6c4900b62f16f9fe50aa588408d2167b97"]
+COMMAND ["git","cat-file","blob","44c3acb83a409e135af5697801f25854c723ed8f"]
+COMMAND ["git","cat-file","blob","90f2c5aea49f615e7107659664d9165e80360fcb"]
+COMMAND ["git","cat-file","blob","28b5ae2ac548f040d245a35cba227c3c953c0a24"]
+COMMAND ["git","cat-file","blob","0b1762752282cbbfb9bc1303acb275294e3f13eb"]
+COMMAND ["git","cat-file","blob","998cf56ea3f7bc9c6e41c94210ac1cf96631b065"]
+COMMAND ["git","cat-file","blob","32f8da4eaf7b572e154c9a280b9596ab1bcf35ff"]
+COMMAND ["git","cat-file","blob","a3b9641621663a3beafd4e8405674959dcc4d8d7"]
+COMMAND ["git","cat-file","blob","5cb564dfcd629a24bb0766fdc7d7cc8b5d9b36cf"]
+COMMAND ["git","cat-file","blob","2600f639d5e579a99d9670cf6195c77c041d7123"]
+COMMAND ["git","cat-file","blob","0d42e656a7b291485f01f7aad3da4077e6dbce6e"]
+COMMAND ["git","cat-file","blob","be8b16aaf9675da2a44b03481040549872f9dbc1"]
+COMMAND ["git","cat-file","blob","f333e889d584881694b700017612e237d0764b00"]
+COMMAND ["git","cat-file","blob","b5f56b0a96c1a8a64068ceee095a67e73bee6288"]
+COMMAND ["git","cat-file","blob","d0005ed3848fe4d19cf8a4990f45ff0232e3dc87"]
+COMMAND ["git","cat-file","blob","5d34e3a6b18efe3c3a0b7642fac58dd4a526035d"]
+COMMAND ["git","cat-file","blob","2351024f1dedefac07328d12ebaf5b1cd4714b22"]
+COMMAND ["git","cat-file","blob","f453f8e4a2c0afd4818714d0568220d09c8c5c11"]
+COMMAND ["git","cat-file","blob","78be9d5192b1858ada6abcea15b1b70989f8b438"]
+COMMAND ["git","show","-s","--format=%B","5e816e6ca68abdb24521ce685fc99169ffd7c5f0"]
+COMMAND ["git","ls-files","--cached","--others","--exclude-standard","-z"]
+```
+
+- `git push -u origin stage2b-local-control` — cod0 prin aprobarea platformei: branch nou și tracking origin/stage2b-local-control. Mesajul remote a oferit un link pentru PR; nu s-a creat PR sau făcut merge.
+
+Verificări remote după push (cod0, aprobare platformă):
+
+- `gh run list --repo leverage50x/agents --branch stage2b-local-control --commit 5e816e6ca68abdb24521ce685fc99169ffd7c5f0 --json databaseId,status,conclusion,url,headSha` — cod0.
+- `gh api repos/leverage50x/agents/branches --jq 'map({name,sha:.commit.sha})'` — cod0.
+- `gh api repos/leverage50x/agents --jq '{full_name,private}'` — cod0.
+
+GitHub confirmăPRIVATE; main906c24f și2A6136fe5 nemodificate;2B5e816e6 publicat. Primul CI https://github.com/leverage50x/agents/actions/runs/40220648016 a terminatFAILURE,96/97PASS, zero skip; nu este prezentat drept succes.
+
+- `gh run view 40220648016 --repo leverage50x/agents --json status,conclusion,url,jobs` — cod0, citire metadate/loguri de eșec.
+- `gh run view 40220648016 --repo leverage50x/agents --log-failed` — cod0, citire metadate/loguri de eșec.
+
+Eroarea concretă: testul launcher 'failed agent startup rolls back only children created by that start operation', test/launcher.test.mjs:141, report.portListening era true în loc de false; verificările ownedRunningfalse pentru ambele procese trecuseră. Rezultatul singur nu dovedește dacă portul a fost reutilizat sau există o fereastră de oprire; investigarea este delegată fără slăbirea verificării PID. npmci și toate celelalte teste trecuseră pe runner. Logurile nu sunt copiate integral pentru a evita căi/mediu inutile.
+
+- `sed -n '1,165p' test/launcher.test.mjs` — cod0, inspecție a aserțiunii.
+- `git status --short --branch` — cod0, curat și sincronizat după primul push.
+- `./leverage status` — cod0: aplicația reală continuă să ruleze, Hub/agentownedRunningtrue, agentOnline, port8765. Reparația folosește exclusiv fixture-uri de test, nu oprește instanța reală.
+- `git status --short --branch` — cod0, aceeași stare înainte de completarea jurnalului.
+
+Se continuă automat remedierea CI în scope-ul autorizat, cu un commit nou și fără force push/main/tag changes. Această completare postcommit este locală până la următorul checkpoint; nu este presupusă deja publicată.
+
+Remediere autonomă a primului CI Stage2B (cwd `[WORKSPACE]`):
+
+- `git diff --stat` — cod0; modificările locale limitate la jurnal și corecția launcherului.
+- `rg -n 'generation|unknown|rollback|replacement|SIGTERM' src/launcher.mjs test/launcher.test.mjs` — cod0.
+- `git diff -- src/launcher.mjs test/launcher.test.mjs` — cod0; revizuită separarea identității complete pentru semnale de confirmarea ieșirii generației PID.
+
+Subagentul launcherului a raportat cronologic următoarele, toate cwd `[WORKSPACE]`:
+
+```text
+sed -n '110,165p' test/launcher.test.mjs — 0
+sed -n '1,120p' src/launcher.mjs — 0
+sed -n '230,385p' src/launcher.mjs — 0
+cat AGENTS.md — 0
+nl -ba test/launcher.test.mjs — 0
+sed -n '185,230p' src/launcher.mjs — 0
+node --test --test-name-pattern='stop waits for the original process generation' test/launcher.test.mjs — 1; defect reprodus pe codul vechi
+node --test --test-name-pattern='stop waits for the original process generation' test/launcher.test.mjs — 0; după remediere
+node --test test/launcher.test.mjs — 0;11/11PASS
+node --test --test-name-pattern='stop waits for the original process generation' test/launcher.test.mjs — 0; după ajustarea aserțiunilor
+```
+
+Au fost editate numai src/launcher.mjs și test/launcher.test.mjs prin apply_patch. Regresia folosește un Hub sintetic cu handlerSIGTERM250ms și metadate /proc/exe simulate indisponibile; codul vechi a raportat oprit deși generația PID încă rula. Corecția așteaptă stat/startTime/UID până la ieșire/zombie/PID reutilizat. SIGTERM/SIGKILL necesită identitate completă; o identitate nesigură nu este semnalizată și este păstrată în registru. Nu se pretinde că simularea dovedește cauza exactă a incidentului CI. Testul de rollback verifică procesul lansat, nu absența oricărui listener global; un test separat dovedește că un listener străin care reutilizează portul rămâne neatins.
+
+Root a adăugat aceeași așteptare fără semnal în cazul când procesul este deja în teardown înainte de stop, plus un test care verifică explicit că nu se trimite semnal unui PID a cărui proprietate completă nu mai poate fi verificată.
+
+- `node --test test/launcher.test.mjs` — cod0 prin aprobarea platformei: **12/12PASS**,0fail/skip,4692.997285ms.
+- `git diff --check` — cod0.
+- `npm test` — cod0 prin aprobarea platformei: **100/100PASS**,0fail/skip,5217.667895ms.
+- `git diff --stat` — cod0; numai launcher/test/jurnal la acel moment; VERIFICARE.md actualizat apoi prin apply_patch.
+
+Serviciile reale nu au fost oprite de aceste probe; răspunsul real README rămâne în dashboard. Urmează commit separat de remediere și noul CI, fără amend/force push, fără modificarea main/tagurilor sau a autentificării/politicilor de execuție.
+
 <!-- publish-next -->

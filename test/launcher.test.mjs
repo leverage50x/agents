@@ -24,7 +24,15 @@ async function availablePort() {
 
 function privateFile(file, content) { fs.writeFileSync(file, content, { mode: 0o600 }); }
 
-async function fixture(t) {
+function runningGeneration(record) {
+  try {
+    const stat = fs.readFileSync('/proc/' + record.pid + '/stat', 'utf8');
+    const fields = stat.slice(stat.lastIndexOf(')') + 2).trim().split(/\s+/);
+    return fields[0] !== 'Z' && fields[0] !== 'X' && fields[19] === record.startTime;
+  } catch (error) { if (error.code === 'ENOENT') return false; throw error; }
+}
+
+async function fixture(t, { gracefulHubStopMs = 0 } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'leverage-launcher-'));
   fs.mkdirSync(path.join(root, 'src'));
   fs.mkdirSync(path.join(root, '.local-run'), { mode: 0o700 });
@@ -34,15 +42,21 @@ async function fixture(t) {
   privateFile(path.join(root, '.local-run/agents.json'), JSON.stringify({ version: 1, agents: [{ id: DEVICE_ID,
     name: 'synthetic', tokenHash: createHash('sha256').update(AGENT).digest('hex'),
     createdAt: '2026-10-23T00:00:00.000Z', revokedAt: null }] }));
+  const stoppingMarker = path.join(root, '.local-run/hub-stopping');
   fs.writeFileSync(path.join(root, 'src/hub.mjs'), `import http from 'node:http';
+import fs from 'node:fs';
 const devices = [];
-http.createServer((req,res) => {
+const server = http.createServer((req,res) => {
   const expected = req.url === '/api/state' ? process.env.LEVERAGE_OPERATOR_TOKEN : '${AGENT}';
   if(req.headers.authorization !== 'Bearer '+expected) {res.writeHead(401); return res.end('{}');}
   res.setHeader('Content-Type','application/json');
   if(req.method === 'POST') {devices[0]={id:'${DEVICE_ID}',online:true,lastSeen:Date.now()}; res.end('{}');}
   else res.end(JSON.stringify({devices:devices.map(device=>({...device,online:Date.now()-device.lastSeen<1000})),secret:'SYNTHETIC_MUST_NOT_LOG'}));
 }).listen(Number(process.env.LEVERAGE_PORT),'127.0.0.1');
+if (${gracefulHubStopMs}) process.once('SIGTERM', () => {
+  fs.writeFileSync(${JSON.stringify(stoppingMarker)}, 'stopping');
+  setTimeout(() => server.close(() => process.exit(0)), ${gracefulHubStopMs});
+});
 `);
   fs.writeFileSync(path.join(root, 'src/agent.mjs'), `if(process.env.LEVERAGE_LOCAL_READONLY!=='1') process.exit(1);
 const tick=()=>fetch(process.env.LEVERAGE_URL+'/heartbeat',{method:'POST',headers:{Authorization:'Bearer '+process.env.LEVERAGE_AGENT_TOKEN}}).catch(()=>{});
@@ -51,7 +65,7 @@ await tick();setInterval(tick,1000);
   const output = [];
   const launcher = createLauncher({ root, env: process.env, log: value => output.push(value), startTimeoutMs: 4000, stopTimeoutMs: 1000 });
   t.after(async () => { await launcher.stop(); fs.rmSync(root, { recursive: true, force: true }); });
-  return { root, port, launcher, output };
+  return { root, port, launcher, output, stoppingMarker };
 }
 
 test('launcher starts real owned children, prevents duplicates, reports heartbeat and stops only its children', async t => {
@@ -133,12 +147,90 @@ test('missing and unsafe credential files fail without generating replacements o
 
 test('failed agent startup rolls back only children created by that start operation', async t => {
   const f = await fixture(t);
+  const generations = new Map();
+  const originalRename = fs.renameSync;
+  t.mock.method(fs, 'renameSync', function (source, destination) {
+    if (destination === path.join(f.root, '.local-run/launcher/state.json')) {
+      const state = JSON.parse(fs.readFileSync(source, 'utf8'));
+      for (const role of ['hub', 'agent']) if (state[role]) generations.set(role, state[role]);
+    }
+    return originalRename.call(this, source, destination);
+  });
   fs.writeFileSync(path.join(f.root, 'src/agent.mjs'), 'process.exit(2);\n');
   await assert.rejects(f.launcher.start(), /owned agent exited/);
   const report = await f.launcher.status();
   assert.equal(report.hub.ownedRunning, false);
   assert.equal(report.agent.ownedRunning, false);
-  assert.equal(report.portListening, false);
+  assert.equal(generations.has('hub'), true, 'rollback must account for the Hub it started');
+  for (const [role, record] of generations) {
+    assert.equal(runningGeneration(record), false, 'the original ' + role + ' process generation must have exited');
+  }
+});
+
+test('stop waits for the original process generation when executable metadata disappears during shutdown', async t => {
+  const f = await fixture(t, { gracefulHubStopMs: 250 });
+  await f.launcher.start();
+  const state = JSON.parse(fs.readFileSync(path.join(f.root, '.local-run/launcher/state.json'), 'utf8'));
+  const originalReadlink = fs.readlinkSync;
+  t.mock.method(fs, 'readlinkSync', function (file, ...options) {
+    if (file === '/proc/' + state.hub.pid + '/exe' && fs.existsSync(f.stoppingMarker)) {
+      const error = new Error('Synthetic executable metadata unavailable during teardown.');
+      error.code = 'ENOENT';
+      throw error;
+    }
+    return originalReadlink.call(this, file, ...options);
+  });
+  await f.launcher.stop();
+  assert.equal(fs.existsSync(f.stoppingMarker), true);
+  assert.equal(runningGeneration(state.hub), false, 'stop must confirm exit rather than infer it from unavailable executable metadata');
+  assert.equal(runningGeneration(state.agent), false);
+  const report = await f.launcher.status();
+  assert.equal(report.hub.ownedRunning, false);
+  assert.equal(report.agent.ownedRunning, false);
+});
+
+test('stop waits without signalling when the recorded generation is already terminating and its executable is unavailable', async t => {
+  const f = await fixture(t, { gracefulHubStopMs: 250 });
+  await f.launcher.start();
+  const state = JSON.parse(fs.readFileSync(path.join(f.root, '.local-run/launcher/state.json'), 'utf8'));
+  process.kill(state.hub.pid, 'SIGTERM');
+  for (let attempt = 0; attempt < 100 && !fs.existsSync(f.stoppingMarker); attempt++) await delay(5);
+  assert.equal(fs.existsSync(f.stoppingMarker), true);
+  const originalReadlink = fs.readlinkSync;
+  t.mock.method(fs, 'readlinkSync', function (file, ...options) {
+    if (file === '/proc/' + state.hub.pid + '/exe') {
+      const error = new Error('Synthetic executable metadata unavailable before stop.');
+      error.code = 'ENOENT';
+      throw error;
+    }
+    return originalReadlink.call(this, file, ...options);
+  });
+  const signals = t.mock.method(process, 'kill');
+  await f.launcher.stop();
+  assert.equal(runningGeneration(state.hub), false);
+  assert.equal(signals.mock.calls.some(call => call.arguments[0] === state.hub.pid), false,
+    'unverifiable processes must not be signalled, even while waiting for their exit');
+});
+
+test('a foreign listener can replace the stopped Hub and remains untouched by another stop', async t => {
+  const f = await fixture(t);
+  await f.launcher.start();
+  const state = JSON.parse(fs.readFileSync(path.join(f.root, '.local-run/launcher/state.json'), 'utf8'));
+  await f.launcher.stop();
+  const replacement = net.createServer(socket => socket.end());
+  await new Promise((resolve, reject) => {
+    replacement.once('error', reject);
+    replacement.listen(f.port, '127.0.0.1', resolve);
+  });
+  t.after(() => new Promise(resolve => replacement.close(resolve)));
+  await f.launcher.stop();
+  const report = await f.launcher.status();
+  assert.equal(runningGeneration(state.hub), false);
+  assert.equal(runningGeneration(state.agent), false);
+  assert.equal(report.hub.ownedRunning, false);
+  assert.equal(report.agent.ownedRunning, false);
+  assert.equal(report.portListening, true, 'global port state can belong to an unrelated replacement listener');
+  assert.equal(replacement.listening, true, 'stopping launcher-owned children must preserve the foreign listener');
 });
 
 test('failed agent restart preserves an already managed Hub', async t => {

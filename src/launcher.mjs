@@ -76,6 +76,22 @@ function ownerAlive(owner) {
   return Boolean(current && current.uid === owner.uid && current.startTime === owner.startTime);
 }
 
+// Executable/cwd/cmdline metadata can disappear while a process is still
+// releasing its resources. Only generation disappearance or a zombie proves
+// exit; incomplete ownership metadata must never authorize another signal.
+function generationState(record) {
+  try {
+    const directory = '/proc/' + record.pid;
+    const stat = fs.readFileSync(directory + '/stat', 'utf8');
+    const fields = stat.slice(stat.lastIndexOf(')') + 2).trim().split(/\s+/);
+    if (!/^\d+$/.test(fields[19] || '')) return 'unknown';
+    if (fields[19] !== record.startTime || fields[0] === 'Z' || fields[0] === 'X') return 'exited';
+    return fs.statSync(directory).uid === record.uid ? 'running' : 'unknown';
+  } catch (error) {
+    return error.code === 'ENOENT' || error.code === 'ESRCH' ? 'exited' : 'unknown';
+  }
+}
+
 function safeParent(file, root) {
   resolveLocalSecretPath(file, { cwd: root });
   const local = path.join(root, '.local-run');
@@ -277,16 +293,31 @@ export function createLauncher({ root = DEFAULT_ROOT, env = process.env, log = c
   }
 
   async function stopOwned(record, role) {
-    if (!owned(record, role)) { if (record) event('stale-record-ignored', role); return; }
-    process.kill(record.pid, 'SIGTERM');
-    const deadline = Date.now() + stopTimeoutMs;
-    while (owned(record, role) && Date.now() < deadline) await delay(50);
-    if (owned(record, role)) {
-      process.kill(record.pid, 'SIGKILL');
-      const hardDeadline = Date.now() + 1000;
-      while (owned(record, role) && Date.now() < hardDeadline) await delay(25);
+    if (!record) return;
+    const waitForExit = async timeoutMs => {
+      const deadline = Date.now() + timeoutMs;
+      while (generationState(record) !== 'exited' && Date.now() < deadline) await delay(25);
+      return generationState(record) === 'exited';
+    };
+    const signal = value => {
+      try { process.kill(record.pid, value); }
+      catch (error) { if (error.code !== 'ESRCH') throw error; }
+    };
+    if (!owned(record, role)) {
+      if (!await waitForExit(stopTimeoutMs)) {
+        throw safeError('Process ownership could not be verified; its identity remains recorded and no signal was sent.');
+      }
+      event('stale-record-ignored', role);
+      return;
     }
-    if (owned(record, role)) throw safeError('An owned process did not stop; its identity remains recorded.');
+    signal('SIGTERM');
+    if (!await waitForExit(stopTimeoutMs)) {
+      if (!owned(record, role)) {
+        throw safeError('Process exit could not be confirmed and ownership could not be verified; its identity remains recorded.');
+      }
+      signal('SIGKILL');
+      if (!await waitForExit(1000)) throw safeError('An owned process did not stop; its identity remains recorded.');
+    }
     event(role + '-stopped', role, record.pid);
   }
 

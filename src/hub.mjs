@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import { loopbackHost, validateToken, workspaceReady } from './local-config.mjs';
 import { createCredentialStore } from './credentials.mjs';
+import { sanitizeSessionTitle } from './codex-session-metadata.mjs';
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const UUID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
@@ -78,13 +79,17 @@ function inventory(body) {
     typeof meta.truncated === 'boolean', 'Invalid session inventory metadata.');
   return {
     mcp: { status: mcp.status, servers: [...new Set(mcp.servers)] },
-    sessions: sessions.map(x => ({
-      id: x.id, modified: new Date(x.modified).toISOString(),
-      ...(x.source === 'app-server' && typeof x.lastActivity === 'string' && Number.isFinite(Date.parse(x.lastActivity))
-        ? { lastActivity: new Date(x.lastActivity).toISOString() } : {}),
-      ...(typeof x.project === 'string' && /^[\p{L}\p{N}_. -]{1,100}$/u.test(x.project) ? { project: x.project } : {}),
-      activity: 'discovered', source: x.source === 'app-server' ? 'app-server' : 'files'
-    })),
+    sessions: sessions.map(x => {
+      const title = x.source === 'app-server' ? sanitizeSessionTitle(x.title) : undefined;
+      return {
+        id: x.id, modified: new Date(x.modified).toISOString(),
+        ...(x.source === 'app-server' && typeof x.lastActivity === 'string' && Number.isFinite(Date.parse(x.lastActivity))
+          ? { lastActivity: new Date(x.lastActivity).toISOString() } : {}),
+        ...(typeof x.project === 'string' && /^[\p{L}\p{N}_. -]{1,100}$/u.test(x.project) ? { project: x.project } : {}),
+        ...(title ? { title } : {}),
+        activity: 'discovered', source: x.source === 'app-server' ? 'app-server' : 'files'
+      };
+    }),
     sessionInventory: { status: meta.status, truncated: meta.truncated,
       source: meta.source === 'app-server' ? 'app-server' : 'files',
       ...(['app-server-unavailable', 'app-server-incompatible'].includes(meta.reason) ? { reason: meta.reason } : {}) }

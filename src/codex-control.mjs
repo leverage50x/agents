@@ -5,6 +5,7 @@ import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { StringDecoder } from 'node:string_decoder';
 import { performance } from 'node:perf_hooks';
+import { RESUME_SOURCE_KINDS, matchesResumePickerThread, sanitizeSessionTitle } from './codex-session-metadata.mjs';
 
 // Verified 2026-10-25 with CLI 0.163.0 and an isolated loopback-only synthetic
 // Responses provider: the policy exposes only request_user_input, which this
@@ -21,8 +22,6 @@ const DISABLED_FEATURES = ['shell_tool', 'unified_exec', 'apps', 'plugins', 'rem
   'browser_use_full_cdp_access', 'computer_use', 'in_app_browser', 'view_image', 'image_generation',
   'code_mode', 'code_mode_host', 'stable_environment_tools', 'sleep_tool'];
 const FEATURES = Object.fromEntries(DISABLED_FEATURES.map(name => [name, false]));
-const SOURCE_KINDS = ['cli', 'vscode', 'exec', 'appServer', 'subAgent', 'subAgentReview',
-  'subAgentCompact', 'subAgentThreadSpawn', 'subAgentOther', 'unknown'];
 const POLICY = {
   features: FEATURES, mcp_servers: {}, plugins: {}, apps: { _default: { enabled: false } },
   tools: { view_image: false }, web_search: 'disabled', allow_login_shell: false,
@@ -354,21 +353,39 @@ export function createCodexControl({ workspace, home, command = 'codex', spawnIm
   const listSessions = async () => {
     try {
       await ensure(); assertWorkspace();
-      let result = await request('thread/list', { cwd: canonical, useStateDbOnly: true, limit: 40,
-        archived: false, sourceKinds: SOURCE_KINDS, sortKey: 'updated_at', sortDirection: 'desc' });
-      if (!Array.isArray(result?.data) || result.data.length > 100) throw new ControlError('codex-protocol-error');
-      const sessions = [];
-      for (const thread of result.data) {
-        if (!thread || !UUID.test(thread.id) || thread.cwd !== canonical || !Number.isSafeInteger(thread.updatedAt)) continue;
-        const timestamp = new Date(thread.updatedAt * 1000); if (!Number.isFinite(timestamp.getTime())) continue;
-        const busy = active?.threadId === thread.id || thread.status?.type === 'active' || processLocks.has(canonical + ':' + thread.id);
-        sessions.push({ id: thread.id.toLowerCase(), modified: timestamp.toISOString(), lastActivity: timestamp.toISOString(),
-          project: path.basename(canonical), source: 'app-server', activity: active?.threadId === thread.id ? 'confirmed' : 'discovered',
-          eligibility: busy ? 'busy' : (loaded.has(thread.id) ? 'confirmed' : 'discovered') });
-        if (sessions.length === 40) break;
+      const found = new Map();
+      const cursors = new Set();
+      let cursor;
+      let truncated = false;
+      for (let page = 0; page < 8; page++) {
+        let result = await request('thread/list', { cwd: canonical, useStateDbOnly: true, limit: 40 - found.size,
+          archived: false, sourceKinds: RESUME_SOURCE_KINDS, sortKey: 'updated_at', sortDirection: 'desc',
+          ...(cursor ? { cursor } : {}) });
+        if (!Array.isArray(result?.data) || result.data.length > 100 ||
+            (result.nextCursor != null && (typeof result.nextCursor !== 'string' || result.nextCursor.length > 4096))) {
+          throw new ControlError('codex-protocol-error');
+        }
+        for (const thread of result.data) {
+          if (!matchesResumePickerThread(thread, canonical) || typeof thread.id !== 'string' || !UUID.test(thread.id) ||
+              !Number.isSafeInteger(thread.updatedAt)) continue;
+          const timestamp = new Date(thread.updatedAt * 1000); if (!Number.isFinite(timestamp.getTime())) continue;
+          const id = thread.id.toLowerCase();
+          const modified = timestamp.toISOString();
+          if (found.has(id) && found.get(id).modified >= modified) continue;
+          const busy = active?.threadId === id || thread.status?.type === 'active' || processLocks.has(canonical + ':' + id);
+          const title = sanitizeSessionTitle(thread.name);
+          found.set(id, { id, modified, lastActivity: modified, ...(title ? { title } : {}),
+            project: path.basename(canonical), source: 'app-server', activity: active?.threadId === id ? 'confirmed' : 'discovered',
+            eligibility: busy ? 'busy' : (loaded.has(id) ? 'confirmed' : 'discovered') });
+        }
+        cursor = result.nextCursor;
+        result = null;
+        if (found.size > 40) truncated = true;
+        if (!cursor) break;
+        if (found.size >= 40 || cursors.has(cursor) || page === 7) { truncated = true; break; }
+        cursors.add(cursor);
       }
-      const truncated = Boolean(result.nextCursor) || result.data.length > 40;
-      result = null;
+      const sessions = [...found.values()].sort((a, b) => b.modified.localeCompare(a.modified) || a.id.localeCompare(b.id)).slice(0, 40);
       return { status: 'available', source: 'app-server', truncated, sessions };
     } catch (error) {
       fail(error instanceof ControlError ? error.code : 'codex-unavailable');

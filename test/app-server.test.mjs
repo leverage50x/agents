@@ -7,9 +7,9 @@ import { fixture } from '../test-support/fixtures.mjs';
 import { discoverCodexSessions, listAppServerSessions } from '../src/codex-app-server.mjs';
 
 const id = index => index.toString(16).padStart(8, '0') + '-0000-0000-0000-000000000000';
-const row = (index, other = {}) => ({ id: id(index), updatedAt: 1700000000 + index,
+const row = (index, other = {}) => ({ id: id(index), source: 'cli', updatedAt: 1700000000 + index,
   cwd: '/synthetic/private-parent/example-project', preview: 'SYNTHETIC_PRIVATE_PREVIEW',
-  name: 'SYNTHETIC_PRIVATE_TITLE', gitInfo: { originUrl: 'SYNTHETIC_PRIVATE_ORIGIN' },
+  name: null, gitInfo: { originUrl: 'SYNTHETIC_PRIVATE_ORIGIN' },
   turns: [{ content: 'SYNTHETIC_PRIVATE_TRANSCRIPT' }], status: { type: 'active' }, ...other });
 
 /** A real Node child speaks synthetic JSON-RPC; it never launches real Codex. */
@@ -92,8 +92,7 @@ test('App Server adapter whitelists metadata and never claims other processes ar
   assert.equal(requests[2].params.sortKey, 'updated_at');
   assert.equal(requests[2].params.limit, 40);
   assert.equal(requests[2].params.archived, false);
-  assert.ok(requests[2].params.sourceKinds.includes('appServer'));
-  assert.ok(requests[2].params.sourceKinds.includes('cli'));
+  assert.deepEqual(requests[2].params.sourceKinds, ['cli', 'vscode']);
   const serialized = JSON.stringify(result);
   assert.doesNotMatch(serialized, /PRIVATE|private-parent|turns|preview|gitInfo|active|cwd/);
   assert.ok(f.children.every(child => child.exitCode !== null || child.signalCode !== null));
@@ -121,6 +120,37 @@ test('repeated pagination cursors stop without an unbounded scan', async t => {
   const result = await listAppServerSessions({ home: f.home, spawnImpl: f.spawnImpl });
   assert.equal(result.truncated, true);
   assert.equal(f.requests().filter(request => request.method === 'thread/list').length, 2);
+});
+
+test('Cwd + Active filters auxiliary rows before pagination limits and uses only official name for titles', async t => {
+  const { workspace } = fixture(t);
+  const pages = [
+    { data: [row(1, { source: 'exec', cwd: workspace })], nextCursor: 'second' },
+    { data: [row(2, { source: { subAgent: 'review' }, cwd: workspace }),
+      row(3, { cwd: workspace, archived: true }), row(4, { cwd: '/synthetic/other' }),
+      row(10, { cwd: workspace, name: 'Named session', status: { type: 'notLoaded' } }),
+      row(11, { cwd: workspace, source: 'vscode', title: 'Untrusted alias' })], nextCursor: null }
+  ];
+  const g = syntheticServer(t, { pages });
+  const result = await listAppServerSessions({ home: g.home, workspace, limit: 2, spawnImpl: g.spawnImpl });
+  assert.deepEqual(result.sessions.map(s => s.id), [id(11), id(10)]);
+  assert.equal(result.sessions.find(s => s.id === id(10)).title, 'Named session');
+  assert.equal(result.sessions.find(s => s.id === id(11)).title, undefined);
+  assert.equal(result.status, 'available');
+  assert.ok(g.requests().filter(r => r.method === 'thread/list').every(r =>
+    r.params.cwd === workspace && r.params.archived === false &&
+    JSON.stringify(r.params.sourceKinds) === JSON.stringify(['cli', 'vscode']) && r.params.useStateDbOnly));
+  assert.doesNotMatch(JSON.stringify(result), /PRIVATE|Untrusted alias/);
+});
+
+test('workspace-scoped inventory stays unavailable when metadata fails instead of guessing from filenames', async t => {
+  const f = syntheticServer(t, { version: 'codex-cli 0.100.0\n' });
+  fs.mkdirSync(path.join(f.home, 'sessions'));
+  fs.writeFileSync(path.join(f.home, 'sessions', 'rollout-' + id(7) + '.jsonl'), 'SYNTHETIC_PRIVATE_TRANSCRIPT');
+  const result = await discoverCodexSessions({ home: f.home, workspace: f.workspace, source: 'app-server', spawnImpl: f.spawnImpl });
+  assert.deepEqual(result, { status: 'unavailable', sessions: [], truncated: false,
+    source: 'app-server', reason: 'app-server-incompatible' });
+  assert.equal(f.calls.length, 1);
 });
 
 test('invalid metadata is omitted and full or unsafe project paths are never returned', async t => {

@@ -8,7 +8,11 @@ const escape = value => String(value ?? '').replaceAll('&', '&amp;').replaceAll(
   .replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
 const online = device => device.online && !device.revokedAt;
 const deviceLabel = device => device.name + ' · ' + device.id;
-const shortId = value => value.length > 16 ? value.slice(0, 8) + '…' + value.slice(-4) : value;
+const sessionTitle = session => typeof session.title === 'string' && session.title.trim() ? session.title.trim() : 'Untitled session';
+const shortTitle = session => {
+  const characters = Array.from(sessionTitle(session));
+  return characters.length > 64 ? characters.slice(0, 64).join('') + '…' : characters.join('');
+};
 const authLabel = value => value === 'authenticated' ? 'Codex authenticated' : value === 'not-authenticated' ? 'Not authenticated' : 'Unavailable';
 const localDevice = () => state.devices.find(device => device.id === $('local-device').value);
 function resumeLabel(session) {
@@ -66,6 +70,15 @@ function timestamp(value) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? 'Unknown' : date.toISOString();
 }
+function relativeTime(value) {
+  if (timestamp(value) === 'Unknown') return 'Unknown';
+  const elapsed = Date.now() - new Date(value).getTime();
+  if (elapsed < 0) return 'Future timestamp';
+  if (elapsed < 60000) return 'just now';
+  if (elapsed < 3600000) return Math.floor(elapsed / 60000) + 'm ago';
+  if (elapsed < 86400000) return Math.floor(elapsed / 3600000) + 'h ago';
+  return Math.floor(elapsed / 86400000) + 'd ago';
+}
 
 function controls() {
   const available = connected && state.devices.some(d => online(d) && d.id === $('device').value);
@@ -79,8 +92,8 @@ function controls() {
     ? 'New conversation — no existing session will be resumed.'
     : $('local-mode').value !== 'resume' ? 'Choose New or Resume explicitly.'
     : !selection.session ? 'Choose a session explicitly. Discovered IDs are unverified candidates.'
-    : (selection.session.project || 'Project unavailable') + ' · Last activity: ' + timestamp(selection.session.lastActivity) +
-      ' · ' + resumeAvailability(selection.device, selection.session) + ' · Full session ID: ' + selection.session.id;
+    : shortTitle(selection.session) + ' · ' + relativeTime(selection.session.lastActivity) + ' · ' +
+      resumeAvailability(selection.device, selection.session);
   $('local-device').disabled = !connected || !state.localControl?.enabled || busy;
   for (const id of ['local-mode', 'local-workspace', 'local-prompt']) $(id).disabled = !ready || busy;
   $('local-thread').disabled = !ready || busy || $('local-mode').value !== 'resume';
@@ -114,17 +127,27 @@ function renderThreads() {
   const device = state.devices.find(d => d.id === $('device').value);
   const previous = $('thread').value;
   $('thread').innerHTML = '<option value="">Without thread ID (DEMO)</option>' +
-    (device?.sessions || []).map(s => '<option value="' + escape(s.id) + '">' + escape(s.id) + '</option>').join('');
+    (device?.sessions || []).map(s => '<option value="' + escape(s.id) + '" title="Full session ID: ' + escape(s.id) + '">' +
+      escape(shortTitle(s)) + ' · ' + escape(relativeTime(s.lastActivity)) + '</option>').join('');
   if (device?.sessions?.some(s => s.id === previous)) $('thread').value = previous;
 }
 function renderSessions() {
   const device = state.devices.find(d => d.id === $('inventory-device').value);
   if (!device) {
+    $('inventory-filter').textContent = 'Read-only inventory';
+    $('inventory-filter-note').textContent = 'Discovery does not prove that a session is running or resumable.';
     $('inventory-status').textContent = 'Select a registered device to view its inventory.';
     $('sessions').innerHTML = '';
     return;
   }
   const inventory = device.sessionInventory || {};
+  const scoped = inventory.source === 'app-server' && device.workspaceReady;
+  $('inventory-filter').textContent = inventory.source === 'files' ? 'Unverified filename inventory' :
+    scoped ? 'Cwd + Active · Read-only inventory' : 'Read-only inventory';
+  $('inventory-filter-note').textContent = inventory.source === 'files'
+    ? 'Session filenames cannot confirm workspace, archive status, live activity or resumability.'
+    : scoped ? 'Cwd + Active means the configured workspace and non-archived sessions. It does not mean a Codex process is running. Resume is checked separately after your approval.'
+    : 'Discovery does not prove that a session is running or resumable. Inventory collects no transcript.';
   $('inventory-status').textContent = deviceLabel(device) + ' · ' +
     (!connected ? 'Hub disconnected — last reported inventory' : device.revokedAt ? 'Revoked' : online(device) ? 'Online' : 'Offline — last reported inventory') +
     ' · Last heartbeat: ' + timestamp(device.lastSeen) + ' · Inventory: ' + (inventory.status || 'unknown') +
@@ -132,14 +155,17 @@ function renderSessions() {
   $('sessions').innerHTML = (device.sessions || []).length ? device.sessions.map(session => {
     const activity = session.activity === 'active-confirmed' ? 'Activity confirmed' : 'Discovered only — activity unconfirmed';
     const source = session.source === 'app-server' ? 'App Server inventory' : session.source === 'files' ? 'Session filename inventory' : 'Unspecified inventory source';
-    return '<article class="session"><div class="session-heading"><h3>' + escape(session.project || 'Project unavailable') +
-      '</h3><code title="' + escape(session.id) + '" aria-label="Full session ID: ' + escape(session.id) + '">' +
-      escape(shortId(session.id)) + '</code></div><details class="session-id"><summary>Full session ID</summary><code>' +
-      escape(session.id) + '</code></details><dl><dt>Device</dt><dd>' + escape(deviceLabel(device)) + '</dd><dt>Last known activity</dt><dd>' +
+    return '<article class="session"><div class="session-heading"><h3 title="' + escape(sessionTitle(session)) + '">' +
+      escape(shortTitle(session)) + '</h3><span class="session-age">' + escape(relativeTime(session.lastActivity)) +
+      '</span></div><p class="session-resume">' + escape(resumeAvailability(device, session)) +
+      '</p><details class="session-id"><summary>Session details</summary><dl><dt>Title</dt><dd>' + escape(sessionTitle(session)) +
+      '</dd><dt>Session ID</dt><dd><code aria-label="Full session ID: ' + escape(session.id) + '">' + escape(session.id) +
+      '</code></dd><dt>Project</dt><dd>' + escape(session.project || 'Not available') +
+      '</dd><dt>Device</dt><dd>' + escape(deviceLabel(device)) + '</dd><dt>Last known activity</dt><dd>' +
       escape(timestamp(session.lastActivity)) + '</dd><dt>Last modified metadata</dt><dd>' +
       escape(timestamp(session.modified)) + '</dd><dt>Activity</dt><dd>' + escape(activity) +
       '</dd><dt>Source</dt><dd>' + escape(source) + '</dd><dt>Resume</dt><dd>' +
-      escape(resumeAvailability(device, session)) + '</dd></dl></article>';
+      escape(resumeAvailability(device, session)) + '</dd></dl></details></article>';
   }).join('') : '<p class="muted">No sessions reported by this device.</p>';
 }
 function renderLocalThreads(preserve = true) {
@@ -147,9 +173,9 @@ function renderLocalThreads(preserve = true) {
   const sessions = localDevice()?.sessions || [];
   $('local-thread').innerHTML = '<option value="">Choose a session explicitly</option>' + sessions.map(session =>
     '<option value="' + escape(session.id) + '"' + (session.eligibility === 'busy' ? ' disabled' : '') +
-    ' title="Full session ID: ' + escape(session.id) + '">' + escape(session.project || 'Project unavailable') +
-    ' · ' + escape(shortId(session.id)) + ' · Last activity: ' + escape(timestamp(session.lastActivity)) + ' · ' +
-    escape(resumeLabel(session)) + '</option>').join('');
+    ' title="' + escape(sessionTitle(session)) + ' · Full session ID: ' + escape(session.id) + ' · ' +
+    escape(resumeLabel(session)) + '">' + escape(shortTitle(session)) + ' · ' + escape(relativeTime(session.lastActivity)) +
+    (session.eligibility === 'busy' ? ' · Busy' : '') + '</option>').join('');
   if (sessions.some(session => session.id === previous && session.eligibility !== 'busy')) $('local-thread').value = previous;
 }
 function renderLocalControl() {
@@ -189,10 +215,11 @@ function render() {
     '</p><p><b>Configured MCP (' + d.mcp.servers.length + ')</b> <small>— ' + escape(d.mcp.status) +
     '; NOT verified live</small></p><div class="chips">' + (d.mcp.servers.map(s =>
       '<span class="chip">' + escape(s) + '</span>').join('') || '<small>None found</small>') +
-    '</div><p><b>Discovered thread IDs (' + d.sessions.length + ')</b></p><small>Inventory: ' +
+    '</div><p><b>Reported sessions (' + d.sessions.length + ')</b></p><small>Inventory: ' +
     escape(d.sessionInventory?.status || 'unknown') + (d.sessionInventory?.truncated ? ' · scan incomplete' : '') +
     ' · activity and resume NOT verified</small><div class="chips">' + (d.sessions.slice(0, 8).map(s =>
-      '<span class="chip" title="' + escape(s.id + ' · ' + s.modified) + '">' + escape(s.id.slice(0, 8)) +
+      '<span class="chip" title="' + escape(sessionTitle(s) + ' · Full session ID: ' + s.id) + '">' +
+      escape(shortTitle(s) + ' · ' + relativeTime(s.lastActivity)) +
       '</span>').join('') || '<small>None found</small>') + '</div></div>'
   ).join('') : '<p class="muted">No device has reported inventory. Enroll an agent and connect it privately to this hub.</p>';
   const inventoryCurrent = $('inventory-device').value;

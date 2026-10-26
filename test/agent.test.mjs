@@ -55,3 +55,31 @@ test('agent reports an invalid workspace and returns a fail-closed live result',
   assert.equal(calls[2].data.status, 'failed');
   assert.match(calls[2].data.output, /LIVE CODEX BLOCKED/);
 });
+
+test('optional titles cannot push an otherwise valid inventory heartbeat beyond the existing body limit', async t => {
+  const f = fixture(t);
+  const sessions = Array.from({ length: 40 }, (_, i) => ({
+    id: i.toString(16).padStart(8, '0') + '-1111-4111-8111-111111111111',
+    modified: '2026-10-26T08:00:00.000Z', lastActivity: '2026-10-26T08:00:00.000Z',
+    project: 'p'.repeat(100), title: 't'.repeat(120), source: 'app-server', activity: 'discovered', eligibility: 'discovered'
+  }));
+  fs.writeFileSync(path.join(f.home, 'config.toml'), Array.from({ length: 20 }, (_, i) =>
+    '[mcp_servers.server_' + i + '_' + 's'.repeat(60) + ']').join('\n'));
+  let heartbeat;
+  const agent = createAgent({ env: { ...f.env, LEVERAGE_LOCAL_READONLY: '1' }, controlFactory: () => ({
+    accountStatus: async () => ({ status: 'authenticated' }),
+    listSessions: async () => ({ sessions, status: 'available', source: 'app-server', truncated: false }),
+    close: async () => {}
+  }), fetchImpl: async (url, options) => {
+    if (new URL(url).pathname === '/api/agent/heartbeat') heartbeat = JSON.parse(options.body);
+    return { ok: true, status: 200, json: async () => ({ job: null }) };
+  } });
+  t.after(() => agent.close());
+  await agent.tick();
+  assert.equal(heartbeat.sessions.length, 40);
+  assert.equal(heartbeat.codexAuth, 'authenticated');
+  assert.ok(heartbeat.sessions.every(s => s.title === undefined));
+  assert.ok(Buffer.byteLength(JSON.stringify(heartbeat)) < 20000);
+  assert.ok(Buffer.byteLength(JSON.stringify({ ...heartbeat, sessions })) >= 19000);
+  assert.deepEqual(heartbeat.sessions.map(s => s.id), sessions.map(s => s.id));
+});

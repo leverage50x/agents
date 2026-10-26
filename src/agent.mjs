@@ -183,15 +183,22 @@ export function createAgent({ env = process.env, fetchImpl = fetch, controlFacto
         }
       }
       discovered = cachedInventory || await discoverCodexSessions({ home, source: 'files' });
-    } else discovered = await discoverCodexSessions({ home, source });
+    } else discovered = await discoverCodexSessions({ home, source,
+      ...(env.LEVERAGE_WORKSPACE && source === 'app-server' ? { workspace: env.LEVERAGE_WORKSPACE } : {}) });
     const { sessions: listed, ...sessionInventory } = discovered;
     const sessions = env.LEVERAGE_REPORT_PROJECT === '0'
       ? listed.map(({ project, ...metadata }) => metadata) : listed;
-    await request('POST', '/api/agent/heartbeat', {
+    const heartbeat = {
       deviceId, name, platform: process.platform, mcp: listMcp(home), sessions, sessionInventory,
       localControl: Boolean(control), workspaceBinding, codexAuth: account,
       sandbox: 'no-execution', workspaceReady: workspaceReady(env.LEVERAGE_WORKSPACE), executionMode: 'demo-only'
-    }, signal);
+    };
+    // Titles are optional presentation metadata. Preserve the existing body
+    // limit and the core inventory/authentication if they exhaust its budget.
+    if (Buffer.byteLength(JSON.stringify(heartbeat)) >= 19000 && sessions.some(session => session.title)) {
+      heartbeat.sessions = sessions.map(({ title, ...metadata }) => metadata);
+    }
+    await request('POST', '/api/agent/heartbeat', heartbeat, signal);
     const response = await request('GET', '/api/agent/task?deviceId=' + deviceId, undefined, signal);
     if (response.job) {
       let result;

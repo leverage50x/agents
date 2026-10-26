@@ -5068,4 +5068,988 @@ Exit: 0. ETAPA-2B-LOCAL.md           |   17 +
 
 Audit:6commituri,49fișiere,0constatăriistoric/workingtree/pathsprivate. Diffcheckcod0. Cele7fișiere intenționate sunt UI3,teste2,ETAPA-2B-LOCAL.md și jurnalul, cu toate cele260linii preexistente păstrate. Teste final126/126PASS. Publicarea va fi înregistrată după execuție; nupresupunemrezultatul.
 
+
+<!-- round-usability-final-publication -->
+
+### Publicare și verificări după commit — rundă mică
+
+CWD: [WORKSPACE]. `node .local-run/round-append-precommit.mjs` — cod0. Comenzile executate ulterior și rezultatele reale:
+
+```text
+git add -- src/ui.html src/ui.css src/ui.mjs test/ui.test.mjs test/codex-control.test.mjs ETAPA-2B-LOCAL.md 'comenzi executate agent.md'
+```
+
+Exit: 0. Fără output.
+
+```text
+git diff --cached --check
+```
+
+Exit: 0. Fără output.
+
+```text
+git diff --cached --name-status
+```
+
+Exit: 0. M	ETAPA-2B-LOCAL.md
+M	comenzi executate agent.md
+M	src/ui.css
+M	src/ui.html
+M	src/ui.mjs
+M	test/codex-control.test.mjs
+M	test/ui.test.mjs
+
+```text
+git diff --cached --stat
+```
+
+Exit: 0. ETAPA-2B-LOCAL.md           |   17 +
+ comenzi executate agent.md  | 1081 +++++++++++++++++++++++++++++++++++++++++++
+ src/ui.css                  |    1 +
+ src/ui.html                 |    2 +-
+ src/ui.mjs                  |   63 ++-
+ test/codex-control.test.mjs |  142 +++++-
+ test/ui.test.mjs            |   72 ++-
+ 7 files changed, 1356 insertions(+), 22 deletions(-)
+
+```text
+git diff --quiet
+```
+
+Exit: 0. Fără output.
+
+```text
+git commit -m 'Improve Codex session selection and read-only feedback'
+```
+
+Exit: 0. [stage2b-local-control d546c7b] Improve Codex session selection and read-only feedback
+ 7 files changed, 1356 insertions(+), 22 deletions(-)
+
+```text
+git push origin stage2b-local-control
+```
+
+Exit: în curs la prima întoarcere; finalizarea este înregistrată separat. Fără output.
+
+```text
+tools.write_stdin(session_id=92526, chars='')
+```
+
+Exit: 0. To https://github.com/leverage50x/agents.git
+   36017b2..d546c7b  stage2b-local-control -> stage2b-local-control
+
+```text
+git log -1 --format='%H%n%an%n%s'
+```
+
+Exit: 0. d546c7bc4aa92458c38bc8bcd59cfdc791892adc
+leverage50x
+Improve Codex session selection and read-only feedback
+
+```text
+git status --short --branch
+```
+
+Exit: 0. ## stage2b-local-control...origin/stage2b-local-control
+
+```text
+git rev-list --left-right --count HEAD...origin/stage2b-local-control
+```
+
+Exit: 0. 0	0
+
+```text
+gh run list --repo leverage50x/agents --branch stage2b-local-control --commit d546c7bc4aa92458c38bc8bcd59cfdc791892adc --limit 5 --json databaseId,headSha,status,conclusion,url
+```
+
+Exit: 0. [{"conclusion":"","databaseId":40295296439,"headSha":"d546c7bc4aa92458c38bc8bcd59cfdc791892adc","status":"in_progress","url":"https://github.com/leverage50x/agents/actions/runs/40295296439"}]
+
+```text
+gh api repos/leverage50x/agents/commits/d546c7bc4aa92458c38bc8bcd59cfdc791892adc --jq '{sha: .sha, files: [.files[].filename]}'
+```
+
+Exit: 0. {"files":["ETAPA-2B-LOCAL.md","comenzi executate agent.md","src/ui.css","src/ui.html","src/ui.mjs","test/codex-control.test.mjs","test/ui.test.mjs"],"sha":"d546c7bc4aa92458c38bc8bcd59cfdc791892adc"}
+
+```text
+git ls-remote origin refs/heads/main refs/heads/stage2b-local-control 'refs/tags/v0.1.1-stage1-demo^{}'
+```
+
+Exit: 0. 906c24f15f8b364d9bec6da8cebb74b57caa8862	refs/heads/main
+d546c7bc4aa92458c38bc8bcd59cfdc791892adc	refs/heads/stage2b-local-control
+906c24f15f8b364d9bec6da8cebb74b57caa8862	refs/tags/v0.1.1-stage1-demo^{}
+
+```text
+gh run view 40295296439 --repo leverage50x/agents --json headSha,status,conclusion,url,jobs,name
+```
+
+Exit: în curs la prima întoarcere; finalizarea este înregistrată separat. Fără output.
+
+```text
+tools.write_stdin(session_id=87931, chars='')
+```
+
+Exit: 0. {"conclusion":"success","headSha":"d546c7bc4aa92458c38bc8bcd59cfdc791892adc","jobs":[{"completedAt":"2026-10-26T08:52:41Z","conclusion":"success","databaseId":121479781677,"name":"test","startedAt":"2026-10-26T08:52:24Z","status":"completed","steps":[{"conclusion":"success","name":"Set up job","number":1,"status":"completed"},{"conclusion":"success","name":"Check out source","number":2,"status":"completed"},{"conclusion":"success","name":"Set up Node.js 22","number":3,"status":"completed"},{"conclusion":"success","name":"Install from lockfile","number":4,"status":"completed"},{"conclusion":"success","name":"Run tests","number":5,"status":"completed"},{"conclusion":"success","name":"Post Set up Node.js 22","number":9,"status":"completed"},{"conclusion":"success","name":"Post Check out source","number":10,"status":"completed"},{"conclusion":"success","name":"Complete job","number":11,"status":"completed"}],"url":"https://github.com/leverage50x/agents/actions/runs/40295296439/job/121479781677"}],"name":"Node.js CI","status":"completed","url":"https://github.com/leverage50x/agents/actions/runs/40295296439"}
+
+Commit publicat **d546c7bc4aa92458c38bc8bcd59cfdc791892adc**, autorleverage50x,7fișiere. GitHubAPIconfirmăSHAși listafișierelor. Stage2b local/remote0ahead0behind. Main și Stage1tag rămân906c24f15f8b364d9bec6da8cebb74b57caa8862. RepositoryPRIVATE.
+
+GitHub Actions **success**, run40295296439: https://github.com/leverage50x/agents/actions/runs/40295296439 ,headSHAverificat;Node.js22,installfromlockfile,runtests toate success.126/126teste localePASS. Această completarepostcommit rămâne locală pentruaudit; nusecreeazăuncommitrecursivdoarpentruaînregistraacelașipush.
+
+Limita importantă rămâne: New REAL a reușit; Resume REAL a fost refuzat session-activity-unverified. Pozitivul New→Resume și retrydupăEACCES sunt SINTETICE. Nu se pretinde reluare reală reușită sau verificare vizuală de browser. Operatorul poate verificaUI manual pe127.0.0.1:8765; modelul rămâneREAD-ONLY, fără controlalaltorlaptopuri.
+
+
+### Control final după publicare
+
+CWD: [WORKSPACE]. node .local-run/round-finalize.mjs centralizează comenzile următoare:
+
+- `node .local-run/review-publication.mjs stage2b-local-control` — exit 0
+- `git diff --check` — exit 0
+- `git diff --cached --check` — exit 0
+- `git status --short --branch` — exit 0
+- `git rev-list --left-right --count HEAD...origin/stage2b-local-control` — exit 0
+- `node .local-run/round-main-status.mjs --after` — exit 0
+- `node .local-run/round-http-ui.mjs` — exit 0
+
+```json
+{
+  "commit": "d546c7bc4aa92458c38bc8bcd59cfdc791892adc",
+  "status": "## stage2b-local-control...origin/stage2b-local-control\n M \"comenzi executate agent.md\"",
+  "sync": "0\t0",
+  "audit": {
+    "commits": 7,
+    "files": 49,
+    "historyFindings": 0,
+    "workingFindings": 0,
+    "forbiddenPaths": 0
+  },
+  "runtime": {
+    "url": "http://127.0.0.1:8765",
+    "agentOnline": true,
+    "authentication": "authenticated",
+    "inventory": "available",
+    "sessionsDiscovered": 8,
+    "credentialFilesUnchanged": true
+  },
+  "http": {
+    "dashboard": {
+      "http": 200,
+      "updatedMarkersPresent": true
+    },
+    "script": {
+      "http": 200,
+      "updatedMarkersPresent": true
+    },
+    "stylesheet": {
+      "http": 200,
+      "updatedMarkersPresent": true
+    }
+  },
+  "visualBrowserVerified": false,
+  "tests": {
+    "passed": 126,
+    "failed": 0,
+    "skipped": 0
+  },
+  "ci": "success",
+  "newReal": "completed",
+  "resumeReal": "blocked: session-activity-unverified",
+  "syntheticNewResume": "passed"
+}
+```
+
+Doar jurnalul rămâne modificat local intenționat, cu aceste dovezi postcommit. Serviciile principale rămân pornite; ./leverage stop oprește numai procesele proprii. Helpers,fixture și rapoarte sunt în .local-run ignorat; nicio credențială, conversație personală sau transcript nu a fost publicat.
+
+git diff --check după înscrierea rezultatelor:exit0. Helperul final a terminat cu exit0.
+
+Închiderea verificării: `node --check .local-run/round-finalize.mjs` — exit0; `node .local-run/round-finalize.mjs` — exit0, sesiunea6693 finalizată prin `tools.write_stdin(session_id=6693, chars='')`. Sumarul final confirmă audit0constatări, branchsincronizat, authauthenticated și HTTP200. Ultima actualizare punctuală prin apply_patch înregistrează aceste rezultate; numai jurnalul este local modificat intenționat.
+
+
+<!-- filter-cli-cwd-active-2026-10-26 -->
+
+## 2026-10-26 — aliniere sesiuni la Codex resume Cwd + Active
+
+CWD pentru root și subagenți: [WORKSPACE]. Branchstage2b-local-control,HEADinițiald546c7bc4aa92458c38bc8bcd59cfdc791892adc. Singura modificare locală preexistentă era jurnalul (194linii postcommit), păstrat integral. `node .local-run/preserve-investigation.mjs` cod0 a creat copia privată ignorată .local-run/investigation-backup-BH5bCO; fără ștergeri/restaurări/reset.
+
+OpenAI Docs aplicat: căutare oficială și pagini deschise https://learn.chatgpt.com/docs/cli/reference și https://learn.chatgpt.com/docs/app-server . Suplimentar, codul public oficial al versiunii rust-v0.163.0 a fost citit prin GitHub API și salvat numai în .local-run/filter-official-*.rs, iar schema a fost generată local. Nu s-au rulat exemplele de flags din help și nu s-a lansat pickerul TUI, browserul sau un turn de model.
+
+### Agent principal — comenzi reale
+
+Ordinea este păstrată per agent; sarcinile delegate au rulat concurent. Căile personale sunt anonimizate; outputurile de cod/schema nu sunt duplicate integral. Secretele, valorile de mediu, titlurile reale și ID-urile sesiunilor nu sunt înregistrate.
+
+```text
+git status --short --branch
+```
+
+Exit: 0. ## stage2b-local-control...origin/stage2b-local-control
+ M "comenzi executate agent.md"
+
+
+```text
+git log -1 --format='%H %s'
+```
+
+Exit: 0. d546c7bc4aa92458c38bc8bcd59cfdc791892adc Improve Codex session selection and read-only feedback
+
+
+```text
+cat AGENTS.md
+```
+
+Exit: 0. Output citit și revizuit; detaliile/sursa rămân în fișierul indicat.
+
+```text
+rg -n 'SOURCE_KINDS|thread/list|sourceKinds|sessionInventory|eligibility|project|title' src/codex-control.mjs src/codex-app-server.mjs src/inventory.mjs src/hub.mjs src/ui.mjs
+```
+
+Exit: 0. Output citit și revizuit; detaliile/sursa rămân în fișierul indicat.
+
+```text
+cat [USER_HOME]/.codex/skills/.system/openai-docs/SKILL.md
+```
+
+Exit: 0. Output citit și revizuit; detaliile/sursa rămân în fișierul indicat.
+
+```text
+codex --version
+```
+
+Exit: 0. WARNING: proceeding, even though we could not create PATH aliases: Read-only file system (os error 30)
+codex-cli 0.163.0
+
+
+```text
+codex resume --help
+```
+
+Exit: 0. Output citit și revizuit; detaliile/sursa rămân în fișierul indicat.
+
+```text
+sed -n '65,100p' src/hub.mjs
+```
+
+Exit: 0. Output citit și revizuit; detaliile/sursa rămân în fișierul indicat.
+
+```text
+sed -n '1,255p' src/codex-app-server.mjs
+```
+
+Exit: 0. Output citit și revizuit; detaliile/sursa rămân în fișierul indicat.
+
+```text
+codex app-server generate-json-schema --help
+```
+
+Exit: 0. WARNING: proceeding, even though we could not create PATH aliases: Read-only file system (os error 30)
+[experimental] Generate JSON Schema for the app server protocol
+
+Usage: codex app-server generate-json-schema [OPTIONS] --out <DIR>
+
+Options:
+  -c, --config <key=value>
+          Override a configuration value that would otherwise be loaded from `~/.codex/config.toml`.
+          Use a dotted path (`foo.bar.baz`) to override nested values. The `value` portion is parsed
+          as TOML. If it fails to parse as TOML, the raw string is used as a literal.
+
+          Examples: - `-c model="o3"` - `-c 'sandbox_permissions=["disk-full-read-access"]'` - `-c
+          shell_environment_policy.inherit=all`
+
+  -o, --out <DIR>
+          Output directory where the schema bundle will be written
+
+      --enable <FEATURE>
+          Enable a feature (repeatable). Equivalent to `-c features.<name>=true`
+
+      --experimental
+          Include experimental methods and fields in the generated output
+
+      --disable <FEATURE>
+          Disable a feature (repeatable). Equivalent to `-c features.<name>=false`
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+
+```text
+sed -n '1,140p' .local-run/round-proc-diagnostic.mjs
+```
+
+Exit: 0. Output citit și revizuit; detaliile/sursa rămân în fișierul indicat.
+
+```text
+rg -n 'sessionMetadata|source|name|title|sortKey' test/codex-control.test.mjs test/app-server.test.mjs
+```
+
+Exit: 0. Output citit și revizuit; detaliile/sursa rămân în fișierul indicat.
+
+```text
+gh api 'repos/openai/codex/git/trees/rust-v0.163.0?recursive=1' --jq '.tree[].path | select(test("resume_picker|session_picker|thread_list|session_source"))'
+```
+
+Exit: în curs la prima întoarcere; finalizarea este separată. Fără output.
+
+```text
+tools.write_stdin(session_id=21350, chars='')
+```
+
+Exit: 0. Output citit și revizuit; detaliile/sursa rămân în fișierul indicat.
+
+```text
+codex app-server generate-json-schema --out .local-run/filter-schema
+```
+
+Exit: 0. WARNING: proceeding, even though we could not create PATH aliases: Read-only file system (os error 30)
+
+
+```text
+gh api 'repos/openai/codex/contents/codex-rs/tui/src/resume_picker.rs?ref=rust-v0.163.0' --jq .content | base64 --decode > .local-run/filter-official-resume-picker.rs
+```
+
+Exit: 0. Fără output.
+
+```text
+gh api 'repos/openai/codex/contents/codex-rs/tui/src/resume_picker/page_loading.rs?ref=rust-v0.163.0' --jq .content | base64 --decode > .local-run/filter-official-page-loading.rs
+```
+
+Exit: 0. Fără output.
+
+```text
+gh api 'repos/openai/codex/contents/codex-rs/tui/src/app/session_picker.rs?ref=rust-v0.163.0' --jq .content | base64 --decode > .local-run/filter-official-session-picker.rs
+```
+
+Exit: 0. Fără output.
+
+```text
+gh api 'repos/openai/codex/contents/codex-rs/tui/src/app_server_session/thread_list.rs?ref=rust-v0.163.0' --jq .content | base64 --decode > .local-run/filter-official-thread-list.rs
+```
+
+Exit: 0. Fără output.
+
+```text
+rg -n 'source|INTERACTIVE|Active|active|archiv|cwd|Cwd|filter|provider|sort' .local-run/filter-official-thread-list.rs .local-run/filter-official-session-picker.rs .local-run/filter-official-page-loading.rs
+```
+
+Exit: 0. Output citit și revizuit; detaliile/sursa rămân în fișierul indicat.
+
+```text
+rg -n 'INTERACTIVE|Source|source_kinds|sourceKinds|include_non_interactive|ArchiveFilter|Active|name|preview|title' .local-run/filter-official-resume-picker.rs
+```
+
+Exit: 0. Output citit și revizuit; detaliile/sursa rămân în fișierul indicat.
+
+```text
+rg --files .local-run/filter-schema -g '*Thread*.json' -g '*SessionSource*.json'
+```
+
+Exit: 0. Sursă/schema oficială revizuită; observațiile sunt documentate separat.
+
+```text
+sed -n '2070,2155p' .local-run/filter-official-resume-picker.rs
+```
+
+Exit: 0. Output citit și revizuit; detaliile/sursa rămân în fișierul indicat.
+
+```text
+sed -n '4360,4410p' .local-run/filter-official-resume-picker.rs
+```
+
+Exit: 0. Output citit și revizuit; detaliile/sursa rămân în fișierul indicat.
+
+```text
+rg -n 'repository_cwd_filter|enum SessionStatus|default_sort_key|sort_key:|sort_direction|use_state_db_only|model_providers' .local-run/filter-official-resume-picker.rs
+```
+
+Exit: 0. Metadate/sursă oficială revizuite pentru criterii exacte.
+
+```text
+sed -n '980,1015p' .local-run/filter-official-resume-picker.rs
+```
+
+Exit: 0. Output citit și revizuit; detaliile/sursa rămân în fișierul indicat.
+
+```text
+node --input-type=module -e 'import fs from "node:fs";const p=JSON.parse(fs.readFileSync(".local-run/filter-schema/v2/ThreadListParams.json","utf8"));const r=JSON.parse(fs.readFileSync(".local-run/filter-schema/v2/ThreadListResponse.json","utf8"));console.log(JSON.stringify({params:p.properties,thread:r.definitions?.Thread,source:r.definitions?.SessionSource},null,2));'
+```
+
+Exit: 0. Output citit și revizuit; detaliile/sursa rămân în fișierul indicat.
+
+```text
+node .local-run/filter-native-audit.mjs
+```
+
+Exit: în curs la prima întoarcere; finalizarea este separată. Fără output.
+
+```text
+tools.write_stdin(session_id=45232, chars='')
+```
+
+Exit: 0. {"version":"0.163.0","workspaceScope":"current-authorized-project","readOnlyMetadata":true,"transcriptMethodsUsed":false,"namesOrPreviewsLogged":false,"results":[{"scope":"old-all-sources-current-workspace","pages":[{"count":9,"sourceCounts":{"subAgent":7,"vscode":2},"namesAvailable":8,"parented":0,"ephemeral":0,"runtimeCounts":{"notLoaded":9},"truncated":false}]},{"scope":"cli-cwd-active-interactive","pages":[{"count":2,"sourceCounts":{"vscode":2},"namesAvailable":1,"parented":0,"ephemeral":0,"runtimeCounts":{"notLoaded":2},"truncated":false}]}]}
+
+
+```text
+node .local-run/filter-native-audit.mjs --app-created
+```
+
+Exit: 0. {"version":"0.163.0","workspaceScope":"current-authorized-project","readOnlyMetadata":true,"transcriptMethodsUsed":false,"namesOrPreviewsLogged":false,"results":[{"scope":"app-created-test-fixture","pages":[{"count":1,"sourceCounts":{"vscode":1},"namesAvailable":0,"parented":0,"ephemeral":0,"runtimeCounts":{"notLoaded":1},"truncated":false}]}]}
+
+
+```text
+node --check src/codex-session-metadata.mjs
+```
+
+Exit: 0. Fără output.
+
+```text
+sed -n '1,225p' test/app-server.test.mjs
+```
+
+Exit: 0. Output citit și revizuit; detaliile/sursa rămân în fișierul indicat.
+
+```text
+sed -n '165,220p' src/agent.mjs
+```
+
+Exit: 0. Output citit și revizuit; detaliile/sursa rămân în fișierul indicat.
+
+```text
+sed -n '1,130p' test/agent.test.mjs
+```
+
+Exit: 0. Output citit și revizuit; detaliile/sursa rămân în fișierul indicat.
+
+```text
+node --test test/codex-session-metadata.test.mjs test/app-server.test.mjs test/agent.test.mjs > .local-run/filter-root-tests.tap 2>&1
+```
+
+Exit: în curs la prima întoarcere; finalizarea este separată. Fără output.
+
+```text
+tools.write_stdin(session_id=76607, chars='')
+```
+
+Exit: 0. Fără output.
+
+```text
+rg -n -A 18 -B 3 'not ok|failureType:|error:|# tests|# pass|# fail|# duration_ms' .local-run/filter-root-tests.tap
+```
+
+Exit: 0. 126-  type: 'test'
+127-  ...
+128-1..21
+129:# tests 21
+130-# suites 0
+131:# pass 21
+132:# fail 0
+133-# cancelled 0
+134-# skipped 0
+135-# todo 0
+136:# duration_ms 3158.186985
+
+
+```text
+git diff -- src/codex-control.mjs src/hub.mjs
+```
+
+Exit: 0. Output citit și revizuit; detaliile/sursa rămân în fișierul indicat.
+
+```text
+git diff -- src/ui.mjs src/ui.html
+```
+
+Exit: 0. Output citit și revizuit; detaliile/sursa rămân în fișierul indicat.
+
+```text
+npm test > .local-run/filter-full-tests.tap 2>&1
+```
+
+Exit: în curs la prima întoarcere; finalizarea este separată. Fără output.
+
+```text
+node .local-run/round-main-status.mjs --before
+```
+
+Exit: 0. {"url":"http://127.0.0.1:8765","agentOnline":true,"authentication":"authenticated","inventory":"available","discovered":9,"activeReadonlyJobs":0,"hubPid":252971,"agentPid":252980}
+
+
+```text
+tools.write_stdin(session_id=26813, chars='')
+```
+
+Exit: 0. Fără output.
+
+```text
+rg -n -A 18 -B 3 'not ok|failureType:|error:|# tests|# pass|# fail|# skipped|# duration_ms' .local-run/filter-full-tests.tap
+```
+
+Exit: 0. 862-  type: 'test'
+863-  ...
+864-1..143
+865:# tests 143
+866-# suites 0
+867:# pass 143
+868:# fail 0
+869-# cancelled 0
+870:# skipped 0
+871-# todo 0
+872:# duration_ms 6207.585319
+
+
+```text
+./leverage stop
+```
+
+Exit: 0. Launcher-owned processes are stopped. Credentials were preserved.
+
+
+```text
+./leverage start
+```
+
+Exit: în curs la prima întoarcere; finalizarea este separată. Fără output.
+
+```text
+node .local-run/filter-native-audit.mjs
+```
+
+Exit: 0. {"version":"0.163.0","workspaceScope":"current-authorized-project","readOnlyMetadata":true,"transcriptMethodsUsed":false,"namesOrPreviewsLogged":false,"journalSnapshotAt":1793009274,"results":[{"scope":"old-all-sources-current-workspace","pages":[{"count":9,"sourceCounts":{"subAgent":7,"vscode":2},"createdBeforePriorAudit":{"vscode":2,"subAgent":6},"namesAvailable":8,"parented":0,"ephemeral":0,"runtimeCounts":{"notLoaded":9},"truncated":false}]},{"scope":"cli-cwd-active-interactive","pages":[{"count":2,"sourceCounts":{"vscode":2},"createdBeforePriorAudit":{"vscode":2},"namesAvailable":1,"parented":0,"ephemeral":0,"runtimeCounts":{"notLoaded":2},"truncated":false}]}]}
+
+
+```text
+tools.write_stdin(session_id=61320, chars='')
+```
+
+Exit: 0. Hub and local read-only agent are ready at http://127.0.0.1:8765.
+
+
+```text
+node .local-run/filter-live-check.mjs
+```
+
+Exit: 0. {"agentOnline":true,"authentication":"authenticated","inventory":"available","filteredSessions":2,"nativeFilteredSessions":2,"sessionIdsMatchNative":true,"optionalTitlesMatchNative":true,"titlesAvailable":1,"activeReadonlyJobs":0,"http":{"dashboard":200,"script":200,"updatedUi":true},"transcriptMethodsUsed":false,"newOrResumeTurnsStarted":false,"visualBrowserVerified":false}
+
+
+```text
+node .local-run/round-main-status.mjs --after
+```
+
+Exit: 0. {"url":"http://127.0.0.1:8765","agentOnline":true,"authentication":"authenticated","inventory":"available","discovered":2,"activeReadonlyJobs":0,"hubPid":260403,"agentPid":260412,"credentialFilesUnchanged":true,"samePids":false}
+
+
+```text
+git status --short --branch
+```
+
+Exit: 0. ## stage2b-local-control...origin/stage2b-local-control
+ M ETAPA-2B-LOCAL.md
+ M "comenzi executate agent.md"
+ M src/agent.mjs
+ M src/codex-app-server.mjs
+ M src/codex-control.mjs
+ M src/hub.mjs
+ M src/ui.css
+ M src/ui.html
+ M src/ui.mjs
+ M test/agent.test.mjs
+ M test/api.test.mjs
+ M test/app-server.test.mjs
+ M test/codex-control.test.mjs
+ M test/stage2.test.mjs
+ M test/ui.test.mjs
+?? src/codex-session-metadata.mjs
+?? test/codex-session-metadata.test.mjs
+
+
+```text
+git diff --check
+```
+
+Exit: 0. Fără output.
+
+```text
+git diff --stat
+```
+
+Exit: 0.  ETAPA-2B-LOCAL.md           |   8 +-
+ comenzi executate agent.md  | 194 ++++++++++++++++++++++++++++++++++++++++++++
+ src/agent.mjs               |  13 ++-
+ src/codex-app-server.mjs    |  34 +++++---
+ src/codex-control.mjs       |  49 +++++++----
+ src/hub.mjs                 |  19 +++--
+ src/ui.css                  |   1 +
+ src/ui.html                 |   2 +-
+ src/ui.mjs                  |  55 +++++++++----
+ test/agent.test.mjs         |  28 +++++++
+ test/api.test.mjs           |  30 +++++++
+ test/app-server.test.mjs    |  38 ++++++++-
+ test/codex-control.test.mjs | 116 ++++++++++++++++++++++++--
+ test/stage2.test.mjs        |  23 ++++++
+ test/ui.test.mjs            |  81 +++++++++++++++---
+ 15 files changed, 618 insertions(+), 73 deletions(-)
+
+
+```text
+git worktree list --porcelain
+```
+
+Exit: 0. worktree [WORKSPACE]
+HEAD d546c7bc4aa92458c38bc8bcd59cfdc791892adc
+branch refs/heads/stage2b-local-control
+
+
+
+```text
+git diff -- src/agent.mjs src/codex-app-server.mjs
+```
+
+Exit: 0. Output citit și revizuit; detaliile/sursa rămân în fișierul indicat.
+
+```text
+git remote get-url origin
+```
+
+Exit: 0. https://github.com/leverage50x/agents.git
+
+
+```text
+gh repo view leverage50x/agents --json nameWithOwner,isPrivate,url
+```
+
+Exit: 0. {"isPrivate":true,"nameWithOwner":"leverage50x/agents","url":"https://github.com/leverage50x/agents"}
+
+
+### Implementare și rezultate înainte de publicare
+
+- Cauza exactă: requestul vechi sourceKinds includea cli,vscode,exec,appServer,subAgent și variantele lui,unknown. Codul oficial0.163.0 resume_picker.rs thread_list_params/testremote_thread_list_params_omit_provider_filter folosește implicitcli/vscode,archivedfalse șiCwdcurent; Activeeste comutatorulActive/Archived, nuThread.statusactive. SchemaCli generată confirmăsemantica. Gitworktree list arată un singur checkout autorizat.
+- Audit REALmetadatefărătranscripturi: inventarlarg9=7subAgent+2vscode. FiltruCLI2vscode. MetadatelecreatedAtcorelateculastmtimealjurnaluluiprecedent1793009274 identifică2vscode+6subAgent pânălaauditul cu8sesiuni; alșapteleasubagent a apărut ulterior. Ambele sesiuni interactive suntraportatenotLoadedînAppServerproaspăt; asta nu le exclude dinActive(nearhivate) și nu dovedeșteactivitateaproceselor.
+- Filtruimplementat încontroller/adaptor: sourcecli/vscode,Cwdcanonicalautorizat,archivedfalse,sortupdated_atdesc,DBonlytrue; reverificaresource/cwd/archived/parent/ephemeral, deduplicare și paginarelimită40/8pagini cuindicatortruncated. Nu existăcountfix2; testuladăugândunCLIîntoarce3. Unknown/auxiliaryrowsomise. Fallbackfilename nu poatecertifica criteriile: inventarAppServercuworkspaceconfigurat rămâneunavailable dacămetadateleeșuează.
+- Titluri: numaiThread.name,optional titlemax120bytesUTF8sanitizat; fărănameavailable/privacy-safe=>Untitledsession. Fărăpreview/firstmessage/transcriptfallback. UIafişeazătitluscurt+relative58m/2h/justnow, păstreazăIDcomplet/proiect/timpabsolutîndetalii și confimărileexplicite. Titlurile nu apar înjurnal. Transportulrămâne20k; producătorul poateomitetitlurileopționale dacăaltfelpayloadulexcede bugetul, păstrândinventarul/autentificarea.
+- New/Resumepăstrate,sandbox/autentificare/revocare/externalactivitygate neschimbate. SesiuneaSINTETICĂcreatărealprinNewîn runda precedentă aremetadatasourcevscode și trecefiltrul înworkspaceulei. Înaceastărundă nu s-a pornit/resumatniciunturnreal și nu s-au accesatconversațiipersonale.
+- Teste: controller34/34PASS;Hub/API+integrare2agențisintetici14/14PASS și regresiiassignmentpath;UI18/18PASS;module/adaptor/agent21/21PASS. Suitecompletă `npm test > .local-run/filter-full-tests.tap 2>&1` exit0:143/143PASS,0fail/skip,6207.59ms. Fixture-urile verificăsourcefilter,archive≠runtime,stale/foreign/concurență,NewResumeprotocol,titlusafeUTF8/PII/control,limităheartbeat,relativeclockdeterminist,paginare/dedup și selecțiiexplicite.
+- Integrare REALĂdupăstop/startowned:Hub/agentOnline,authauthenticated,credencialefișierehub.env/laptop1.env/agents.jsonneschimbate. HTTPdashboard/script200,updatedUItrue. InventarulHub2 și native2auEXACTaceleașiIDurișititluriopționale; un numedisponibil, celălaltlipsește. Nu s-a pretinsverificarevizuală. Aplicațiarămânehttp://127.0.0.1:8765;oprire ./leverage stop.
+- Modificărirootprinapply_patch:src/codex-session-metadata.mjs,test/codex-session-metadata.test.mjs,src/codex-app-server.mjs,test/app-server.test.mjs,src/agent.mjs,test/agent.test.mjs,ETAPA-2B-LOCAL.md și helpers ignorați; Hub/controller/UIalocatecelor3subagenți. Nicio dependență nouă, terminalCLI,managementsubagențiînprodus,auth/global/system/main/tagchange. Backup/jurnalvechi păstrate.
+- Codex --version/help/schema au dat un warningPATHaliasreadonly în sandbox,dar exit0; nu s-au schimbat permisiuni sauconfigglobale. Toateescaladările necesareaufolositfluxulplatformei; nufullaccess/bypass.
+
+### Rapoarte delegate
+
+
+# Inventar CLI / Cwd + Active — subagent controller
+
+CWD pentru toate comenzile: `[WORKSPACE]`, workspace-ul curent Leverage50xAgents. Fără Git de scriere, rețea, MCP, Codex real, auth/env/transcripturi sau schimbări de politică în această investigație. Fișier ignorat de Git.
+
+1. Comandă executată, exit 0:
+
+```bash
+rg -n 'SOURCE_KINDS|thread/list|listSessions|eligibility|title|name|archived|source' src/codex-control.mjs test/codex-control.test.mjs
+```
+
+Controllerul cerea toate cele zece sourceKinds și filtra local doar UUID/cwd/timestamp. Nu verifica sursa returnată sau archived, nu deduplica și nu continua paginarea. Thread.name era ignorat, iar preview nu era returnat. Criteriul CLI exact rămânea de confirmat de root din sursa oficială înaintea modificărilor.
+
+2. Comandă executată în paralel cu prima lectură, exit 0:
+
+```bash
+node --input-type=module -e 'import fs from "node:fs";const schema=JSON.parse(fs.readFileSync(".local-run/codex-schema/v2/ThreadListResponse.json"));for(const name of ["ThreadSource","ThreadSourceKind","ThreadStatus"])console.log(name,JSON.stringify(schema.definitions[name]));const thread=schema.definitions.Thread;console.log("Thread metadata",JSON.stringify({id:thread.properties.id,cwd:thread.properties.cwd,name:thread.properties.name,source:thread.properties.source,status:thread.properties.status,archived:thread.properties.archived,required:thread.required}));'
+```
+
+Schema statică generată anterior pentru CLI 0.163.0: name este titlu user-facing opțional; status are notLoaded/idle/systemError/active; Thread nu are proprietate archived. Nu au fost citite sesiuni reale sau transcripturi.
+
+3. Comandă executată, exit 0:
+
+```bash
+node --input-type=module -e 'import fs from "node:fs";const schema=JSON.parse(fs.readFileSync(".local-run/codex-schema/v2/ThreadListResponse.json"));console.log("SessionSource",JSON.stringify(schema.definitions.SessionSource));'
+```
+
+SessionSource poate fi cli/vscode/exec/appServer/unknown sau obiect custom/subAgent. Nu se poate deduce apartenența la picker-ul CLI doar din faptul că este string valid. Root stabilește criteriul oficial și helperul comun.
+
+## Coordonare / constatări înainte de modificări
+
+Nu am modificat filtrele controllerului înaintea criteriilor oficiale. Am semnalat root că Resume validează UUID-ul prin aceeași listSessions; excluderea sursei appServer ar putea ascunde sesiunile create de aplicație dacă sursa lor implicită este appServer. Este necesară o soluție explicită care nu falsifică sursa și nu relaxează politica New/Resume.
+
+Schema publică eligibility rămâne discovered/confirmed/busy. confirmed înseamnă cunoscut controllerului curent, nu dovada că nu există activitate în alt proces. Titlurile viitoare trebuie să provină numai din name (maxim 120), fără fallback preview/transcript.
+
+## Criterii confirmate de root și implementare
+
+Root a confirmat din sursa oficială CLI 0.163.0, resume_picker.rs: sourceKinds cli/vscode, archived false, cwd canonic, updated_at desc. DB-only rămâne o restricție suplimentară de confidențialitate. Root a raportat și auditul nativ: populația broad avea șapte subAgent și două vscode, iar threadul creat de aplicație în fixture-ul propriu avea sursa vscode. Acestea sunt verificările root, nu comenzi/native metadata colectate de subagent. Nu este necesară o excepție de sursă pentru Resume.
+
+4. Comandă executată, exit 0:
+
+```bash
+cat src/codex-session-metadata.mjs
+```
+
+Citit helperul comun deținut de root: RESUME_SOURCE_KINDS, matchesResumePickerThread și sanitizeSessionTitle. Nu a fost modificat.
+
+5. Comandă executată în paralel cu lectura helperului, exit 0:
+
+```bash
+sed -n '125,150p' test/codex-control.test.mjs
+```
+
+Citite așteptările vechi ale inventarului sintetic înainte de actualizare.
+
+6. Modificări prin două apply_patch, rezultat succes confirmat de tool pentru fiecare: `src/codex-control.mjs` și `test/codex-control.test.mjs`. Controllerul consumă helperul comun, cere cli/vscode și verifică fiecare rând returnat înaintea limitei. Paginația este limitată la opt pagini; UUID-urile sunt deduplicate, metadatele cele mai recente sunt păstrate, sortarea precedă limita finală de 40, cursorii invalizi duc la protocol-error, ciclurile/limitele raportează truncated. title provine numai din name sanitizat, fără preview/transcript/fallback. Configurația New/Resume, autentificarea, READ-ONLY/on-request/user și detectorul conservator nu au fost modificate.
+
+Fixture-urile existente au primit source cli explicit și un nume sintetic public. Cinci grupuri de teste noi verifică selecția CLI fără număr fix, excluziunea subAgent/exec/appServer/unknown/foreign/archived/ephemeral/child, filtrarea pe fiecare pagină, deduplicare/sortare/limite, cursor invalid/ciclic și titluri name-only cu limite UTF-8 și respingerea emailurilor/căilor/tokenurilor/control characters. Titlul cu markup rămâne text de date; escaping-ul HTML aparține dashboardului.
+
+7. Comandă executată, exit 0:
+
+```bash
+node --test test/codex-control.test.mjs
+```
+
+Rezultat: 34/34 PASS, 0 fail, 0 skip, 727.15 ms. Inclusiv regresiile New→Resume și toate verificările anterioare de securitate. Numai fluxuri simulate; fără Codex/model/MCP real, auth/env sau transcripturi reale.
+
+8. Comandă executată, exit 0:
+
+```bash
+git diff --check -- src/codex-control.mjs test/codex-control.test.mjs
+```
+
+Fără erori whitespace. Nu am executat operațiuni Git de scriere, rețea, Windows sau modificări globale. Ledgerul ignorat este destinat centralizării de către root.
+
+
+# Filtrare sesiuni și titluri — subagent Hub
+
+CWD: `[WORKSPACE]`. Scope: numai `src/hub.mjs`, `test/stage2.test.mjs`, `test/api.test.mjs` și acest ledger privat. Fără Git mutations, schimbări auth/policy, dispozitive externe sau joburi noi.
+
+## Comenzi executate — faza read-only
+
+1. `sed -n '1,155p' src/hub.mjs` — exit 0; inventarul este allowlist și nu transportă încă title/name/preview.
+2. `cat test/stage2.test.mjs` — exit 0; revizuite cazurile existente multi-agent și sanitizare.
+3. `cat test/api.test.mjs` — exit 0; revizuite protecțiile payload/auth și excluderea câmpurilor private.
+4. `rg -n 'title|name|preview|sessions|sessionMetadata' src/codex-app-server.mjs src/codex-control.mjs src/agent.mjs test/codex-control.test.mjs test/codex-app-server.test.mjs` — exit 2: ultimul fișier de teste nu există; rezultatele pentru celelalte fișiere au fost citite.
+5. `rg --files src -g '*metadata*'` — exit 1, fără rezultate la acel moment; modulul comun era în pregătire la agentul principal.
+6. `apply_patch` — creat acest ledger; modulele target încă nu au fost editate și nu au fost executate teste.
+7. `chmod 600 .local-run/filter-hub-ledger.md` — exit 0; ledger privat.
+
+## Implementare după confirmarea contractului comun
+
+8. `cat src/codex-session-metadata.mjs` — exit 0; contract confirmat: `sanitizeSessionTitle(value)` întoarce string sau undefined, maximum 120 bytes UTF-8 inclusiv ellipsis, cu respingerea titlurilor sensibile/invalide.
+9. `apply_patch` — actualizate exclusiv `src/hub.mjs`, `test/api.test.mjs` și `test/stage2.test.mjs`. Hub-ul importă sanitizerul comun și transportă opțional title numai pentru session.source app-server. Nu există fallback name/preview/transcript.
+10. `node --test test/api.test.mjs test/stage2.test.mjs` — exit 0, **14/14 PASS**, 0 fail/skip. Sunt incluse testele API existente și integrarea HTTP loopback sintetică pentru doi agenți, fără Codex real.
+11. `apply_patch` — actualizat acest ledger cu comenzile și rezultatele reale.
+
+Teste noi executate: titlu sigur normalizat; limită 120 bytes cu Unicode și ellipsis; respingerea valorilor invalide, control/bidi, token/email/path; niciun fallback pentru name/preview/transcript sau inventar din fișiere; titluri diferite pentru doi agenți cu același nume; eliminarea titlului unui agent la fallback, fără modificarea inventarului celuilalt. Limita HTTP de 20000 bytes, autentificarea și politicile nu au fost modificate.
+
+Observație de code-review transmisă root, încă nevalidată printr-o comandă separată: expresia de boundary pentru path din sanitizerul comun poate să nu respingă un path absolut precedat de `=` ori `:`. Nu am modificat modulul comun, aflat în proprietatea root, și nu am creat o implementare paralelă.
+
+12. Root a confirmat separat întărirea boundary-ului comun pentru `=` și `:`. `apply_patch` — adăugate în testul API cazurile sintetice `workspace=/synthetic/path` și `cwd:C:\\synthetic\\project`.
+13. `node --test --test-name-pattern='session titles are optional' test/api.test.mjs` — exit 0, **1/1 PASS**, după adăugarea celor două regresii. Astfel observația de boundary de mai sus este remediată și verificată la transportul Hub.
+14. `apply_patch` — completat ledgerul cu remedierea coordonată și rezultatul real. Nicio modificare auth/policy/Git sau alt fișier source de către subagent.
+
+## Propunere înaintea confirmării API-ului comun
+
+Transport opțional `title` numai pentru metadata source app-server, prin sanitizerul comun. Hub-ul nu va deriva title din name, preview, transcripturi sau alte câmpuri primite. Mapperul producătorului va folosi exclusiv numele oficial thread.name. Teste propuse: titlu sigur și bounded120, omiterea titlurilor sensibile/invalide, lipsa fallback-ului name/preview/files, separare per dispozitiv și eliminarea titlului la refresh.
+
+Nu este presupusă o selecție exactă de două sesiuni; criteriul oficial SessionSource este coordonat de agentul principal. Limita HTTP de 20000 bytes rămâne neschimbată. Producătorul trebuie să respecte bugetul total când adaugă titluri, mai ales la inventar mare și Unicode.
+
+
+# UI — lista Cwd + Active, titluri metadata si timp relativ
+
+CWD pentru toate comenzile: [WORKSPACE]. Batch-urile independente pot finaliza concurent; comenzile sunt listate in ordinea lansarii. Raport ignorat pentru centralizare de catre agentul principal; jurnalul central nu a fost editat.
+
+## 1
+
+```bash
+cat src/ui.html
+```
+
+Exit: 0.
+
+Citire READ-ONLY a UI/testelor existente.
+
+## 2
+
+```bash
+cat src/ui.css
+```
+
+Exit: 0.
+
+Citire READ-ONLY a UI/testelor existente.
+
+## 3
+
+```bash
+sed -n '1,245p' src/ui.mjs
+```
+
+Exit: 0.
+
+Citire READ-ONLY a UI/testelor existente.
+
+## 4
+
+```bash
+sed -n '1,70p' test/ui.test.mjs
+```
+
+Exit: 0.
+
+Citire READ-ONLY a UI/testelor existente.
+
+## 5
+
+```bash
+sed -n '300,455p' test/ui.test.mjs
+```
+
+Exit: 0.
+
+Citire READ-ONLY a UI/testelor existente.
+
+## 6
+
+```bash
+node --test test/ui.test.mjs
+```
+
+Exit: 0.
+
+17/17 PASS, zero fail/skip, 188.988445 ms; inaintea labelului final de filtru.
+
+## 7
+
+```bash
+node --check src/ui.mjs
+```
+
+Exit: 0.
+
+Fara output; verificare reusita.
+
+## 8
+
+```bash
+git diff --check -- src/ui.mjs src/ui.html src/ui.css test/ui.test.mjs
+```
+
+Exit: 0.
+
+Fara output; verificare reusita.
+
+## 9
+
+```bash
+git check-ignore .local-run/filter-ui-ledger.md
+```
+
+Exit: 0.
+
+.local-run/filter-ui-ledger.md
+
+
+## 10
+
+```bash
+test -e .local-run/filter-ui-ledger.md
+```
+
+Exit: 1.
+
+Raportul nu exista; creare fara suprascrierea unui fisier anterior.
+
+## 11
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/ui.html')
+s = p.read_text()
+changes = [
+    ('<h2>Codex sessions <small>Read-only inventory</small></h2>', '<h2>Codex sessions <small id="inventory-filter">Read-only inventory</small></h2>'),
+    ('<p class="muted">Discovery does not prove a session is running or resumable. Inventory collects no transcript. Use the separate confirmed local control form for a real read-only turn.</p>', '<p id="inventory-filter-note" class="muted">Discovery does not prove that a session is running or resumable. Inventory collects no transcript.</p>')
+]
+for old, new in changes:
+    assert s.count(old) == 1, 'Expected one inventory UI marker.'
+    s = s.replace(old, new, 1)
+p.write_text(s)
+PY
+```
+
+Exit: 0.
+
+Adaugat label dinamic Cwd+Active si nota explicativa, cu fallback neconfirmat pentru fisiere; ID-urile existente pastrate.
+
+## 12
+
+```bash
+node --test test/ui.test.mjs
+```
+
+Exit: 0.
+
+18/18 PASS, zero fail/skip, 192.501504 ms; include labelul final Cwd+Active si fallbackul de fisiere.
+
+## 13
+
+```bash
+node --check src/ui.mjs
+```
+
+Exit: 0.
+
+Fara output; verificare reusita.
+
+## 14
+
+```bash
+git diff --check -- src/ui.mjs src/ui.html src/ui.css test/ui.test.mjs
+```
+
+Exit: 0.
+
+Fara output; verificare reusita.
+
+## 15
+
+```bash
+node --input-type=module <<'NODE'
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const html = fs.readFileSync('src/ui.html', 'utf8');
+const source = fs.readFileSync('src/ui.mjs', 'utf8');
+const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]);
+assert.equal(new Set(ids).size, ids.length);
+const references = [...new Set([...source.matchAll(/\$\('([^']+)'\)/g)].map(match => match[1]))];
+for (const id of references) assert.ok(ids.includes(id), 'Missing HTML ID: ' + id);
+console.log(JSON.stringify({ uniqueDOMIds: ids.length, staticReferencesVerified: references.length }));
+NODE
+```
+
+Exit: 0.
+
+{"uniqueDOMIds":31,"staticReferencesVerified":30}
+
+
+## 16
+
+```bash
+git diff --stat -- src/ui.mjs src/ui.html src/ui.css test/ui.test.mjs
+```
+
+Exit: 0.
+
+ src/ui.css       |  1 +
+ src/ui.html      |  2 +-
+ src/ui.mjs       | 55 ++++++++++++++++++++++++++++----------
+ test/ui.test.mjs | 81 ++++++++++++++++++++++++++++++++++++++++++++++++--------
+ 4 files changed, 113 insertions(+), 26 deletions(-)
+
+
+## Modificari efective si review
+
+- src/ui.mjs: titlul se ia doar din metadata title; fallback exact Untitled session. Nu se folosesc preview, nume de proiect sau conversatii pentru a inventa titluri. Afisarea scurteaza la 64 code points si pastreaza titlul complet in detalii. Timpul relativ foloseste lastActivity: just now, Nm ago, Nh ago, Nd ago; Unknown/future timestamps nu sunt prezentate drept activitate confirmata. Titlu+timp relativ in lista/chips/select; ID complet/proiect/timp ISO in Session details. Selectiile explicite, confirmarea finala cu ID complet, tokenul in memorie, API-urile si HTML escaping raman.
+- src/ui.html: label si explicatie dinamica pentru Cwd+Active. Active inseamna nearchivat, nu proces activ. Pentru metadata din nume de fisiere se afiseaza Unverified filename inventory; nu se promite paritate CLI.
+- src/ui.css: stil compact pentru titlu/timp relativ, detalii accesibile pastrate.
+- test/ui.test.mjs: ceas sintetic determinist; teste pentru titlu/escaping/fallback strict, reltime/polling fara autoselect, Unicode title in schema max120UTF8bytes, delimitare Cwd+Active vs fallback. 18/18 teste finale PASS.
+- 3 patch-uri apply_patch reusite au modificat JS/CSS/teste, iar scriptul Python literal de mai sus a modificat doar HTML. Acest fisier ignorat este singurul fisier suplimentar.
+
+Schema optional title:string <=120UTF8bytes si filtrul CLI cli/vscode+cwd+archived:false au fost confirmate de agentul principal. Verificarea interogarilor backend si a surselor reale ramane la agentul principal; acest subagent a verificat doar afisarea prin metadata sintetica. Filtrul UI revendica Cwd+Active doar pentru AppServer cu workspaceReady; fallback files este explicit neconfirmat.
+
+Sintaxa si diff --check PASS; DOM:31 ID-uri HTML unice si30 referinte statice JS valide. Review-ul UI nu a identificat blocaje. Nu s-a verificat vizual un browser si nu s-au executat Windows/PowerShell, turnuri Codex/model, servicii reale, acces la secrete sau mutatii Git.
+
+
+
+### Audit înainte de commit — filtru CLI
+
+CWD: [WORKSPACE]. `node .local-run/filter-centralize.mjs` — exit 0, a păstrat jurnalul local preexistent și a centralizat comenzile celor trei subagenți. `node .local-run/review-publication.mjs stage2b-local-control > .local-run/filter-publication-audit.log` — exit 0. Sumarul JSON citit prin `node --input-type=module` confirmă 7 commituri și 51 de fișiere verificate, fără constatări în istoric, fișiere curente sau căi private. `git diff --check` — exit 0. `git diff --numstat -- 'comenzi executate agent.md'` — exit 0, 980 de linii adăugate, zero ștergeri în acel punct. Nu se publică helpers, cache-ul sursei/schema, fișiere .env ori .local-run.
+
 <!-- publish-next -->

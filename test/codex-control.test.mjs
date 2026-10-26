@@ -11,6 +11,10 @@ const threadId = '11111111-1111-1111-1111-111111111111';
 const otherId = '22222222-2222-2222-2222-222222222222';
 const turnId = '33333333-3333-3333-3333-333333333333';
 const newInput = { mode: 'new', workspaceId: 'project', prompt: 'Summarize the supplied README.', confirmed: true };
+const inventoryRow = (index, workspace, extra = {}) => ({
+  id: index.toString(16).padStart(8, '0') + '-4444-4444-4444-444444444444',
+  cwd: workspace, source: 'cli', updatedAt: 1700000000 + index, status: { type: 'notLoaded' }, ...extra,
+});
 
 function fakeCodex(t, behavior = {}) {
   const f = fixture(t);
@@ -52,9 +56,10 @@ function fakeCodex(t, behavior = {}) {
             case 'account/read': response({ account: behavior.unauthenticated ? null : {
               type: 'chatgpt', email: 'synthetic-private-account@example.com', planType: 'synthetic-private-plan',
             }, requiresOpenaiAuth: true }); break;
-            case 'thread/list': response({ data: behavior.rows || [{ id: threadId, cwd: f.workspace,
-              updatedAt: 1700000000, preview: 'SYNTHETIC_PRIVATE_PREVIEW', name: 'SYNTHETIC_PRIVATE_TITLE',
-              turns: [{ text: 'SYNTHETIC_PRIVATE_HISTORY' }], status: { type: 'notLoaded' } }], nextCursor: null }); break;
+            case 'thread/list': response(behavior.listReply ? behavior.listReply(message.params, f.workspace) :
+              { data: behavior.rows || [{ id: threadId, cwd: f.workspace, source: 'cli',
+                updatedAt: 1700000000, preview: 'SYNTHETIC_PRIVATE_PREVIEW', name: 'Synthetic named session',
+                turns: [{ text: 'SYNTHETIC_PRIVATE_HISTORY' }], status: { type: 'notLoaded' } }], nextCursor: null }); break;
             case 'thread/start':
             case 'thread/resume': {
               const responseWorkspace = behavior.foreignResponse ? '/synthetic/foreign-workspace' : f.workspace;
@@ -131,13 +136,112 @@ test('session inventory is DB-only, scoped to the configured workspace and sanit
   const f = fakeCodex(t);
   const result = await f.control.listSessions();
   assert.deepEqual(result.sessions, [{ id: threadId, modified: new Date(1700000000000).toISOString(),
-    lastActivity: new Date(1700000000000).toISOString(), project: 'workspace', source: 'app-server',
+    lastActivity: new Date(1700000000000).toISOString(), title: 'Synthetic named session', project: 'workspace', source: 'app-server',
     activity: 'discovered', eligibility: 'discovered' }]);
   const request = f.requests.find(request => request.method === 'thread/list');
   assert.equal(request.params.cwd, f.workspace);
   assert.equal(request.params.useStateDbOnly, true);
   assert.equal(request.params.limit, 40);
+  assert.deepEqual(request.params.sourceKinds, ['cli', 'vscode']);
+  assert.equal(request.params.archived, false);
   assert.doesNotMatch(JSON.stringify(result), /PRIVATE|preview|turns|cwd|example\.invalid/);
+});
+
+test('CLI Cwd + Active inventory excludes non-interactive, archived, child and foreign rows without fixing a count', async t => {
+  const rows = [];
+  const f = fakeCodex(t, { rows });
+  for (let index = 1; index <= 7; index++) rows.push(inventoryRow(index, f.workspace, { source: { subAgent: { other: 'synthetic' } } }));
+  rows.push(inventoryRow(8, f.workspace, { source: 'vscode' }), inventoryRow(9, f.workspace, { source: 'vscode' }));
+  const first = await f.control.listSessions();
+  assert.equal(first.sessions.length, 2);
+  assert.ok(first.sessions.every(session => session.activity === 'discovered'));
+  rows.push(inventoryRow(10, f.workspace, { status: { type: 'active', activeFlags: [] } }));
+  for (const [index, source] of ['exec', 'appServer', 'unknown', 'subAgent', { custom: 'synthetic' }, undefined].entries()) {
+    rows.push(inventoryRow(20 + index, f.workspace, { source }));
+  }
+  rows.push(inventoryRow(30, f.workspace, { archived: true }), inventoryRow(31, f.workspace, { ephemeral: true }),
+    inventoryRow(32, f.workspace, { parentThreadId: threadId }), inventoryRow(33, '/synthetic/foreign-workspace'),
+    inventoryRow(34, f.workspace, { id: 'invalid' }), inventoryRow(35, f.workspace, { updatedAt: 'invalid' }));
+  const next = await f.control.listSessions();
+  assert.equal(next.sessions.length, 3, 'Additional eligible CLI rows must appear; the expected count is never hard-coded.');
+  assert.equal(next.sessions.find(session => session.id === inventoryRow(10, f.workspace).id).eligibility, 'busy');
+  assert.equal(next.truncated, false);
+});
+
+test('pagination filters every page before the limit and deduplicates UUIDs using the latest metadata', async t => {
+  const f = fakeCodex(t, { listReply: (params, workspace) => {
+    if (!params.cursor) return { data: Array.from({ length: 40 }, (_, index) =>
+      inventoryRow(index + 100, workspace, { source: { subAgent: { other: 'synthetic' } } })), nextCursor: 'second' };
+    if (params.cursor === 'second') return { data: [inventoryRow(10, workspace),
+      inventoryRow(10, workspace, { id: inventoryRow(10, workspace).id.toUpperCase(), updatedAt: 1700000015, name: 'Latest metadata title' }),
+      inventoryRow(20, workspace), inventoryRow(21, workspace, { archived: true })], nextCursor: 'third' };
+    return { data: [inventoryRow(30, workspace)], nextCursor: null };
+  } });
+  const result = await f.control.listSessions();
+  assert.equal(result.status, 'available');
+  assert.deepEqual(result.sessions.map(session => session.id), [30, 20, 10].map(index => inventoryRow(index, f.workspace).id));
+  assert.equal(result.sessions.find(session => session.id === inventoryRow(10, f.workspace).id).title, 'Latest metadata title');
+  assert.equal(result.truncated, false);
+  const requests = f.requests.filter(request => request.method === 'thread/list');
+  assert.equal(requests.length, 3);
+  assert.deepEqual(requests.map(request => request.params.limit), [40, 40, 38]);
+  for (const request of requests) {
+    assert.deepEqual(request.params.sourceKinds, ['cli', 'vscode']);
+    assert.equal(request.params.archived, false);
+    assert.equal(request.params.cwd, f.workspace);
+    assert.equal(request.params.useStateDbOnly, true);
+    assert.equal(request.params.sortKey, 'updated_at');
+    assert.equal(request.params.sortDirection, 'desc');
+  }
+});
+
+test('inventory caps eligible sessions at 40 after filtering and sorting a server page', async t => {
+  const f = fakeCodex(t, { listReply: (_params, workspace) => ({
+    data: [inventoryRow(100, workspace, { source: 'unknown' }),
+      ...Array.from({ length: 45 }, (_, index) => inventoryRow(index + 1, workspace))], nextCursor: null,
+  }) });
+  const result = await f.control.listSessions();
+  assert.equal(result.sessions.length, 40);
+  assert.equal(result.truncated, true);
+  assert.equal(result.sessions[0].id, inventoryRow(45, f.workspace).id);
+  assert.equal(result.sessions.at(-1).id, inventoryRow(6, f.workspace).id);
+});
+
+test('cursor cycles and page bounds stop safely while invalid cursors fail closed', async t => {
+  const cycle = fakeCodex(t, { listReply: (_params, workspace) => ({ data: [inventoryRow(1, workspace)], nextCursor: 'repeat' }) });
+  const repeated = await cycle.control.listSessions();
+  assert.equal(repeated.truncated, true);
+  assert.equal(cycle.requests.filter(request => request.method === 'thread/list').length, 2);
+  const bounded = fakeCodex(t, { listReply: (params, workspace) => ({ data: [inventoryRow(1, workspace)],
+    nextCursor: String(Number(params.cursor || 0) + 1) }) });
+  assert.equal((await bounded.control.listSessions()).truncated, true);
+  assert.equal(bounded.requests.filter(request => request.method === 'thread/list').length, 8);
+  for (const nextCursor of [12, 'x'.repeat(4097)]) {
+    const invalid = fakeCodex(t, { listReply: () => ({ data: [], nextCursor }) });
+    assert.equal((await invalid.control.listSessions()).status, 'unavailable');
+    assert.deepEqual(invalid.control.recoveryState(), { recoverable: false, errorCode: 'codex-protocol-error' });
+  }
+});
+
+test('titles use bounded name metadata only and never preview, transcripts, paths or credentials', async t => {
+  const markup = '<img src=x onerror="synthetic()">';
+  const f = fakeCodex(t, { listReply: (_params, workspace) => ({ data: [
+    inventoryRow(1, workspace, { name: '  A   named session  ', preview: 'SYNTHETIC_PRIVATE_PREVIEW', turns: [{ text: 'SYNTHETIC_PRIVATE_HISTORY' }] }),
+    inventoryRow(2, workspace, { preview: 'SYNTHETIC_NEVER_FALLBACK' }),
+    inventoryRow(3, workspace, { name: 'synthetic@example.com' }), inventoryRow(4, workspace, { name: '/synthetic/private-project' }),
+    inventoryRow(5, workspace, { name: 'sk-' + 'a'.repeat(32) }), inventoryRow(6, workspace, { name: 'Unsafe\ncontrol' }),
+    inventoryRow(7, workspace, { name: 'Ședință '.repeat(40) }), inventoryRow(8, workspace, { name: markup }),
+  ], nextCursor: null }) });
+  const result = await f.control.listSessions();
+  const session = index => result.sessions.find(item => item.id === inventoryRow(index, f.workspace).id);
+  assert.equal(session(1).title, 'A named session');
+  for (const index of [2, 3, 4, 5, 6]) assert.equal(session(index).title, undefined);
+  assert.ok(Buffer.byteLength(session(7).title) <= 120);
+  assert.ok(session(7).title.endsWith('…'));
+  assert.equal(session(7).title, session(7).title.toWellFormed());
+  assert.equal(session(8).title, markup, 'Title remains plain data; the dashboard must HTML-escape it when rendering.');
+  assert.ok(result.sessions.every(item => !Object.hasOwn(item, 'name') && !Object.hasOwn(item, 'preview') && !Object.hasOwn(item, 'turns')));
+  assert.doesNotMatch(JSON.stringify(result), /PRIVATE_PREVIEW|PRIVATE_HISTORY|NEVER_FALLBACK|synthetic@example/);
 });
 
 test('all run requests require explicit confirmation, project ID and bounded input', async t => {
@@ -255,13 +359,13 @@ test('synthetic New then Resume retains the app-created thread and read-only pol
 test('a stale selection or foreign-workspace inventory fails unavailable before thread/resume', async t => {
   const rows = [];
   const stale = fakeCodex(t, { rows });
-  rows.push({ id: threadId, cwd: stale.workspace, updatedAt: 1700000000, status: { type: 'notLoaded' } });
+  rows.push({ id: threadId, cwd: stale.workspace, source: 'cli', updatedAt: 1700000000, status: { type: 'notLoaded' } });
   assert.equal((await stale.control.listSessions()).sessions.length, 1);
   rows.length = 0;
   const staleResult = await stale.control.run({ ...newInput, mode: 'resume', threadId });
   assert.equal(staleResult.errorCode, 'session-unavailable');
   assert.equal(stale.requests.some(request => request.method === 'thread/resume'), false);
-  const foreign = fakeCodex(t, { rows: [{ id: threadId, cwd: '/synthetic/foreign-workspace', updatedAt: 1700000000 }] });
+  const foreign = fakeCodex(t, { rows: [{ id: threadId, cwd: '/synthetic/foreign-workspace', source: 'cli', updatedAt: 1700000000 }] });
   const foreignResult = await foreign.control.run({ ...newInput, mode: 'resume', threadId });
   assert.equal(foreignResult.errorCode, 'session-unavailable');
   assert.equal(foreign.requests.some(request => request.method === 'thread/resume'), false);

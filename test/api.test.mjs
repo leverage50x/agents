@@ -82,6 +82,36 @@ test('invalid heartbeat data is rejected atomically and cannot claim live capabi
   assert.equal(JSON.stringify(state).includes('SYNTHETIC_DO_NOT_RETURN'), false);
 });
 
+test('session titles are optional sanitized App Server metadata without name or preview fallback', async t => {
+  const { call, agentCall, device } = setup(t);
+  const session = { id: '01a0f2f7-6fa5-7f72-999c-8522c8196a4f', modified: '2026-10-17T00:00:00.000Z',
+    source: 'app-server', name: 'SYNTHETIC_NAME_NOT_ALLOWED', preview: 'SYNTHETIC_PREVIEW_NOT_ALLOWED',
+    turns: ['SYNTHETIC_TRANSCRIPT_NOT_ALLOWED'] };
+  const post = async patch => {
+    const result = await agentCall({ method: 'POST', endpoint: '/api/agent/heartbeat',
+      body: { ...device, sessions: [{ ...session, ...patch }] } });
+    assert.equal(result.status, 200);
+    const state = (await call()).body;
+    for (const marker of ['SYNTHETIC_NAME_NOT_ALLOWED', 'SYNTHETIC_PREVIEW_NOT_ALLOWED', 'SYNTHETIC_TRANSCRIPT_NOT_ALLOWED']) {
+      assert.equal(JSON.stringify(state).includes(marker), false);
+    }
+    return state.devices[0].sessions[0];
+  };
+  assert.equal((await post({ title: '  Plan   pentru MVP  ' })).title, 'Plan pentru MVP');
+  const bounded = await post({ title: '😀 Analiză '.repeat(80) });
+  assert.ok(Buffer.byteLength(bounded.title) <= 120);
+  assert.equal(bounded.title.isWellFormed(), true);
+  assert.equal(bounded.title.endsWith('…'), true);
+  for (const title of [undefined, null, {}, [], 17, ' ', 'a'.repeat(4097), '\ud800',
+    'invalid\nmultiline', 'invalid\u202ebidi', 'synthetic' + '@example.invalid',
+    'ghp_' + 'x'.repeat(40), 'password=' + 'synthetic-only', '/home/' + 'synthetic-private/project',
+    'workspace=/synthetic/path', 'cwd:C:\\synthetic\\project']) {
+    assert.equal(Object.hasOwn(await post({ title }), 'title'), false);
+  }
+  assert.equal(Object.hasOwn(await post({ title: 'Safe official title', source: 'files' }), 'title'), false);
+  assert.equal(Object.hasOwn(await post({ title: 'Safe official title', source: 'unknown' }), 'title'), false);
+});
+
 test('only explicitly approved jobs are claimed, with one terminal result', async t => {
   const { call, agentCall, device } = setup(t);
   await register(agentCall, device);

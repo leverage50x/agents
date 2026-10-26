@@ -1,11 +1,11 @@
 import path from 'node:path';
+import fs from 'node:fs';
 import { spawn } from 'node:child_process';
 import { codexHome, listSessionInventory } from './inventory.mjs';
+import { RESUME_SOURCE_KINDS, matchesResumePickerThread, sanitizeSessionTitle } from './codex-session-metadata.mjs';
 
 const UUID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const RPC_METHODS = new Set(['initialize', 'initialized', 'thread/list']);
-const SOURCE_KINDS = ['cli', 'vscode', 'exec', 'appServer', 'subAgent', 'subAgentReview',
-  'subAgentCompact', 'subAgentThreadSpawn', 'subAgentOther', 'unknown'];
 // The DB-only parameter is a privacy requirement, not an optional optimization.
 // Older servers may ignore unknown parameters. Only this schema-verified build
 // is enabled until another version has been checked against its generated schema.
@@ -18,7 +18,7 @@ class InventoryError extends Error {
   }
 }
 
-function optionsFor({ home = codexHome(), limit = 40, command = 'codex',
+function optionsFor({ home = codexHome(), workspace, limit = 40, command = 'codex',
   timeoutMs = 5000, maxOutputBytes = 2097152, spawnImpl = spawn } = {}) {
   if (!Number.isInteger(limit) || limit < 0 || limit > 40 ||
       !Number.isInteger(timeoutMs) || timeoutMs < 10 || timeoutMs > 30000 ||
@@ -29,11 +29,18 @@ function optionsFor({ home = codexHome(), limit = 40, command = 'codex',
   // Do not invoke a shell, scripts, command strings, or Windows executables.
   if (command !== 'codex' && !(path.isAbsolute(command) && path.basename(command) === 'codex' &&
       !/^\/mnt\/[a-z]\//i.test(command))) throw new RangeError('Invalid Codex executable.');
+  if (workspace !== undefined) {
+    try {
+      if (typeof workspace !== 'string' || !path.isAbsolute(workspace)) throw new Error();
+      workspace = fs.realpathSync(workspace);
+      if (!fs.statSync(workspace).isDirectory()) throw new Error();
+    } catch { throw new RangeError('Invalid Codex inventory workspace.'); }
+  }
   const env = { CODEX_HOME: home };
   for (const key of ['PATH', 'HOME', 'LANG', 'LC_ALL', 'TMPDIR']) {
     if (process.env[key]) env[key] = process.env[key];
   }
-  return { home, limit, command, timeoutMs, maxOutputBytes, spawnImpl, env };
+  return { home, workspace, limit, command, timeoutMs, maxOutputBytes, spawnImpl, env };
 }
 
 function childProcess(options, args) {
@@ -103,7 +110,8 @@ function projectName(cwd) {
   if (/^[A-Za-z0-9][A-Za-z0-9._ -]{0,79}$/.test(name)) return name;
 }
 
-function sessionMetadata(thread) {
+function sessionMetadata(thread, workspace) {
+  if (!matchesResumePickerThread(thread, workspace)) return;
   if (!thread || typeof thread !== 'object' || !UUID.test(thread.id) ||
       !Number.isSafeInteger(thread.updatedAt) || thread.updatedAt < 0) return;
   const timestamp = new Date(thread.updatedAt * 1000);
@@ -111,15 +119,16 @@ function sessionMetadata(thread) {
   const modified = timestamp.toISOString();
   const project = projectName(thread.cwd);
   // A fresh App Server cannot establish whether another Codex process is live.
-  // Discard its runtime status and all previews, names, turns, gitInfo, and paths.
+  // Keep only an explicitly named, sanitized title; never use a preview.
+  const title = sanitizeSessionTitle(thread.name);
   return { id: thread.id.toLowerCase(), modified, lastActivity: modified,
-    ...(project ? { project } : {}), activity: 'discovered', source: 'app-server' };
+    ...(project ? { project } : {}), ...(title ? { title } : {}), activity: 'discovered', source: 'app-server' };
 }
 
 /**
  * Read-only, DB-only metadata via stdio. No thread is resumed or started.
  * The protocol includes preview/name fields: they can briefly enter child/JSON
- * parsing memory but are discarded here and never logged, retained or returned.
+ * parsing memory; previews are discarded, and optional names are sanitized.
  */
 export async function listAppServerSessions(input = {}) {
   const options = optionsFor(input);
@@ -195,14 +204,16 @@ export async function listAppServerSessions(input = {}) {
     const cursors = new Set();
     for (let page = 0; page < 8; page++) {
       let result = await request('thread/list', { useStateDbOnly: true, limit: options.limit - found.size,
-        sortKey: 'updated_at', sortDirection: 'desc', archived: false, sourceKinds: SOURCE_KINDS,
+        sortKey: 'updated_at', sortDirection: 'desc', archived: false, sourceKinds: RESUME_SOURCE_KINDS,
+        ...(options.workspace ? { cwd: options.workspace } : {}),
         ...(cursor ? { cursor } : {}) });
       if (!result || !Array.isArray(result.data) || result.data.length > 100 ||
           (result.nextCursor != null && (typeof result.nextCursor !== 'string' || result.nextCursor.length > 4096))) {
         throw new InventoryError();
       }
       for (const thread of result.data) {
-        const metadata = sessionMetadata(thread);
+        if (!matchesResumePickerThread(thread, options.workspace)) continue;
+        const metadata = sessionMetadata(thread, options.workspace);
         if (!metadata) { partial = true; continue; }
         if (found.size < options.limit || found.has(metadata.id)) found.set(metadata.id, metadata);
         else truncated = true;
@@ -233,6 +244,9 @@ export async function discoverCodexSessions({ source = 'files', ...input } = {})
   if (source === 'app-server') {
     try { return await listAppServerSessions(input); }
     catch (error) { reason = error instanceof InventoryError ? error.reason : 'app-server-unavailable'; }
+    // A filename cannot establish Cwd, source kind or archive status. When the
+    // operator selected a workspace, keep that filtered view unavailable.
+    if (options.workspace) return { status: 'unavailable', sessions: [], truncated: false, source: 'app-server', reason };
   }
   const result = listSessionInventory(options.home, options.limit);
   return { ...result, sessions: result.sessions.map(session => ({ ...session,

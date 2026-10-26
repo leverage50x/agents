@@ -154,3 +154,26 @@ test('inventory strips private fields and refuses fabricated activity or mtime-b
   assert.equal(state.devices[0].sessionInventory.reason, 'app-server-incompatible');
   assert.equal((await f.call('/api/admin/agents', { method: 'POST', body: { name: 'bad\nname' } })).status, 400);
 });
+
+test('safe optional session titles remain device-scoped and disappear when an agent reports filename fallback', async t => {
+  const f = await setup(t);
+  const first = f.store.enroll('Laptop'), second = f.store.enroll('Laptop');
+  const report = (credential, title, source = 'app-server') => f.call('/api/agent/heartbeat', {
+    token: credential.token, method: 'POST', body: {
+      deviceId: credential.deviceId, name: credential.name, platform: 'linux',
+      sessions: [{ id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', modified: '2026-10-22T01:00:00Z',
+        source, title, preview: 'SYNTHETIC_PRIVATE_PREVIEW', name: 'SYNTHETIC_PRIVATE_NAME' }],
+      sessionInventory: { status: 'available', truncated: false, source }
+    }
+  });
+  const reports = await Promise.all([report(first, 'Laptop one session'), report(second, 'Laptop two session')]);
+  assert.equal(reports.every(result => result.status === 200), true);
+  let state = (await f.call('/api/state')).body;
+  assert.equal(state.devices.find(device => device.id === first.deviceId).sessions[0].title, 'Laptop one session');
+  assert.equal(state.devices.find(device => device.id === second.deviceId).sessions[0].title, 'Laptop two session');
+  assert.equal(JSON.stringify(state).includes('SYNTHETIC_PRIVATE_'), false);
+  assert.equal((await report(first, 'This title must not survive fallback', 'files')).status, 200);
+  state = (await f.call('/api/state')).body;
+  assert.equal(Object.hasOwn(state.devices.find(device => device.id === first.deviceId).sessions[0], 'title'), false);
+  assert.equal(state.devices.find(device => device.id === second.deviceId).sessions[0].title, 'Laptop two session');
+});

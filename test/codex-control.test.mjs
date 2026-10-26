@@ -18,6 +18,7 @@ function fakeCodex(t, behavior = {}) {
   const calls = [];
   const requests = [];
   const children = [];
+  const turnIds = [];
   const spawnImpl = (command, args, options) => {
     calls.push({ command, args, options });
     if (behavior.spawnFailure) throw new Error('Synthetic private startup diagnostic.');
@@ -55,20 +56,26 @@ function fakeCodex(t, behavior = {}) {
               updatedAt: 1700000000, preview: 'SYNTHETIC_PRIVATE_PREVIEW', name: 'SYNTHETIC_PRIVATE_TITLE',
               turns: [{ text: 'SYNTHETIC_PRIVATE_HISTORY' }], status: { type: 'notLoaded' } }], nextCursor: null }); break;
             case 'thread/start':
-            case 'thread/resume': response({ cwd: f.workspace,
+            case 'thread/resume': {
+              const responseWorkspace = behavior.foreignResponse ? '/synthetic/foreign-workspace' : f.workspace;
+              response({ cwd: responseWorkspace,
               sandbox: { type: behavior.unsafePolicy ? 'workspaceWrite' : 'readOnly', networkAccess: false },
               approvalPolicy: 'on-request', approvalsReviewer: 'user',
-              thread: { id: threadId, cwd: f.workspace, status: { type: behavior.busy ? 'active' : 'idle' },
+              thread: { id: threadId, cwd: responseWorkspace, status: { type: behavior.busy ? 'active' : 'idle' },
                 turns: [{ text: 'SYNTHETIC_PRIVATE_HISTORY' }] } }); break;
+            }
             case 'turn/start': {
-              response({ turn: { id: turnId, status: 'inProgress', items: [] } });
+              const currentTurnId = behavior.sequentialTurns
+                ? (turnIds.length + 1).toString(16).padStart(8, '0') + '-3333-3333-3333-333333333333' : turnId;
+              turnIds.push(currentTurnId);
+              response({ turn: { id: currentTurnId, status: 'inProgress', items: [] } });
               if (behavior.turnHang) break;
               const method = behavior.toolNotification ? 'item/started' : 'item/agentMessage/delta';
-              reply({ method, params: { threadId, turnId,
+              reply({ method, params: { threadId, turnId: currentTurnId,
                 ...(behavior.toolNotification ? { item: { id: 'synthetic-tool', type: 'commandExecution' } } :
                   { itemId: 'synthetic-message', delta: behavior.output || 'Synthetic README summary.' }) } });
               reply({ method: 'turn/completed', params: { threadId,
-                turn: { id: turnId, status: behavior.failedTurn ? 'failed' : 'completed', items: [] } } });
+                turn: { id: currentTurnId, status: behavior.failedTurn ? 'failed' : 'completed', items: [] } } });
               break;
             }
             default: assert.fail('Unexpected Codex RPC method: ' + message.method);
@@ -88,7 +95,7 @@ function fakeCodex(t, behavior = {}) {
     externalActivityCheck: behavior.defaultActivityCheck ? undefined : () => behavior.externalActivity || 'clear',
     rpcTimeoutMs: 100, turnTimeoutMs: 100, ...(behavior.now ? { now: behavior.now } : {}) });
   t.after(() => control.close());
-  return { ...f, calls, requests, children, control, spawnImpl };
+  return { ...f, calls, requests, children, turnIds, control, spawnImpl };
 }
 
 test('control validates one local workspace and rejects Windows executable configuration', t => {
@@ -208,6 +215,129 @@ test('resume uses fresh metadata, excludes history hydration and rejects externa
   assert.equal(busy.requests.some(request => request.method === 'thread/resume'), false);
   const unknown = fakeCodex(t, { externalActivity: 'unknown' });
   assert.equal((await unknown.control.run({ ...newInput, mode: 'resume', threadId })).errorCode, 'session-activity-unverified');
+});
+
+test('synthetic New then Resume retains the app-created thread and read-only policy across distinct turns', async t => {
+  const f = fakeCodex(t, { sequentialTurns: true });
+  const created = await f.control.run(newInput);
+  assert.equal(created.status, 'completed');
+  const inventory = await f.control.listSessions();
+  assert.equal(inventory.sessions.find(session => session.id === created.threadId).eligibility, 'confirmed');
+  const resumed = await f.control.run({ ...newInput, mode: 'resume', threadId: created.threadId,
+    prompt: 'Continue the synthetic analysis in this explicitly selected thread.' });
+  assert.equal(resumed.status, 'completed');
+  assert.equal(resumed.threadId, created.threadId);
+  assert.equal(f.turnIds.length, 2);
+  assert.notEqual(f.turnIds[0], f.turnIds[1]);
+  assert.equal(f.requests.filter(request => request.method === 'thread/start').length, 1);
+  const resume = f.requests.find(request => request.method === 'thread/resume');
+  assert.equal(resume.params.threadId, created.threadId);
+  assert.equal(resume.params.excludeTurns, true);
+  const turns = f.requests.filter(request => request.method === 'turn/start');
+  assert.equal(turns.length, 2);
+  for (const request of f.requests.filter(request => ['thread/start', 'thread/resume', 'turn/start'].includes(request.method))) {
+    assert.equal(request.params.approvalPolicy, 'on-request');
+    assert.equal(request.params.approvalsReviewer, 'user');
+    assert.equal(request.params.cwd, f.workspace);
+    if (request.method === 'turn/start') {
+      assert.deepEqual(request.params.sandboxPolicy, { type: 'readOnly', networkAccess: false });
+      assert.equal(request.params.threadId, created.threadId);
+    } else {
+      assert.equal(request.params.sandbox, 'read-only');
+      assert.deepEqual(request.params.config.mcp_servers, {});
+      assert.deepEqual(request.params.config.plugins, {});
+      assert.equal(request.params.config.features.shell_tool, false);
+    }
+  }
+  assert.equal(f.requests.some(request => /thread\/read|thread\/turns|thread\/items/.test(request.method || '')), false);
+});
+
+test('a stale selection or foreign-workspace inventory fails unavailable before thread/resume', async t => {
+  const rows = [];
+  const stale = fakeCodex(t, { rows });
+  rows.push({ id: threadId, cwd: stale.workspace, updatedAt: 1700000000, status: { type: 'notLoaded' } });
+  assert.equal((await stale.control.listSessions()).sessions.length, 1);
+  rows.length = 0;
+  const staleResult = await stale.control.run({ ...newInput, mode: 'resume', threadId });
+  assert.equal(staleResult.errorCode, 'session-unavailable');
+  assert.equal(stale.requests.some(request => request.method === 'thread/resume'), false);
+  const foreign = fakeCodex(t, { rows: [{ id: threadId, cwd: '/synthetic/foreign-workspace', updatedAt: 1700000000 }] });
+  const foreignResult = await foreign.control.run({ ...newInput, mode: 'resume', threadId });
+  assert.equal(foreignResult.errorCode, 'session-unavailable');
+  assert.equal(foreign.requests.some(request => request.method === 'thread/resume'), false);
+  assert.equal(foreign.requests.some(request => request.method === 'turn/start'), false);
+});
+
+test('active resume responses and foreign workspace responses stop without a new turn', async t => {
+  const busy = fakeCodex(t, { busy: true });
+  const busyResult = await busy.control.run({ ...newInput, mode: 'resume', threadId });
+  assert.equal(busyResult.errorCode, 'codex-busy');
+  assert.equal(busy.requests.filter(request => request.method === 'thread/resume').length, 1);
+  assert.equal(busy.requests.some(request => request.method === 'turn/start'), false);
+  const foreign = fakeCodex(t, { foreignResponse: true });
+  const foreignResult = await foreign.control.run({ ...newInput, mode: 'resume', threadId });
+  assert.equal(foreignResult.errorCode, 'codex-policy-mismatch');
+  assert.equal(foreign.requests.some(request => request.method === 'turn/start'), false);
+  assert.deepEqual(foreign.control.recoveryState(), { recoverable: false, errorCode: 'codex-policy-mismatch' });
+});
+
+test('a resumed thread disappearing at the server produces only a safe rejection, never a replacement session', async t => {
+  const f = fakeCodex(t, { error: 'thread/resume' });
+  const result = await f.control.run({ ...newInput, mode: 'resume', threadId });
+  assert.equal(result.status, 'failed');
+  assert.equal(result.errorCode, 'codex-request-rejected');
+  assert.doesNotMatch(JSON.stringify(result), /PRIVATE_DIAGNOSTIC|PRIVATE_HISTORY/);
+  assert.equal(f.requests.some(request => request.method === 'thread/start'), false);
+  assert.equal(f.requests.some(request => request.method === 'turn/start'), false);
+});
+
+test('same-workspace external Codex remains busy even for an app-created confirmed thread', async t => {
+  const f = fakeCodex(t, { defaultActivityCheck: true, sequentialTurns: true });
+  const readdir = fs.readdirSync; const stat = fs.statSync; const readlink = fs.readlinkSync; const read = fs.readFileSync;
+  t.mock.method(fs, 'readdirSync', (name, ...args) => name === '/proc' ? ['4001'] : readdir(name, ...args));
+  t.mock.method(fs, 'statSync', (name, ...args) => name === '/proc/4001' ? { uid: process.getuid() } : stat(name, ...args));
+  t.mock.method(fs, 'readlinkSync', (name, ...args) => {
+    if (name === '/proc/4001/exe') return '/synthetic/codex';
+    if (name === '/proc/4001/cwd') return f.workspace;
+    return readlink(name, ...args);
+  });
+  t.mock.method(fs, 'readFileSync', (name, ...args) => name === '/proc/4001/stat' ? '4001 (codex) S 1 0 0 0' : read(name, ...args));
+  const created = await f.control.run(newInput);
+  assert.equal(created.status, 'completed');
+  assert.equal((await f.control.listSessions()).sessions[0].eligibility, 'confirmed');
+  const resumed = await f.control.run({ ...newInput, mode: 'resume', threadId: created.threadId });
+  assert.equal(resumed.errorCode, 'codex-busy');
+  assert.equal(f.requests.some(request => request.method === 'thread/resume'), false);
+  assert.equal(f.requests.filter(request => request.method === 'turn/start').length, 1);
+});
+
+test('unreadable owned process metadata blocks Resume until a later explicit request can verify clear activity', async t => {
+  const f = fakeCodex(t, { defaultActivityCheck: true, sequentialTurns: true });
+  const readdir = fs.readdirSync; const stat = fs.statSync; const readlink = fs.readlinkSync;
+  let unreadableOwnedProcess = true;
+  t.mock.method(fs, 'readdirSync', (name, ...args) => name === '/proc'
+    ? (unreadableOwnedProcess ? ['4002'] : []) : readdir(name, ...args));
+  t.mock.method(fs, 'statSync', (name, ...args) => name === '/proc/4002' ? { uid: process.getuid() } : stat(name, ...args));
+  t.mock.method(fs, 'readlinkSync', (name, ...args) => {
+    if (name === '/proc/4002/exe') throw Object.assign(new Error('Synthetic denied process metadata.'), { code: 'EACCES' });
+    return readlink(name, ...args);
+  });
+  const created = await f.control.run(newInput);
+  assert.equal(created.status, 'completed');
+  const input = { ...newInput, mode: 'resume', threadId: created.threadId };
+  const blocked = await f.control.run(input);
+  assert.equal(blocked.status, 'failed');
+  assert.equal(blocked.errorCode, 'session-activity-unverified');
+  assert.equal(f.requests.some(request => request.method === 'thread/resume'), false);
+  assert.equal(f.requests.filter(request => request.method === 'turn/start').length, 1);
+  assert.equal((await f.control.accountStatus()).status, 'authenticated');
+  assert.deepEqual(f.control.recoveryState(), { recoverable: false, errorCode: null });
+  unreadableOwnedProcess = false;
+  const resumed = await f.control.run(input);
+  assert.equal(resumed.status, 'completed');
+  assert.equal(resumed.threadId, created.threadId);
+  assert.equal(f.requests.filter(request => request.method === 'thread/resume').length, 1);
+  assert.equal(f.requests.filter(request => request.method === 'turn/start').length, 2);
 });
 
 test('unsafe returned policy and unexpected model tools stop before unsafe continuation', async t => {

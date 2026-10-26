@@ -3987,4 +3987,1085 @@ Documentație primară suplimentară: https://code.visualstudio.com/docs/sourcec
 
 Ultime verificări înainte de staging: `node .local-run/finish-investigation-journal.mjs` cod 0; `node .local-run/review-publication.mjs stage2b-local-control > .local-run/publication-audit-output.log` cod 0, 5 commituri/49 fișiere fără constatări. `git status --short`/`git diff --numstat` cod 0: exact cele 7 fișiere intenționate. `git diff --check` a semnalat un spațiu terminal în jurnal (cod 2); corectat punctual prin apply_patch, fără alte modificări.
 
+<!-- investigation-post-publication -->
+
+### Verificări finale și publicare — după centralizare
+
+CWD: [WORKSPACE]. Operațiuni reale; comenzile cu tool/session au fost finalizate separat. Acest segment este adăugat după commit și rămâne local pentru audit.
+
+```text
+node .local-run/centralize-investigation.mjs
+```
+
+Cod: 0. {"centralizedLedgers":4,"journalUpdated":true,"secretsNotPrinted":true}
+
+```text
+node .local-run/review-publication.mjs stage2b-local-control > .local-run/publication-audit-output.log
+```
+
+Cod: 2. Fără output.
+
+```text
+node --input-type=module -e 'import fs from "node:fs"; const s=fs.readFileSync("comenzi executate agent.md","utf8").split("\n")[3568]; console.log(s.replace(/\/(?:home|Users)\/[^/\s\x22\x27<>]+/g,"[USER_HOME_REDACTED]"));'
+```
+
+Cod: 0. CWD pentru toate comenzile: [WORKSPACE] ([USER_HOME_REDACTED]/leverage50xagents, calea personala anonimizata). Raport ignorat, pentru centralizare de catre agentul principal. Nu contine secrete generate, raw environment/auth, transcripturi sau outputul personal al modelului.
+
+```text
+node .local-run/review-publication.mjs stage2b-local-control > .local-run/publication-audit-output.log
+```
+
+Cod: 0. Fără output.
+
+```text
+git diff --check
+```
+
+Cod: 2. comenzi executate agent.md:3184: trailing whitespace.
++Cod: în curs la prima întoarcere; finalizarea este înregistrată separat.
+
+```text
+git status --short
+```
+
+Cod: 0. M ETAPA-2B-LOCAL.md
+ M "comenzi executate agent.md"
+ M src/agent.mjs
+ M src/codex-control.mjs
+ M test/codex-control.test.mjs
+?? INVESTIGATIE-GIT-CODEX.md
+?? test/codex-agent-restart.test.mjs
+
+```text
+git diff --numstat
+```
+
+Cod: 0. 2	0	ETAPA-2B-LOCAL.md
+1217	0	comenzi executate agent.md
+66	9	src/agent.mjs
+47	9	src/codex-control.mjs
+103	1	test/codex-control.test.mjs
+
+```text
+node --input-type=module -e 'import fs from "node:fs"; const r=JSON.parse(fs.readFileSync(".local-run/publication-audit.json","utf8")); console.log(JSON.stringify({historyCommits:r.history.commitsScanned,historyFindings:r.history.findings,forbiddenPaths:r.history.forbiddenPaths,workingFindings:r.workingTree.findings,files:r.workingTree.filesReviewed}));'
+```
+
+Cod: 0. {"historyCommits":5,"historyFindings":[],"forbiddenPaths":[],"workingFindings":[],"files":49}
+
+```text
+git add -- src/agent.mjs src/codex-control.mjs test/codex-agent-restart.test.mjs test/codex-control.test.mjs ETAPA-2B-LOCAL.md INVESTIGATIE-GIT-CODEX.md 'comenzi executate agent.md'
+```
+
+Cod: 0. Fără output.
+
+```text
+git diff --cached --check
+```
+
+Cod: 0. Fără output.
+
+```text
+git diff --cached --stat
+```
+
+Cod: 0. ETAPA-2B-LOCAL.md                 |    2 +
+ INVESTIGATIE-GIT-CODEX.md         |   58 ++
+ comenzi executate agent.md        | 1219 +++++++++++++++++++++++++++++++++++++
+ src/agent.mjs                     |   75 ++-
+ src/codex-control.mjs             |   56 +-
+ test/codex-agent-restart.test.mjs |  257 ++++++++
+ test/codex-control.test.mjs       |  104 +++-
+ 7 files changed, 1752 insertions(+), 19 deletions(-)
+
+```text
+git diff --cached --name-status
+```
+
+Cod: 0. M	ETAPA-2B-LOCAL.md
+A	INVESTIGATIE-GIT-CODEX.md
+M	comenzi executate agent.md
+M	src/agent.mjs
+M	src/codex-control.mjs
+A	test/codex-agent-restart.test.mjs
+M	test/codex-control.test.mjs
+
+```text
+git branch --show-current
+```
+
+Cod: 0. stage2b-local-control
+
+```text
+git commit -m 'Fix Codex controller recovery and document Git investigation'
+```
+
+Cod: 0. [stage2b-local-control 36017b2] Fix Codex controller recovery and document Git investigation
+ 7 files changed, 1752 insertions(+), 19 deletions(-)
+ create mode 100644 INVESTIGATIE-GIT-CODEX.md
+ create mode 100644 test/codex-agent-restart.test.mjs
+
+```text
+git push origin stage2b-local-control
+```
+
+Cod: în curs la prima întoarcere; vezi rezultatul separat. Fără output.
+
+```text
+tools.write_stdin(session_id=27061, chars='')
+```
+
+Cod: 0. To https://github.com/leverage50x/agents.git
+   b1e9005..36017b2  stage2b-local-control -> stage2b-local-control
+
+```text
+git log -1 --format='%H%n%an%n%s'
+```
+
+Cod: 0. 36017b2ef99b0e6ff9d5e108a0edc3e4af781cf9
+leverage50x
+Fix Codex controller recovery and document Git investigation
+
+```text
+git status --short --branch
+```
+
+Cod: 0. ## stage2b-local-control...origin/stage2b-local-control
+
+```text
+git rev-list --left-right --count HEAD...origin/stage2b-local-control
+```
+
+Cod: 0. 0	0
+
+```text
+git diff --name-status b1e90058ce153bbe5249a6f16143babe4d6dc9e1 HEAD -- README.md AGENTS.md LICENSE .gitignore leverage
+```
+
+Cod: 0. Fără output.
+
+```text
+gh run list --repo leverage50x/agents --branch stage2b-local-control --commit 36017b2ef99b0e6ff9d5e108a0edc3e4af781cf9 --limit 5 --json databaseId,headSha,status,conclusion,url,workflowName
+```
+
+Cod: 0. [{"conclusion":"","databaseId":40237419285,"headSha":"36017b2ef99b0e6ff9d5e108a0edc3e4af781cf9","status":"in_progress","url":"https://github.com/leverage50x/agents/actions/runs/40237419285","workflowName":"Stage 1 CI"}]
+
+```text
+git ls-remote origin refs/heads/main refs/heads/stage2b-local-control refs/tags/v0.1.1-stage1-demo 'refs/tags/v0.1.1-stage1-demo^{}'
+```
+
+Cod: 0. 906c24f15f8b364d9bec6da8cebb74b57caa8862	refs/heads/main
+36017b2ef99b0e6ff9d5e108a0edc3e4af781cf9	refs/heads/stage2b-local-control
+229f258d9316dc5169eda089df374f0ccfbbe234	refs/tags/v0.1.1-stage1-demo
+906c24f15f8b364d9bec6da8cebb74b57caa8862	refs/tags/v0.1.1-stage1-demo^{}
+
+```text
+gh run view 40237419285 --repo leverage50x/agents --json headSha,status,conclusion,url,jobs,name
+```
+
+Cod: în curs la prima întoarcere; vezi rezultatul separat. Fără output.
+
+```text
+tools.write_stdin(session_id=53807, chars='')
+```
+
+Cod: 0. {"conclusion":"success","headSha":"36017b2ef99b0e6ff9d5e108a0edc3e4af781cf9","jobs":[{"completedAt":"2026-10-25T21:51:25Z","conclusion":"success","databaseId":121301834018,"name":"test","startedAt":"2026-10-25T21:51:08Z","status":"completed","steps":[{"conclusion":"success","name":"Set up job","number":1,"status":"completed"},{"conclusion":"success","name":"Check out source","number":2,"status":"completed"},{"conclusion":"success","name":"Set up Node.js 22","number":3,"status":"completed"},{"conclusion":"success","name":"Install from lockfile","number":4,"status":"completed"},{"conclusion":"success","name":"Run tests","number":5,"status":"completed"},{"conclusion":"success","name":"Post Set up Node.js 22","number":9,"status":"completed"},{"conclusion":"success","name":"Post Check out source","number":10,"status":"completed"},{"conclusion":"success","name":"Complete job","number":11,"status":"completed"}],"url":"https://github.com/leverage50x/agents/actions/runs/40237419285/job/121301834018"}],"name":"Node.js CI","status":"completed","url":"https://github.com/leverage50x/agents/actions/runs/40237419285"}
+
+```text
+node .local-run/finish-investigation-journal.mjs
+```
+
+Cod: 0. Antet anonim și sumar lizibil finalizat.
+
+```text
+git diff --check
+```
+
+Cod: 0. Spațiul terminal corectat; verificarea trece.
+
+```text
+git status --porcelain=v2 --branch
+```
+
+Cod: 0. După push: branch stage2b-local-control, upstream corect, +0/-0, fără modificări în acel moment.
+
+Commit creat și publicat: **36017b2ef99b0e6ff9d5e108a0edc3e4af781cf9**, autor **leverage50x**, 7 fișiere. Branch origin/stage2b-local-control identic cu HEAD; +0/-0. Repository PRIVATE. Main și tagul Stage 1 au rămas la commitul906c24f15f8b364d9bec6da8cebb74b57caa8862 (tagobject229f258d9316dc5169eda089df374f0ccfbbe234).
+
+GitHub Actions **success**, run40237419285: https://github.com/leverage50x/agents/actions/runs/40237419285 . SHA verificat exact; pașii Node.js22,installfromlockfile și runtests au conclusion success. Testele locale:117/117PASS,0skip. După această adăugare, numai jurnalul este modificat local intenționat; codul publicat și branch-ul remote sunt sincronizate. Niciun fișier sensibil nu a fost publicat.
+
+
+
+### Control final local după publicare
+
+CWD: [WORKSPACE]. `node .local-run/append-investigation-publication.mjs` — cod 0; `node .local-run/final-investigation-check.mjs` execută și centralizează verificările următoare, fără date private în output:
+
+- `node .local-run/review-publication.mjs stage2b-local-control` — cod 0, OK
+- `git diff --check` — cod 0, OK
+- `git diff --cached --check` — cod 0, OK
+- `git status --short --branch` — cod 0, OK
+- `git rev-list --left-right --count HEAD...origin/stage2b-local-control` — cod 0, OK
+- `./leverage status` — cod 0, OK
+- `node .local-run/verify-local-control.mjs` — cod 0, OK
+
+Rezultat sanitizat:
+
+```json
+{
+  "commit": "36017b2ef99b0e6ff9d5e108a0edc3e4af781cf9",
+  "status": "## stage2b-local-control...origin/stage2b-local-control\n M \"comenzi executate agent.md\"",
+  "sync": "0\t0",
+  "secretsAudit": {
+    "commits": 6,
+    "files": 49,
+    "historyFindings": 0,
+    "workingFindings": 0,
+    "forbiddenPaths": 0
+  },
+  "local": {
+    "url": "http://127.0.0.1:8765",
+    "hubRunning": true,
+    "agentRunning": true,
+    "agentOnline": true,
+    "authentication": "authenticated",
+    "sessionsDiscovered": 4,
+    "sessionsConfirmed": 0,
+    "sessionsBusy": 0,
+    "dashboardHTTP": 200
+  },
+  "ci": {
+    "result": "success",
+    "run": 40237419285
+  },
+  "localTests": {
+    "passed": 117,
+    "failed": 0,
+    "skipped": 0
+  }
+}
+```
+
+Doar jurnalul rămâne modificat local intenționat. Copiile de siguranță, manifestele și helpers sunt ignorați în .local-run; nu au fost staged/publicați. Nu s-au șters modificări necunoscute. Pentru lista VS Code lipsesc dovezile executabilului/căii din Git Output, deci atribuirea exactă nu este pretinsă.
+
+`git diff --check` după înregistrarea sumarului — cod 0. Helperul final a terminat cu cod 0.
+
+
+
+<!-- round-usability-2026-10-26 -->
+
+## 2026-10-26 — rundă mică Stage 2B: utilizarea sesiunilor
+
+Autorizare: UI, teste New/Resume, launcher și publicare pe stage2b-local-control. Branch/HEAD inițial36017b2; origin/tracking identice, repository PRIVATE. Modificarea locală existentă era jurnalul:260de linii de audit adăugate, fără ștergeri. A fost revizuită, păstrată și copiată privat prin helperul de backup; nu s-a făcut reset/restore/clean.
+
+OpenAI Docs a fost folosit pentru protocolul thread/start,thread/resume(excludeTurns=true),turn/start: căutare și pagină oficială deschisă https://learn.chatgpt.com/docs/app-server . Nu s-au folosit configurații Windows, PowerShell, browser automat, MCP sau alte dispozitive. Nicio politică READ-ONLY ori de autentificare nu a fost schimbată.
+
+
+### Agent principal — comenzi reale în ordinea execuției
+
+CWD: [WORKSPACE]. Căile personale sunt anonimizate; nu sunt afișate valori de mediu, tokenuri, conturi sau răspunsuri ale modelului. Execuțiile delegate au fost concurente, cu ordinea păstrată în fiecare raport.
+
+```text
+git status --short --branch
+```
+
+Exit: 0. ## stage2b-local-control...origin/stage2b-local-control
+ M "comenzi executate agent.md"
+
+
+```text
+git log -3 --format='%h %s'
+```
+
+Exit: 0. 36017b2 Fix Codex controller recovery and document Git investigation
+b1e9005 fix: confirm launcher process exit before completing rollback
+5e816e6 feat: add local read-only Codex control and safe launcher
+
+
+```text
+cat AGENTS.md
+```
+
+Exit: 0. Output citit/revizuit; sursa ori logul integral rămâne în fișierul indicat.
+
+```text
+cat [USER_HOME]/.codex/skills/.system/openai-docs/SKILL.md
+```
+
+Exit: 0. Output citit/revizuit; sursa ori logul integral rămâne în fișierul indicat.
+
+```text
+cat package.json
+```
+
+Exit: 0. Output citit/revizuit; sursa ori logul integral rămâne în fișierul indicat.
+
+```text
+rg --files src test .github | sort
+```
+
+Exit: 0. Output citit/revizuit; sursa ori logul integral rămâne în fișierul indicat.
+
+```text
+git diff --stat
+```
+
+Exit: 0. Inițial numai jurnalul,260de linii adăugate.
+
+```text
+./leverage status
+```
+
+Exit: 0. Hub/agent proprii Online pe127.0.0.1:8765.
+
+```text
+sed -n '1,195p' src/codex-control.mjs
+```
+
+Exit: 0. Output citit/revizuit; sursa ori logul integral rămâne în fișierul indicat.
+
+```text
+sed -n '340,465p' src/codex-control.mjs
+```
+
+Exit: 0. Output citit/revizuit; sursa ori logul integral rămâne în fișierul indicat.
+
+```text
+sed -n '1,240p' test/local-control.test.mjs
+```
+
+Exit: 0. Output citit/revizuit; sursa ori logul integral rămâne în fișierul indicat.
+
+```text
+sed -n '1,170p' src/ui.html
+```
+
+Exit: 0. Output citit/revizuit; sursa ori logul integral rămâne în fișierul indicat.
+
+```text
+git diff -- 'comenzi executate agent.md'
+```
+
+Exit: 0. Output citit/revizuit; sursa ori logul integral rămâne în fișierul indicat.
+
+```text
+node .local-run/preserve-investigation.mjs
+```
+
+Exit: 0. {"backup":".local-run/investigation-backup-37KEwv","permissions":"directory700/files600","ignoredRuntimeDirectoriesCopied":false,"unknownChangesRemoved":false}
+
+
+```text
+codex --version
+```
+
+Exit: 0. codex-cli 0.163.0
+
+
+```text
+node --input-type=module -e 'import {spawnSync} from "node:child_process"; const r=spawnSync("codex",["login","status"],{encoding:"utf8",timeout:10000}); const s=(r.stdout||"")+"\n"+(r.stderr||""); console.log(JSON.stringify({exitCode:r.status,state:r.status===0&&/logged in/i.test(s)?"authenticated":/not logged|not authenticated|login required/i.test(s)?"not-authenticated":"unavailable"}));'
+```
+
+Exit: 0. {"exitCode":0,"state":"authenticated"}
+
+
+```text
+node .local-run/round-real-new-resume.mjs
+```
+
+Exit: în curs la prima întoarcere; finalizarea este înregistrată separat. Fără output.
+
+```text
+tools.write_stdin(session_id=19192, chars='')
+```
+
+Exit: 1. {"phase":"new","status":"queued","elapsedSeconds":0}
+{"phase":"resume","status":"queued","elapsedSeconds":0}
+{"realNativeCodex":true,"realLoopbackHttpHub":true,"syntheticDeviceAndWorkspace":true,"personalThreadsResumed":false,"credentialsCopied":false,"modelOutputLogged":false,"workspace":".local-run/round-readonly-fixture-mTd191","initialAuthentication":"authenticated","initialFixtureSessions":0,"new":{"status":"completed","errorCode":null,"outputCharacters":150,"markerReturned":true,"threadReturned":true},"resume":{"status":"failed","errorCode":"session-activity-unverified","sameThread":true,"previousMarkerRemembered":false,"outputCharacters":0},"readmeUnchanged":true,"onlyExpectedFiles":true,"failure":"Resume or read-only assertion failed."}
+
+
+```text
+node .local-run/round-proc-diagnostic.mjs
+```
+
+Exit: 0. {"ownedProcesses":24,"codexProcesses":6,"failures":{"exe:EACCES":2},"codexMetadata":[{"pid":111817,"workspaceKind":"main-project","fdCount":9,"fdErrors":{}},{"pid":15917,"workspaceKind":"main-project","fdCount":15,"fdErrors":{}},{"pid":226228,"workspaceKind":"main-project","fdCount":33,"fdErrors":{}},{"pid":232419,"workspaceKind":"main-project","fdCount":26,"fdErrors":{}},{"pid":232914,"workspaceKind":"main-project","fdCount":24,"fdErrors":{}},{"pid":90565,"workspaceKind":"main-project","fdCount":86,"fdErrors":{}}]}
+
+
+```text
+node .local-run/round-main-status.mjs --before
+```
+
+Exit: 0. {"url":"http://127.0.0.1:8765","agentOnline":true,"authentication":"authenticated","inventory":"available","discovered":8,"activeReadonlyJobs":0,"hubPid":226192,"agentPid":226201}
+
+
+```text
+./leverage start
+```
+
+Exit: 0. Hub and local read-only agent are already running at http://127.0.0.1:8765.
+
+
+```text
+node .local-run/round-main-status.mjs --compare
+```
+
+Exit: 0. {"url":"http://127.0.0.1:8765","agentOnline":true,"authentication":"authenticated","inventory":"available","discovered":8,"activeReadonlyJobs":0,"hubPid":226192,"agentPid":226201,"credentialFilesUnchanged":true,"samePids":true}
+
+
+```text
+./leverage stop
+```
+
+Exit: 0. Launcher-owned processes are stopped. Credentials were preserved.
+
+
+```text
+./leverage status
+```
+
+Exit: 0. {
+  "url": "http://127.0.0.1:8765",
+  "configuration": "ready",
+  "portListening": false,
+  "hub": {
+    "ownedRunning": false
+  },
+  "agent": {
+    "ownedRunning": false,
+    "online": false,
+    "lastHeartbeat": null
+  }
+}
+
+
+```text
+./leverage start
+```
+
+Exit: în curs la prima întoarcere; finalizarea este înregistrată separat. Fără output.
+
+```text
+tools.write_stdin(session_id=12862, chars='')
+```
+
+Exit: 0. Hub and local read-only agent are ready at http://127.0.0.1:8765.
+
+
+```text
+./leverage status
+```
+
+Exit: 0. {
+  "url": "http://127.0.0.1:8765",
+  "configuration": "ready",
+  "portListening": true,
+  "hub": {
+    "ownedRunning": true
+  },
+  "agent": {
+    "ownedRunning": true,
+    "online": true,
+    "lastHeartbeat": "2026-10-26T08:38:52.835Z"
+  }
+}
+
+
+```text
+node .local-run/round-main-status.mjs --after
+```
+
+Exit: 1. node:internal/deps/undici/undici:15270
+      Error.captureStackTrace(err);
+            ^
+
+TypeError: fetch failed
+    at node:internal/deps/undici/undici:15270:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async file://[WORKSPACE]/.local-run/round-main-status.mjs:6:18 {
+  [cause]: Error: connect EPERM 127.0.0.1:8765 - Local (undefined:undefined)
+      at internalConnect (node:net:1111:16)
+      at defaultTriggerAsyncIdScope (node:internal/async_hooks:472:18)
+      at node:net:1357:9
+      at process.processTicksAndRejections (node:internal/process/task_queues:84:11) {
+    errno: -1,
+    code: 'EPERM',
+    syscall: 'connect',
+    address: '127.0.0.1',
+    port: 8765
+  }
+}
+
+Node.js v22.23.3
+
+
+```text
+git diff -- src/ui.html src/ui.css
+```
+
+Exit: 0. Output citit/revizuit; sursa ori logul integral rămâne în fișierul indicat.
+
+```text
+git diff --stat
+```
+
+Exit: 0.  comenzi executate agent.md  | 260 ++++++++++++++++++++++++++++++++++++++++++++
+ src/ui.css                  |   1 +
+ src/ui.html                 |   2 +-
+ src/ui.mjs                  |  63 +++++++++--
+ test/codex-control.test.mjs | 113 ++++++++++++++++++-
+ test/ui.test.mjs            |  72 +++++++++++-
+ 6 files changed, 489 insertions(+), 22 deletions(-)
+
+
+```text
+node .local-run/round-main-status.mjs --after
+```
+
+Exit: 0. {"url":"http://127.0.0.1:8765","agentOnline":true,"authentication":"authenticated","inventory":"available","discovered":8,"activeReadonlyJobs":0,"hubPid":252971,"agentPid":252980,"credentialFilesUnchanged":true,"samePids":false}
+
+
+```text
+npm test
+```
+
+Exit: în curs la prima întoarcere; finalizarea este înregistrată separat. Output citit/revizuit; sursa ori logul integral rămâne în fișierul indicat.
+
+```text
+git diff -- src/ui.mjs
+```
+
+Exit: 0. Output citit/revizuit; sursa ori logul integral rămâne în fișierul indicat.
+
+```text
+git diff -- test/ui.test.mjs
+```
+
+Exit: 0. Output citit/revizuit; sursa ori logul integral rămâne în fișierul indicat.
+
+```text
+git diff -- test/codex-control.test.mjs
+```
+
+Exit: 0. Output citit/revizuit; sursa ori logul integral rămâne în fișierul indicat.
+
+```text
+cat ETAPA-2B-LOCAL.md
+```
+
+Exit: 0. Output citit/revizuit; sursa ori logul integral rămâne în fișierul indicat.
+
+```text
+sed -n '1,105p' src/ui.mjs
+```
+
+Exit: 0. Output citit/revizuit; sursa ori logul integral rămâne în fișierul indicat.
+
+```text
+tools.write_stdin(session_id=31792, chars='')
+```
+
+Exit: 1. Output citit/revizuit; sursa ori logul integral rămâne în fișierul indicat. Rularea aferentă a eșuat; vezi rezultatul final documentat.
+
+```text
+npm test > .local-run/round-tests.tap 2>&1
+```
+
+Exit: în curs la prima întoarcere; finalizarea este înregistrată separat. Fără output.
+
+```text
+tools.write_stdin(session_id=63330, chars='')
+```
+
+Exit: 0. Fără output.
+
+```text
+rg -n -A 20 -B 3 'not ok|failureType:|error:|# tests|# pass|# fail|# skipped|# duration_ms' .local-run/round-tests.tap
+```
+
+Exit: 0. 754-  type: 'test'
+755-  ...
+756-1..125
+757:# tests 125
+758-# suites 0
+759:# pass 125
+760:# fail 0
+761-# cancelled 0
+762:# skipped 0
+763-# todo 0
+764:# duration_ms 6636.549946
+
+
+```text
+rg -n 'workspaceReady|const localDevice|const localState' test/ui.test.mjs src/hub.mjs
+```
+
+Exit: 0. src/hub.mjs:6:import { loopbackHost, validateToken, workspaceReady } from './local-config.mjs';
+src/hub.mjs:100:  const localDeviceId = localControl?.deviceId;
+src/hub.mjs:101:  const localEnabled = Boolean(isDevice(localDeviceId) && workspaceReady(localControl?.workspace));
+src/hub.mjs:188:      requireValue(b.workspaceReady === undefined || typeof b.workspaceReady === 'boolean', 'Invalid workspace readiness.');
+src/hub.mjs:196:        workspaceReady: b.workspaceReady === true, executionMode: 'demo-only',
+test/ui.test.mjs:52:  workspaceReady: true, mcp: { status: 'configured-only', servers: ['<b>server</b>'] },
+test/ui.test.mjs:152:const localDevice = { ...device, name: 'Local laptop', localControl: true, codexAuth: 'authenticated',
+test/ui.test.mjs:154:const localState = (devices = [localDevice]) => ({ devices, jobs: [], readonlyJobs: [],
+
+
+```text
+git remote get-url origin
+```
+
+Exit: 0. https://github.com/leverage50x/agents.git
+
+
+```text
+git rev-list --left-right --count HEAD...origin/stage2b-local-control
+```
+
+Exit: 0. 0	0
+
+
+```text
+git diff --check
+```
+
+Exit: 0. Fără output.
+
+```text
+git ls-remote --heads origin stage2b-local-control
+```
+
+Exit: 0. 36017b2ef99b0e6ff9d5e108a0edc3e4af781cf9	refs/heads/stage2b-local-control
+
+
+```text
+gh repo view leverage50x/agents --json nameWithOwner,isPrivate,url
+```
+
+Exit: 0. {"isPrivate":true,"nameWithOwner":"leverage50x/agents","url":"https://github.com/leverage50x/agents"}
+
+
+```text
+npm test > .local-run/round-final-tests.tap 2>&1
+```
+
+Exit: în curs la prima întoarcere; finalizarea este înregistrată separat. Fără output.
+
+```text
+git status --short --branch
+```
+
+Exit: 0. ## stage2b-local-control...origin/stage2b-local-control
+ M ETAPA-2B-LOCAL.md
+ M "comenzi executate agent.md"
+ M src/ui.css
+ M src/ui.html
+ M src/ui.mjs
+ M test/codex-control.test.mjs
+ M test/ui.test.mjs
+
+
+```text
+git diff --check
+```
+
+Exit: 0. Fără output.
+
+```text
+tail -40 .local-run/round-controller-ledger.md
+```
+
+Exit: 0. Ledger verificat;29/29testecontrolPASS,producțianeschimbată.
+
+```text
+tools.write_stdin(session_id=12605, chars='')
+```
+
+Exit: 0. Fără output.
+
+```text
+rg -n -A 16 -B 2 'not ok|failureType:|error:|# tests|# pass|# fail|# skipped|# duration_ms' .local-run/round-final-tests.tap
+```
+
+Exit: 0. 761-  ...
+762-1..126
+763:# tests 126
+764-# suites 0
+765:# pass 126
+766:# fail 0
+767-# cancelled 0
+768:# skipped 0
+769-# todo 0
+770:# duration_ms 8603.908768
+
+
+```text
+node .local-run/round-http-ui.mjs
+```
+
+Exit: 0. {"realHttpAssets":{"dashboard":{"http":200,"updatedMarkersPresent":true},"script":{"http":200,"updatedMarkersPresent":true},"stylesheet":{"http":200,"updatedMarkersPresent":true}},"visualBrowserVerified":false}
+
+
+```text
+git diff -- test/codex-control.test.mjs
+```
+
+Exit: 0. Output citit/revizuit; sursa ori logul integral rămâne în fișierul indicat.
+
+### Rapoarte delegate — comenzi literale și rezultate
+
+
+# Review paralel — launcher, recuperare agent și jurnal
+
+CWD pentru toate comenzile: `[WORKSPACE]`. Review read-only; fără controlul proceselor reale, teste, Codex, rețea, Windows/MCP, Git mutations sau escaladări. Singurul fișier creat de subagent în această rundă este acest ledger ignorat.
+
+## Comenzi efectiv executate
+
+1. `cat src/launcher.mjs` — exit 0; citire cod.
+2. `cat test/launcher.test.mjs` — exit 0; citire teste. Outputul agregat al lotului a fost trunchiat; secțiunile relevante au fost citite separat mai jos.
+3. `cat src/agent.mjs` — exit 0; citire recuperare/auth/output.
+4. `cat test/agent-recovery.test.mjs` — exit 0; citire teste existente; nu au fost executate.
+5. `git --no-optional-locks status --short --branch` — exit 0; `stage2b-local-control...origin/stage2b-local-control`, numai `comenzi executate agent.md` modificat.
+6. `git --no-optional-locks diff --numstat -- 'comenzi executate agent.md'` — exit 0; 260 adăugări, 0 ștergeri.
+7. `rg -n "test\(|recover|backoff|late|auth|shutdown|ownership|SIGKILL|unknown" test/launcher.test.mjs test/agent-recovery.test.mjs test/local-control.test.mjs test/codex-control.test.mjs` — exit 0; identificate cazurile existente de regresie.
+8. `nl -ba src/agent.mjs` — exit 0; verificare pe linii a state machine-ului.
+9. `sed -n '145,240p' test/launcher.test.mjs` — exit 0; verificate separat rollback, metadata-loss, oprire fără semnal pentru generația deja în terminare și listener străin.
+10. Comanda literală de filtrare și revizuire a diff-ului de mai jos — exit 0; 260 linii adăugate, `findings: []`. Au fost afișate numai liniile filtrate; nu s-au citit fișiere .env sau configurații personale.
+
+```bash
+git --no-optional-locks diff --unified=0 -- 'comenzi executate agent.md' | node --input-type=module -e 'let input=""; for await (const chunk of process.stdin) input+=chunk; const lines=input.split("\n").filter(line=>line.startsWith("+")&&!line.startsWith("+++")); const checks={privateKey:/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/,providerToken:/(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-(?:proj-)?[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16})/,bearer:/Bearer\s+[A-Za-z0-9._-]{24,}/,literalAppSecret:/LEVERAGE_(?:OPERATOR_TOKEN|AGENT_TOKEN|TOKEN)=[A-Za-z0-9_-]{24,}/,email:/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/,personalHome:/\/home\/(?!USER\b)[A-Za-z0-9_.-]+\//,windowsPath:/[A-Za-z]:\\(?:Users|Windows)\\/}; const findings=[]; for (let i=0;i<lines.length;i++) for(const [kind,pattern] of Object.entries(checks)) if(pattern.test(lines[i])) findings.push({addedLine:i+1,kind}); console.log(JSON.stringify({addedLines:lines.length,findings},null,2)); for (let i=0;i<lines.length;i++) {let line=lines[i].slice(1).replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g,"[EMAIL_REDACTED]").replace(/\/home\/[A-Za-z0-9_.-]+/g,"[USER_HOME]").replace(/(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-(?:proj-)?[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16})/g,"[TOKEN_REDACTED]").replace(/Bearer\s+[A-Za-z0-9._-]{24,}/g,"Bearer [REDACTED]").replace(/(LEVERAGE_(?:OPERATOR_TOKEN|AGENT_TOKEN|TOKEN)=)[A-Za-z0-9_-]{24,}/g,"$1[REDACTED]"); console.log(String(i+1).padStart(3," ")+": "+line); }'
+```
+
+11. `cat test/codex-agent-restart.test.mjs` — exit 0; revizuite regresiile sintetice de recuperare existente.
+12. `git --no-optional-locks diff --check -- 'comenzi executate agent.md'` — exit 0, fără output; format valid.
+13. `git --no-optional-locks diff --cached --name-status` — exit 0, fără output; nimic staged în acel moment.
+14. `apply_patch` — creat acest ledger ignorat; succes.
+15. `chmod 600 .local-run/round-launcher-ledger.md` — exit 0; numai fișierul nou al subagentului a fost făcut privat.
+16. `apply_patch` — completată lista operațiunilor din ledger; fără modificări source/jurnal central/Git config.
+
+## Constatări
+
+- Nu am identificat o regresie blocantă nouă în launcher. Semnalizarea este condiționată de identitatea completă, iar confirmarea ieșirii folosește generația PID. Metadatele incomplete nu autorizează semnale suplimentare. Listenerul străin poate rămâne pe același port fără a contrazice oprirea proceselor proprii.
+- Auth-ul păstrează destinația loopback și credențialele existente. Recuperarea controllerului este idle-only, cu factory configurat din valorile imutabile inițiale, backoff limitat și închiderea completă a vechiului controller. 401/403 blochează reluarea automată. Recuperarea nu reexecută instrucțiunea eșuată.
+- Suitele existente includ backoff 5/10/20/30s, schimbarea mediului după creare, recuperare fără turn implicit, factory/close failure, lipsa diagnosticelor, excluderea policy/approval failure, fără replay și ignorarea callbackurilor vechi. Nu recomand teste suplimentare care să repete aceste cazuri.
+- Diff-ul jurnalului este numai append: audit post-publicare și verificări ulterioare. Conține comenzi/statusuri, hash-uri Git și rezultate sanitizate; nu au fost detectate tiparele verificate de secrete/PII și nu am identificat conținut privat în revizuirea liniilor filtrate. Verificarea prin tipare nu reprezintă o garanție exhaustivă.
+- Cele 260 de linii trebuie păstrate și centralizate intenționat; nu sunt o modificare accidentală de eliminat. Nu s-a șters, resetat, restaurat sau modificat jurnalul central.
+- Nu au fost executate teste în această rundă; rezultatele istorice din jurnal au fost citite ca înregistrări, nu reverificate sau revendicate ca rezultate noi.
+
+
+# Stage 2B — rundă mică New / Resume, subagent controller
+
+Toate comenzile au CWD `[WORKSPACE]`, workspace-ul curent Leverage50xAgents. Fișierul este ignorat de Git. Niciun token, conținut ENV, fișier auth sau transcript nu este înregistrat.
+
+1. Comandă executată, exit 0:
+
+```bash
+sed -n '1,180p' src/codex-control.mjs
+```
+
+Citite politica READ-ONLY, filtrul de metode, detectorul conservator /proc și lease-urile. Detectorul blochează Resume dacă există alt Codex deținut de același utilizator în același cwd, inclusiv pentru sesiuni create de aplicație. Nu a fost relaxat.
+
+2. Comandă executată, exit 0, în paralel cu celelalte lecturi independente:
+
+```bash
+sed -n '300,470p' src/codex-control.mjs
+```
+
+Citite account/list/start/resume/turn, filtrarea workspace-ului, confirmarea explicită, configurația READ-ONLY/on-request/user, excludeTurns și clasificarea erorilor. Schema publică eligibility rămâne discovered/confirmed/busy; confirmed nu garantează absența activității altui proces.
+
+3. Comandă executată, exit 0, în paralel cu celelalte lecturi independente:
+
+```bash
+sed -n '1,270p' test/codex-control.test.mjs
+```
+
+Citit fixture-ul sintetic și testele existente. Nu a fost pornit Codex real.
+
+4. Modificare prin apply_patch, rezultat succes confirmat de tool: numai `test/codex-control.test.mjs`. Fixture-ul poate emite ID-uri de turn distincte și răspunsuri sintetice cu workspace străin. Adăugate cinci regresii pentru New→Resume în aceeași sesiune creată de aplicație, selecție stale/foreign, răspuns active/foreign, refuz/notfound după inventariere și detectorul conservator pentru alt Codex în același workspace.
+
+5. Comandă executată, exit 0:
+
+```bash
+node --test test/codex-control.test.mjs
+```
+
+Rezultat: 28 teste, 28 PASS, 0 fail, 0 skip, 752.31 ms. Numai fluxuri și procese simulate; niciun model/turn real, autentificare, MCP sau alt dispozitiv.
+
+Pozitiv sintetic: un thread/start, apoi thread/resume cu ID-ul returnat, excludeTurns true, două turn/start cu ID-uri de turn diferite, același workspace, READ-ONLY/network false, on-request/user și MCP/plugins goale. Testul nu pretinde că dovedește memoria/conversația unui model real.
+
+Negative: sesiune stale sau din alt workspace → session-unavailable înainte de resume; sesiune active → codex-busy fără turn nou; workspace nepotrivit în răspuns → codex-policy-mismatch nerecuperabil automat; refuzul serverului după inventariere → codex-request-rejected fără diagnostic brut și fără fallback la thread/start; alt Codex în același cwd → codex-busy chiar dacă threadul a fost creat de aplicație.
+
+6. Comandă executată, exit 0:
+
+```bash
+git diff --check -- test/codex-control.test.mjs
+```
+
+Fără probleme de whitespace.
+
+`src/codex-control.mjs` nu a fost modificat în această rundă. Nu am rulat comenzi Git de scriere, turnuri Codex reale, PowerShell sau executabile Windows, nu am accesat credențiale și nu am schimbat politici/auth. Root deține proba reală New→Resume într-un workspace sintetic izolat și eventualele operațiuni ulterioare.
+
+## Regresie după diagnosticul real /proc EACCES raportat de root
+
+7. Modificare prin apply_patch, rezultat succes confirmat: un singur test suplimentar în `test/codex-control.test.mjs`, fără modificări de producție. Folosește detectorul implicit real din cod, cu filesystem /proc simulat: un proces owned returnează EACCES pentru linkul exe. New reușește; Resume explicit pe același thread este refuzat cu session-activity-unverified, fără thread/resume și fără turn nou. Controllerul rămâne healthy/authenticated. După dispariția procesului neinspectabil din snapshot-ul sintetic /proc, o solicitare Resume explicită nouă reușește; nu există retry automat al jobului blocat.
+
+8. Comandă executată în `[WORKSPACE]`, exit 0:
+
+```bash
+node --test test/codex-control.test.mjs
+```
+
+Rezultat: 29/29 PASS, 0 fail, 0 skip, 565.03 ms. Toate aceste verificări sunt sintetice; niciun turn real sau inspectare de procese personale în test. Diagnosticul real și rezultatele New/Resume de la root sunt dovezi separate, nu rezultate produse de subagent.
+
+
+# Runda UI Stage 2B — raport subagent stage2_dashboard
+
+CWD pentru toate comenzile: [WORKSPACE]. Comenzile din batch-uri independente sunt enumerate in ordinea lansarii; finalizarea lor poate fi concurenta. Raport ignorat de Git pentru centralizare de catre agentul principal. Nu a fost editat jurnalul central.
+
+## 1
+
+```bash
+cat src/ui.html
+```
+
+Exit: 0.
+
+Citire READ-ONLY a surselor/testelor sau schema metadatelor.
+
+## 2
+
+```bash
+cat src/ui.css
+```
+
+Exit: 0.
+
+Citire READ-ONLY a surselor/testelor sau schema metadatelor.
+
+## 3
+
+```bash
+cat src/ui.mjs
+```
+
+Exit: 0.
+
+Citire READ-ONLY a surselor/testelor sau schema metadatelor.
+
+## 4
+
+```bash
+sed -n '1,390p' test/ui.test.mjs
+```
+
+Exit: 0.
+
+Citire READ-ONLY a surselor/testelor sau schema metadatelor.
+
+## 5
+
+```bash
+rg -n 'eligibility|reason|sessionInventory|lastActivity' src/hub.mjs src/codex-control.mjs
+```
+
+Exit: 0.
+
+Citire READ-ONLY a surselor/testelor sau schema metadatelor.
+
+## 6
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/ui.html')
+s = p.read_text()
+changes = [
+    ('<h2>Real local Codex <small>Read-only</small></h2>', '<h2>Real local Codex <span class="flow-badge">REAL · READ-ONLY</span></h2>'),
+    ('<select id="local-thread">', '<select id="local-thread" aria-describedby="local-selection-summary">'),
+    ('<option value="">Choose a session explicitly</option></select><label for="local-prompt">', '<option value="">Choose a session explicitly</option></select><p id="local-selection-summary" class="muted" aria-live="polite"></p><label for="local-prompt">'),
+    ('<section class="panel panel-spaced"><h2>Propose demo instruction</h2>', '<section class="panel panel-spaced demo-control"><h2>Propose demo instruction <span class="flow-badge">DEMO · SIMULATION</span></h2>'),
+    ('<section class="panel panel-spaced"><h2>DEMO tasks and approvals</h2>', '<section class="panel panel-spaced demo-jobs"><h2>DEMO tasks and approvals</h2>')
+]
+for old, new in changes:
+    assert s.count(old) == 1, 'Expected one UI marker.'
+    s = s.replace(old, new, 1)
+p.write_text(s)
+PY
+```
+
+Exit: 0.
+
+Actualizare tintita HTML: badge REAL/DEMO, clase vizuale si rezumat selectie accesibil; ID-urile existente pastrate.
+
+## 7
+
+```bash
+node --test test/ui.test.mjs
+```
+
+Exit: 1.
+
+14 teste PASS, 1 FAIL. Asertiunea veche din testul local progress astepta label-ul loaded cand codexAuth era not-authenticated. Interfata afisa corect Not authenticated — Resume unavailable. Asertiunea a fost corectata; aceasta rulare nu este prezentata ca PASS.
+
+## 8
+
+```bash
+node --test test/ui.test.mjs
+```
+
+Exit: 0.
+
+15/15 teste UI PASS, zero fail/skip, 308.419672 ms; DOM/fetch simulate, fara verificare vizuala in browser.
+
+## 9
+
+```bash
+node --check src/ui.mjs
+```
+
+Exit: 0.
+
+Fara output; cod 0.
+
+## 10
+
+```bash
+git diff --check -- src/ui.html src/ui.css src/ui.mjs test/ui.test.mjs
+```
+
+Exit: 0.
+
+Fara output; cod 0.
+
+## 11
+
+```bash
+git diff --stat -- src/ui.html src/ui.css src/ui.mjs test/ui.test.mjs
+```
+
+Exit: 0.
+
+ src/ui.css       |  1 +
+ src/ui.html      |  2 +-
+ src/ui.mjs       | 63 +++++++++++++++++++++++++++++++++++++++----------
+ test/ui.test.mjs | 72 +++++++++++++++++++++++++++++++++++++++++++++++++++++---
+ 4 files changed, 122 insertions(+), 16 deletions(-)
+
+
+## 12
+
+```bash
+git check-ignore .local-run/round-ui-ledger.md
+```
+
+Exit: 0.
+
+.local-run/round-ui-ledger.md
+
+
+## 13
+
+```bash
+node --input-type=module <<'NODE'
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const html = fs.readFileSync('src/ui.html', 'utf8');
+const source = fs.readFileSync('src/ui.mjs', 'utf8');
+const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]);
+assert.equal(new Set(ids).size, ids.length, 'HTML IDs must stay unique.');
+const references = [...new Set([...source.matchAll(/\$\('([^']+)'\)/g)].map(match => match[1]))];
+for (const id of references) assert.ok(ids.includes(id), 'Missing HTML ID: ' + id);
+console.log(JSON.stringify({ uniqueDOMIds: ids.length, staticReferencesVerified: references.length }));
+NODE
+```
+
+Exit: 0.
+
+{"uniqueDOMIds":29,"staticReferencesVerified":28}
+
+
+## 14
+
+```bash
+git diff -- src/ui.html src/ui.css src/ui.mjs test/ui.test.mjs
+```
+
+Exit: 0.
+
+Review READ-ONLY al patch-ului UI: gating/API/escaping pastrate, IDcomplet verificabil, niciun autoselect sau autoexec nou.
+
+## 15
+
+```bash
+test -e .local-run/round-ui-ledger.md
+```
+
+Exit: 1.
+
+Raportul nu exista; poate fi creat fara suprascrierea unui raport anterior.
+
+## Modificari efective
+
+- src/ui.html: badge REAL READ-ONLY distinct de DEMO SIMULATION, clase de panouri separate si aria-describedby/rezumat accesibil pentru sesiunea selectata; ID-urile existente sunt pastrate.
+- src/ui.css: proiect/ID scurt, details pentru ID complet, badge-uri si borduri distincte REAL vs DEMO.
+- src/ui.mjs: proiect, ID abreviat cu ID complet accesibil, ultima activitate, disponibilitate Resume raportata onest; confirmed inseamna loaded-by-app cu revalidare inainte de Resume, nu disponibilitate globala garantata. Mesaje distincte pentru ocupat, activitate neverificata, sesiune indisponibila, versiune neacceptata, autentificare, politica sau request respins. Autoselectarea si confirmarea automata nu au fost introduse; gating-ul, API-urile si HTML escaping sunt pastrate.
+- test/ui.test.mjs: 3 teste noi pentru metadate/accesibilitate, selectie fara autoselect dupa polling, erori distincte; asertiuni existente adaptate noii semantici corecte.
+- Patch-uri apply_patch reusite: implementare JS/CSS, ajustare JS/teste si corectarea asertiunii auth-priority. HTML a fost editat prin scriptul Python literal de mai sus, exit0. Acest raport este singurul fisier suplimentar ignorat.
+
+## Rezultat si limite
+
+15/15 teste UI finale PASS. Sintaxa si git diff --check PASS. Verificarea structurala a gasit 29 ID-uri HTML unice si 28 referinte statice JS valide. Review-ul patch-ului nu a identificat blocaje de siguranta. Schema a fost coordonata cu stage2_inventory: eligibility ramane discovered/confirmed/busy, fara camp reason public nou; /proc gate pentru Resume nu a fost relaxat.
+
+Nu s-au rulat MCP reale, executabile Windows, PowerShell, browser, turnuri Codex sau servicii reale. Nu s-au citit/afisat credentele si nu s-au efectuat mutatii Git, modificari de backend ori configuratie de securitate. Nu pretindem verificare vizuala. Full suite/integrarile si Git sunt la agentul principal.
+
+
+
+### Rezultate și limite înainte de publicare
+
+- UI: proiect, ID scurt, ID complet accesibil, ultima activitate UTC, candidată/încărcată/ocupată/indisponibilă pentru Resume. Loaded by this app nu promite exclusivitate. Mesaje distincte pentru busy, activitate neverificată, sesiune dispărută, auth, versiune și politică. REAL READ-ONLY și DEMO SIMULATION au badge/bordură distincte. Confirmarea explicită și escaping-ul rămân.
+- Test REAL prin Hub HTTP loopback + agent/controller nativ: workspace sintetic privat, fără conversații personale. CodexCLI0.163.0 și login authenticated. New completed, marker returnat,150caractere de output nepublicat; README neschimbat și numai fișierele așteptate. A fost creat un singur turn de model real. Resume pentru exact threadul creat a fost încercat, dar refuzat înainte de thread/resume/turn/start cu session-activity-unverified; nu este raportat drept succes real.
+- Diagnostic REAL numai metadate:2procese owned au returnat EACCES la /proc/PID/exe. Scanul conservator nu le poate exclude ca procese Codex, deci returnează unknown. Nu s-au citit transcripturi, medii/auth sau ținte FD în output și nu s-au oprit alte procese. Nu s-a ocolit verificarea. Rezultat privat .local-run/round-real-new-resume-result.json; fixture-ul de test și sesiunea creată sunt păstrate, nu șterse.
+- Teste SINTETICE: New→Resume pe același ID cu două turnuri distincte, stale/foreign/busy/serverreject, protecții neschimbate. Regresia /proc EACCES verifică refuzul fără RPC/turn nou, autentificare sănătoasă și reușita numai a unei noi cereri explicite când metadatele devin verificabile. UI se testează cu DOM simulat; nu s-a verificat vizual browserul.
+- Launcher REAL: start peste procesele existente păstrează aceleași PID-uri; stop confirmă procese proprii oprite/port liber; start repornește; status Online/authenticated/inventoryavailable. Metadatele hub.env,laptop1.env,agents.json sunt identice înainte/după. Sesiunile principale:8în snapshotul verificat; nu s-au reluat. Aplicația rămâne pornită http://127.0.0.1:8765; oprire ./leverage stop.
+- HTTP REAL: /,/app.js,/app.css toate200, conțin controalele/stilurile actualizate; nu este probă vizuală.
+- Test UI inițial14/15a semnalat un label vechi în aserțiune; actualizat la starea corectă Not authenticated, apoi15/15PASS. Controller29/29PASS. Fullsuite inițial124/125 (1fail; detaliul individual a fost pierdut prin trunchierea outputului, cauza nu este inventată). Rerularea cu log complet125/125PASS6636.55ms; după noua regresieEACCES, fullsuite final126/126PASS,0fail/skip,8603.91ms. Loguri complete private .local-run/round-tests.tap și .local-run/round-final-tests.tap. Eșecul inițial nu a fost reprodus.
+- Blocaj sandbox real: node .local-run/round-main-status.mjs --after a primit EPERM la conexiunea loopback în sandbox; reluat prin aprobarea platformei, cod0. Fără bypass. Un tool de orchestrare JS a eșuat la parsare(SyntaxError) înainte de orice comandă; corectat și reluat, fără rezultate inventate. Un subagent a întâlnit capacity, apoi a fost reluat cu același model și a finalizat review-ul.
+- Modificate prin apply_patch:src/ui.html,src/ui.css,src/ui.mjs,test/ui.test.mjs,test/codex-control.test.mjs,ETAPA-2B-LOCAL.md și jurnalul. Controllerul,Hub-ul,agentul,launcherul și politicile de producție nu au fost modificate. Helpers/rapoarte sunt numai în .local-run ignorat. Nu sunt introduse dependențe noi.
+- Înainte de commit: urmează auditul tuturor fișierelor/istoricului pentru secrete și verificarea staged. Rezultatele acestora sunt înregistrate după execuție, fără a presupune succesul.
+
+
+
+### Audit final înainte de staging
+
+- `node .local-run/round-centralize.mjs` — executat de două ori, cod0. Prima generare a avut o expresie de formatare prea largă; corectată în helper și regenerată exclusiv secțiunea nouă proprie. Jurnalul preexistent a rămas intact. `tail -5 .local-run/round-centralize.mjs` și `rg -n '^npm tes' 'comenzi executate agent.md'` — cod0, confirmă comenzile literale corecte după regenerare.
+- Helpers au fost creați/modificați prin apply_patch numai în .local-run ignorat; nu sunt publicați.
+
+```text
+node .local-run/review-publication.mjs stage2b-local-control > .local-run/round-publication-audit.log
+```
+
+Exit: 0. Fără output.
+
+```text
+node --input-type=module -e 'import fs from "node:fs"; const r=JSON.parse(fs.readFileSync(".local-run/publication-audit.json","utf8")); console.log(JSON.stringify({commits:r.history.commitsScanned,files:r.workingTree.filesReviewed,historyFindings:r.history.findings,workingFindings:r.workingTree.findings,forbiddenPaths:r.history.forbiddenPaths}));'
+```
+
+Exit: 0. {"commits":6,"files":49,"historyFindings":[],"workingFindings":[],"forbiddenPaths":[]}
+
+```text
+git diff --check
+```
+
+Exit: 0. Fără output.
+
+```text
+git diff --stat
+```
+
+Exit: 0. ETAPA-2B-LOCAL.md           |   17 +
+ comenzi executate agent.md  | 1042 +++++++++++++++++++++++++++++++++++++++++++
+ src/ui.css                  |    1 +
+ src/ui.html                 |    2 +-
+ src/ui.mjs                  |   63 ++-
+ test/codex-control.test.mjs |  142 +++++-
+ test/ui.test.mjs            |   72 ++-
+ 7 files changed, 1317 insertions(+), 22 deletions(-)
+
+Audit:6commituri,49fișiere,0constatăriistoric/workingtree/pathsprivate. Diffcheckcod0. Cele7fișiere intenționate sunt UI3,teste2,ETAPA-2B-LOCAL.md și jurnalul, cu toate cele260linii preexistente păstrate. Teste final126/126PASS. Publicarea va fi înregistrată după execuție; nupresupunemrezultatul.
+
 <!-- publish-next -->

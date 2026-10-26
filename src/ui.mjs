@@ -8,8 +8,36 @@ const escape = value => String(value ?? '').replaceAll('&', '&amp;').replaceAll(
   .replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
 const online = device => device.online && !device.revokedAt;
 const deviceLabel = device => device.name + ' · ' + device.id;
+const shortId = value => value.length > 16 ? value.slice(0, 8) + '…' + value.slice(-4) : value;
 const authLabel = value => value === 'authenticated' ? 'Codex authenticated' : value === 'not-authenticated' ? 'Not authenticated' : 'Unavailable';
 const localDevice = () => state.devices.find(device => device.id === $('local-device').value);
+function resumeLabel(session) {
+  if (session.eligibility === 'busy') return 'Busy — unavailable';
+  if (session.eligibility === 'confirmed') return 'Loaded by this app — Resume will be rechecked';
+  return 'Discovered — resume not yet verified';
+}
+function resumeAvailability(device, session) {
+  if (!connected) return 'Hub disconnected — Resume unavailable';
+  if (!online(device)) return 'Device offline or revoked — Resume unavailable';
+  if (!state.localControl?.enabled || device.id !== state.localControl.deviceId || !device.localControl) {
+    return 'Inventory only — local Resume unavailable';
+  }
+  if (device.codexAuth !== 'authenticated') return authLabel(device.codexAuth) + ' — Resume unavailable';
+  return resumeLabel(session);
+}
+const localErrors = {
+  'codex-busy': 'Session or workspace in use by another Codex process. Finish that activity before trying Resume.',
+  'session-activity-unverified': 'Session activity could not be verified. Resume was refused safely; check other Codex processes before retrying.',
+  'session-unavailable': 'The session is no longer available in the selected workspace. Refresh inventory or choose New.',
+  'codex-version-unsupported': 'The installed Codex CLI version is unsupported. Check the supported version before retrying local control.',
+  'codex-not-authenticated': 'Codex authentication could not be confirmed. Check local Codex login before retrying.',
+  'codex-policy-mismatch': 'Local safety settings could not be verified. The turn was refused; check local configuration.',
+  'codex-request-rejected': 'Codex rejected the local request. Check local Codex status and refresh inventory before retrying.',
+  'codex-unavailable': 'Local Codex is unavailable. Check the local agent and Codex status before retrying.',
+  'agent-disconnected': 'The agent disconnected. This turn will not replay automatically; reconnect and confirm a new instruction.',
+  'agent-revoked': 'Agent authorization was revoked. Check enrollment before submitting another turn.',
+  'selection-no-longer-available': 'The selected device or session changed before the turn started. Refresh and select again.'
+};
 function localAvailability() {
   const device = localDevice();
   if (!connected) return { ready: false, message: 'Connect as operator to use local control.' };
@@ -19,7 +47,8 @@ function localAvailability() {
     return { ready: false, message: 'This device is inventory-only. Local control is unavailable.' };
   }
   if (!online(device)) return { ready: false, message: 'The selected local device is offline or revoked.' };
-  if (device.codexAuth !== 'authenticated') return { ready: false, message: 'Codex authentication: ' + authLabel(device.codexAuth) + '.' };
+  if (device.codexAuth !== 'authenticated') return { ready: false, message: 'Codex authentication: ' + authLabel(device.codexAuth) +
+    '. An online heartbeat does not confirm Codex availability. Check local Codex/agent status before retrying.' };
   return { ready: true, message: 'Codex authenticated · local read-only control · explicit selections and confirmation required.' };
 }
 function localSelection() {
@@ -45,11 +74,18 @@ function controls() {
   for (const button of document.querySelectorAll('#jobs button')) button.disabled = !connected || busy;
   const { ready, message } = localAvailability();
   $('local-control-status').textContent = message;
+  const selection = localSelection();
+  $('local-selection-summary').textContent = $('local-mode').value === 'new'
+    ? 'New conversation — no existing session will be resumed.'
+    : $('local-mode').value !== 'resume' ? 'Choose New or Resume explicitly.'
+    : !selection.session ? 'Choose a session explicitly. Discovered IDs are unverified candidates.'
+    : (selection.session.project || 'Project unavailable') + ' · Last activity: ' + timestamp(selection.session.lastActivity) +
+      ' · ' + resumeAvailability(selection.device, selection.session) + ' · Full session ID: ' + selection.session.id;
   $('local-device').disabled = !connected || !state.localControl?.enabled || busy;
   for (const id of ['local-mode', 'local-workspace', 'local-prompt']) $(id).disabled = !ready || busy;
   $('local-thread').disabled = !ready || busy || $('local-mode').value !== 'resume';
   $('local-thread').required = $('local-mode').value === 'resume';
-  const valid = localSelection().valid;
+  const valid = selection.valid;
   $('local-confirm').disabled = !valid || busy;
   $('local-submit').disabled = !valid || !$('local-confirm').checked || busy;
 }
@@ -96,23 +132,24 @@ function renderSessions() {
   $('sessions').innerHTML = (device.sessions || []).length ? device.sessions.map(session => {
     const activity = session.activity === 'active-confirmed' ? 'Activity confirmed' : 'Discovered only — activity unconfirmed';
     const source = session.source === 'app-server' ? 'App Server inventory' : session.source === 'files' ? 'Session filename inventory' : 'Unspecified inventory source';
-    return '<article class="session"><h3><code>' + escape(session.id) + '</code></h3>' +
-      '<dl><dt>Device</dt><dd>' + escape(deviceLabel(device)) + '</dd><dt>Project</dt><dd>' +
-      escape(session.project || 'Not available') + '</dd><dt>Last known activity</dt><dd>' +
+    return '<article class="session"><div class="session-heading"><h3>' + escape(session.project || 'Project unavailable') +
+      '</h3><code title="' + escape(session.id) + '" aria-label="Full session ID: ' + escape(session.id) + '">' +
+      escape(shortId(session.id)) + '</code></div><details class="session-id"><summary>Full session ID</summary><code>' +
+      escape(session.id) + '</code></details><dl><dt>Device</dt><dd>' + escape(deviceLabel(device)) + '</dd><dt>Last known activity</dt><dd>' +
       escape(timestamp(session.lastActivity)) + '</dd><dt>Last modified metadata</dt><dd>' +
       escape(timestamp(session.modified)) + '</dd><dt>Activity</dt><dd>' + escape(activity) +
-      '</dd><dt>Source</dt><dd>' + escape(source) + '</dd><dt>Control eligibility</dt><dd>' +
-      (session.eligibility === 'busy' ? 'Busy — unavailable' : session.eligibility === 'confirmed' ?
-        'Resumability confirmed by local controller' : 'Discovered — resume not yet verified') + '</dd></dl></article>';
+      '</dd><dt>Source</dt><dd>' + escape(source) + '</dd><dt>Resume</dt><dd>' +
+      escape(resumeAvailability(device, session)) + '</dd></dl></article>';
   }).join('') : '<p class="muted">No sessions reported by this device.</p>';
 }
 function renderLocalThreads(preserve = true) {
   const previous = preserve ? $('local-thread').value : '';
   const sessions = localDevice()?.sessions || [];
   $('local-thread').innerHTML = '<option value="">Choose a session explicitly</option>' + sessions.map(session =>
-    '<option value="' + escape(session.id) + '"' + (session.eligibility === 'busy' ? ' disabled' : '') + '>' +
-    escape(session.id) + ' · ' + (session.eligibility === 'busy' ? 'Busy — unavailable' :
-      session.eligibility === 'confirmed' ? 'Confirmed by controller' : 'Discovered — resume unverified') + '</option>').join('');
+    '<option value="' + escape(session.id) + '"' + (session.eligibility === 'busy' ? ' disabled' : '') +
+    ' title="Full session ID: ' + escape(session.id) + '">' + escape(session.project || 'Project unavailable') +
+    ' · ' + escape(shortId(session.id)) + ' · Last activity: ' + escape(timestamp(session.lastActivity)) + ' · ' +
+    escape(resumeLabel(session)) + '</option>').join('');
   if (sessions.some(session => session.id === previous && session.eligibility !== 'busy')) $('local-thread').value = previous;
 }
 function renderLocalControl() {
@@ -135,7 +172,9 @@ function renderLocalControl() {
     escape(job.resultThreadId || job.threadId || 'new') + ' · ' + escape(job.createdAt) + '</small></p><p>' +
     escape(job.prompt) + '</p>' + ((job.events || []).length ? '<ul class="local-events">' + job.events.map(event =>
       '<li><b>' + escape(event.type) + '</b> ' + escape(event.message) + '</li>').join('') + '</ul>' : '') +
-    (job.errorCode ? '<p class="off">Error: <code>' + escape(job.errorCode) + '</code></p>' : '') +
+    (job.errorCode ? '<p class="off">Error: <code>' + escape(job.errorCode) + '</code></p><p class="muted">' +
+      escape(Object.hasOwn(localErrors, job.errorCode) ? localErrors[job.errorCode] :
+        'The local turn stopped. Check the error code and current device status before retrying.') + '</p>' : '') +
     (job.output ? '<pre>' + escape(job.output) + '</pre>' : '') + '</article>'
   ).join('') : '<p class="muted">No local read-only turns submitted.</p>';
 }

@@ -41,6 +41,23 @@ Hub-ul acceptă numai UUID-ul configurat al agentului principal și workspace-ul
 
 O sesiune descoperită este un candidat, nu dovada că poate fi reluată. Resume este verificat din nou local înainte de turn/start; sesiunile ocupate, inaccesibile sau din alt workspace sunt respinse. Nu se încarcă istoricul în Hub/dashboard. Contextul sesiunii selectate este gestionat de Codex însuși. Aplicația nu pretinde că un App Server proaspăt poate observa toate celelalte procese; dacă exclusivitatea nu poate fi stabilită, Resume trebuie refuzat conservator. Nu se lansează două turnuri simultane pe același thread.
 
+### Folosirea sesiunilor în dashboard
+
+Inventarul și selectorul Resume arată proiectul, ID-ul scurt și ultima activitate cunoscută în UTC. ID-ul complet este disponibil în detaliile sesiunii și în rezumatul selecției. `Discovered` înseamnă candidat neverificat; `Loaded by this app` înseamnă că aplicația a încărcat sesiunea, cu o nouă verificare obligatorie înaintea fiecărui Resume. `Busy` și dispozitivele Offline, revocate, fără autentificare sau doar cu inventar nu sunt prezentate ca disponibile pentru reluare.
+
+Formularul **REAL · READ-ONLY** creează sau continuă o conversație reală după selectarea explicită și confirmare. Formularul **DEMO · SIMULATION**, cu bordură distinctă, simulează instrucțiuni și nu deschide conversații Codex.
+
+Pentru un test manual, creează întâi o conversație New cu o instrucțiune scurtă fără modificări, așteaptă rezultatul, apoi selectează explicit aceeași sesiune pentru Resume. Verifică ID-ul complet și proiectul înainte de confirmare. Nu selecta o conversație personală doar pentru a testa interfața.
+
+| Mesaj/cod | Semnificație și pas următor |
+| --- | --- |
+| `codex-busy` | Sesiunea sau workspace-ul este folosit de alt proces Codex. Încheie tu acea activitate înainte de reluare; aplicația nu o oprește automat. |
+| `session-activity-unverified` | Exclusivitatea nu poate fi verificată, inclusiv când metadatele proceselor nu pot fi inspectate. Resume este refuzat; nu dezactiva protecțiile pentru a continua. |
+| `session-unavailable` | Sesiunea nu mai apare în workspace-ul selectat. Actualizează inventarul și verifică selecția. |
+| `codex-request-rejected` | App Server a refuzat cererea; nu se creează automat o sesiune înlocuitoare. Verifică starea locală și selectează din nou. |
+
+Verificare reală din 26 octombrie 2026: un Hub HTTP pe loopback și un agent real au creat cu succes o sesiune New într-un workspace sintetic izolat, folosind autentificarea Codex existentă. README-ul a rămas identic. Resume pentru exact acea sesiune a fost încercat, dar refuzat înainte de turn cu `session-activity-unverified`; diagnosticul local a găsit procese ale căror metadate `/proc/.../exe` returnează EACCES. Nu s-au reluat conversații personale și nu s-a relaxat verificarea. New → Resume cu două turnuri pe același ID este verificat prin protocol sintetic; **reușita Resume cu model real nu este confirmată în acest mediu**. Launcherul și autentificarea au fost verificate înainte și după stop/start, cu fișierele de credențiale neschimbate.
+
 ## Politica READ-ONLY și limite
 
 Controllerul trebuie să verifice versiunea/schema și configurația efectivă înainte de turn. Folosește sandbox readOnly, networkAccess=false pentru instrumente, o politică de aprobare care nu ocolește aprobările și refuză cererile de escaladare. Nu sunt expuse thread/shellCommand, command/exec sau process/*, care ar putea ocoli sandboxul. MCP, aplicațiile, browserul și instrumentele cu efecte secundare trebuie dezactivate înaintea unei probe reale.

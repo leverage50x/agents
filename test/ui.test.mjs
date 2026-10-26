@@ -218,7 +218,7 @@ test('local Resume requires an explicitly chosen device-scoped session and rejec
   await b.login();
   selectLocal(b, { mode: 'resume' });
   assert.equal(b.element('local-thread').value, '');
-  assert.ok(b.element('local-thread').innerHTML.includes('Discovered — resume unverified'));
+  assert.ok(b.element('local-thread').innerHTML.includes('Discovered — resume not yet verified'));
   confirmLocal(b);
   await submitLocal(b);
   assert.equal(localRequests(b).length, 0);
@@ -243,7 +243,7 @@ test('local Resume requires an explicitly chosen device-scoped session and rejec
   b.state(localState([busy]));
   await b.poll();
   selectLocal(b, { mode: 'resume', thread: localThread });
-  assert.ok(b.element('local-thread').innerHTML.includes('" disabled>'));
+  assert.match(b.element('local-thread').innerHTML, /" disabled(?:\s|>)/);
   confirmLocal(b);
   await submitLocal(b);
   assert.equal(localRequests(b).length, 1);
@@ -327,8 +327,74 @@ test('local progress, final answers, authentication labels and session eligibili
   b.state(localState([{ ...localDevice, codexAuth: 'not-authenticated', sessions: [{ ...localDevice.sessions[0], eligibility: 'confirmed' }] }]));
   await b.poll();
   assert.ok(b.element('devices').innerHTML.includes('Not authenticated'));
-  assert.ok(b.element('sessions').innerHTML.includes('Resumability confirmed by local controller'));
+  assert.ok(b.element('sessions').innerHTML.includes('Not authenticated — Resume unavailable'));
   b.state(localState([{ ...localDevice, codexAuth: 'unavailable' }]));
   await b.poll();
   assert.ok(b.element('devices').innerHTML.includes('Unavailable'));
+});
+
+test('session inventory shows project, abbreviated ID, accessible full ID and honest activity/Resume metadata', async () => {
+  const reported = { ...localDevice, sessions: [{ ...localDevice.sessions[0], project: '<b>Personal project</b>',
+    lastActivity: '2026-10-26T09:15:00Z', modified: '2026-10-26T09:16:00Z' }] };
+  const b = browser(localState([reported]));
+  await b.login();
+  const html = b.element('sessions').innerHTML;
+  assert.ok(html.includes('&lt;b&gt;Personal project&lt;/b&gt;'));
+  assert.equal(html.includes('<b>Personal project</b>'), false);
+  assert.ok(html.includes('11111111…1111'));
+  assert.ok(html.includes('aria-label="Full session ID: ' + localThread + '"'));
+  assert.ok(html.includes('<summary>Full session ID</summary><code>' + localThread + '</code>'));
+  assert.ok(html.includes('2026-10-26T09:15:00.000Z'));
+  assert.ok(html.includes('Discovered — resume not yet verified'));
+  b.state(localState([{ ...reported, online: false }]));
+  await b.poll();
+  assert.ok(b.element('sessions').innerHTML.includes('Device offline or revoked — Resume unavailable'));
+  b.state({ devices: [{ ...reported, localControl: false }], jobs: [] });
+  await b.poll();
+  assert.ok(b.element('sessions').innerHTML.includes('Inventory only — local Resume unavailable'));
+});
+
+test('Resume choices show project, short ID and last activity without selecting any session after polling', async () => {
+  const reported = { ...localDevice, sessions: [{ ...localDevice.sessions[0], project: 'Personal project',
+    eligibility: 'confirmed', lastActivity: '2026-10-26T09:15:00Z' }] };
+  const b = browser(localState([reported]));
+  await b.login();
+  selectLocal(b, { mode: 'resume' });
+  let options = b.element('local-thread').innerHTML;
+  assert.ok(options.includes('Personal project · 11111111…1111 · Last activity: 2026-10-26T09:15:00.000Z'));
+  assert.ok(options.includes('title="Full session ID: ' + localThread + '"'));
+  assert.ok(options.includes('Loaded by this app — Resume will be rechecked'));
+  assert.equal(b.element('local-thread').value, '');
+  await b.poll();
+  assert.equal(b.element('local-thread').value, '');
+  change(b, 'local-thread', localThread);
+  assert.ok(b.element('local-selection-summary').textContent.includes('Full session ID: ' + localThread));
+  assert.ok(b.element('local-selection-summary').textContent.includes('Resume will be rechecked'));
+  change(b, 'local-mode', 'new');
+  await b.poll();
+  assert.equal(b.element('local-thread').value, '');
+  assert.ok(b.element('local-selection-summary').textContent.includes('no existing session will be resumed'));
+  assert.equal(localRequests(b).length, 0);
+});
+
+test('local errors explain busy, unverified, unavailable, unsupported and authentication states distinctly', async () => {
+  const b = browser(localState());
+  await b.login();
+  const messages = {
+    'codex-busy': 'Session or workspace in use by another Codex process. Finish that activity before trying Resume.',
+    'session-activity-unverified': 'Session activity could not be verified.',
+    'session-unavailable': 'The session is no longer available in the selected workspace.',
+    'codex-version-unsupported': 'The installed Codex CLI version is unsupported.',
+    'codex-not-authenticated': 'Codex authentication could not be confirmed.',
+    'codex-policy-mismatch': 'Local safety settings could not be verified.',
+    'codex-request-rejected': 'Codex rejected the local request.'
+  };
+  for (const [errorCode, message] of Object.entries(messages)) {
+    b.state({ ...localState(), readonlyJobs: [{ id: 'synthetic-error', deviceId: localDevice.id,
+      status: 'failed', mode: 'resume', threadId: localThread, workspaceId: 'project', errorCode }] });
+    await b.poll();
+    assert.ok(b.element('local-jobs').innerHTML.includes(message));
+    assert.ok(b.element('local-jobs').innerHTML.includes('<code>' + errorCode + '</code>'));
+  }
+  assert.equal(localRequests(b).length, 0);
 });

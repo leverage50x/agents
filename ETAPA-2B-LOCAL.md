@@ -39,7 +39,9 @@ Analizează README.md și rezumă structura proiectului, fără modificări.
 
 Hub-ul acceptă numai UUID-ul configurat al agentului principal și workspace-ul aplicației. Agentul raportează un binding al căii canonice, fără să trimită calea absolută în UI. Agentul altui dispozitiv nu poate crea, revendica sau finaliza o execuție locală. Nu sunt acceptate câmpuri de comandă, shell, cwd arbitrar sau suprascriere a politicii de sandbox/aprobare.
 
-O sesiune descoperită este un candidat, nu dovada că poate fi reluată. Resume este verificat din nou local înainte de turn/start; sesiunile ocupate, inaccesibile sau din alt workspace sunt respinse. Nu se încarcă istoricul în Hub/dashboard. Contextul sesiunii selectate este gestionat de Codex însuși. Aplicația nu pretinde că un App Server proaspăt poate observa toate celelalte procese; dacă exclusivitatea nu poate fi stabilită, Resume trebuie refuzat conservator. Nu se lansează două turnuri simultane pe același thread.
+O sesiune descoperită este un candidat, nu dovada că poate fi reluată. Resume reverifică inventarul local și dobândește atomic lock-ul nativ exclusiv al thread-ului prin `thread/resume` din Codex 0.163.0. Același ID deținut de alt proces este respins; alte ID-uri din același workspace sunt permise. Se păstrează lease-urile aplicației pe workspace/thread și refuzul unei stări `active` înainte de `turn/start`. Nu se încarcă istoricul în Hub/dashboard; `excludeTurns:true` evită returnarea lui, iar Codex însuși gestionează contextul selectat. Erorile native necunoscute sunt refuzate fără fallback la New sau retry automat.
+
+Lock-ul folosește mecanismul OS din [`rollout/src/writer_lock.rs`](https://github.com/openai/codex/blob/rust-v0.163.0/codex-rs/rollout/src/writer_lock.rs), dobândit înainte de încărcare și păstrat de recorder până la închiderea thread-ului/procesului; vezi [`thread-store/src/local/live_writer.rs`](https://github.com/openai/codex/blob/rust-v0.163.0/codex-rs/thread-store/src/local/live_writer.rs). Protecția privește procesele native compatibile cu același CODEX_HOME; nu se pretinde protecție împotriva clienților necooperanți sau a sesiunilor copiate între home-uri. Versiunile diferite de 0.163.0 rămân blocate până la validare. Aplicația nu mai deduce exclusivitatea din cwd sau accesibilitatea `/proc`; un App Server proaspăt nu oferă inventarul global al proceselor active. Un thread încărcat de aplicație poate rămâne deținut de aceasta între turnuri.
 
 ### Folosirea sesiunilor în dashboard
 
@@ -57,12 +59,25 @@ Pentru un test manual, creează întâi o conversație New cu o instrucțiune sc
 
 | Mesaj/cod | Semnificație și pas următor |
 | --- | --- |
-| `codex-busy` | Sesiunea sau workspace-ul este folosit de alt proces Codex. Încheie tu acea activitate înainte de reluare; aplicația nu o oprește automat. |
-| `session-activity-unverified` | Exclusivitatea nu poate fi verificată, inclusiv când metadatele proceselor nu pot fi inspectate. Resume este refuzat; nu dezactiva protecțiile pentru a continua. |
+| `codex-busy` | Thread-ul selectat are deja un proprietar activ sau aplicația are un turn în curs. Așteaptă eliberarea lui și reconfirmă explicit; aplicația nu oprește procese externe. |
+| `session-activity-unverified` | Cod istoric al verificării `/proc` din versiunea anterioară; controllerul curent folosește lock-ul atomic nativ. |
 | `session-unavailable` | Sesiunea nu mai apare în workspace-ul selectat. Actualizează inventarul și verifică selecția. |
 | `codex-request-rejected` | App Server a refuzat cererea; nu se creează automat o sesiune înlocuitoare. Verifică starea locală și selectează din nou. |
+| `codex-rpc-timeout` | App Server nu a răspuns la cererea RPC în 30s; nu se retrimite cererea. |
+| `codex-idle-timeout` | Nu s-a primit activitate pentru turnul curent timp de 180s. |
+| `codex-turn-timeout` | Turnul a atins limita totală de 10 minute, chiar dacă mai exista activitate. |
 
-Verificare reală din 26 octombrie 2026: un Hub HTTP pe loopback și un agent real au creat cu succes o sesiune New într-un workspace sintetic izolat, folosind autentificarea Codex existentă. README-ul a rămas identic. Resume pentru exact acea sesiune a fost încercat, dar refuzat înainte de turn cu `session-activity-unverified`; diagnosticul local a găsit procese ale căror metadate `/proc/.../exe` returnează EACCES. Nu s-au reluat conversații personale și nu s-a relaxat verificarea. New → Resume cu două turnuri pe același ID este verificat prin protocol sintetic; **reușita Resume cu model real nu este confirmată în acest mediu**. Launcherul și autentificarea au fost verificate înainte și după stop/start, cu fișierele de credențiale neschimbate.
+Rezultat istoric din 26 octombrie 2026, înaintea remedierii concurenței: Hub-ul și agentul HTTP reale au creat New, dar Resume era refuzat de euristica `/proc` cu `session-activity-unverified` (EACCES). Launcherul și autentificarea au fost verificate atunci înainte/după stop/start. Acest blocaj nu era dovada unui conflict pe thread.
+
+Verificare reală din 27 octombrie 2026: controllerul de producție cu Codex 0.163.0 și autentificarea WSL existentă a finalizat New în 4,4s și Resume pe același ID sintetic în 5,7s. Resume a recuperat markerul turnului precedent, fără ca acesta să fie inclus în noua instrucțiune; a produs 9 snapshoturi și 5 evenimente de progres. README-ul izolat a rămas identic, fără reluarea conversațiilor personale și fără înregistrarea outputului. Două procese App Server native distincte au verificat conflictul exclusiv pe același ID, acceptarea altui ID în același workspace și transferul după închiderea numai a procesului de test. Sandboxul de dezvoltare a blocat inițial scrierea metadatelor proprii App Server; proba Resume a folosit aprobarea platformei, păstrând politica READ-ONLY și tool-urile dezactivate. Procesele existente ale operatorului nu au fost oprite. Fluxul HTTP/progres/heartbeat și duratele lungi sunt testate automat cu protocol și timp sintetice; nu se revendică o verificare vizuală a browserului sau o execuție reală de 10 minute.
+
+### Progres și limite de timp
+
+Limitele implicite separă răspunsul RPC (30s), lipsa activității turnului (180s) și durata totală după ACK-ul `turn/start` (600s). Un flux de notificări pentru alt thread/turn nu resetează idle; activitatea relevantă de reasoning/items/output prelungește numai idle. Reasoning-ul nu este afișat ori trimis la Hub. Constructorul intern validează plafoane de 30s/600s/1800s pentru RPC/idle/total; dashboard-ul și mediul nu le pot suprascrie.
+
+Finalizarea necesită `turn/completed` cu ID-ul turnului confirmat; notificările sosite înaintea răspunsului RPC sunt corelate pe ID și nu pot fi suprascrise de finalizarea unui alt turn. `item/completed.agentMessage.text` este textul autoritativ, inclusiv când nu există delte. Un item complet sau textul parțial nu certifică succesul turnului. Outputul este redacted, limitat și transmis ca snapshot de înlocuire; un fragment de cuvânt neterminat este reținut până când poate fi filtrat în siguranță. Agentul limitează actualizările la o cerere în curs și combină snapshoturile intermediare, fără să blocheze heartbeat-ul. UI distinge Partial response și Final response. Timeoutul sau întreruperea păstrează parțialul sigur, fără reluare automată.
+
+Incidentul raportat New avea 120,256s și 535 caractere de răspuns la eșec: a atins vechiul plafon absolut de 120s, nu limita RPC de 10s. Codul vechi publica outputul doar la final și păstra un singur slot de completion timpurie, vulnerabil la notificări în altă ordine. Regresiile verifică separat această cursă, outputul final fără delte, timeouturile și progresul; nu se afirmă că acea cursă a fost observată în execuția istorică.
 
 ## Politica READ-ONLY și limite
 

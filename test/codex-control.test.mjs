@@ -50,6 +50,8 @@ function fakeCodex(t, behavior = {}) {
           if (behavior.badJson === message.method) return child.stdout.write('invalid-json\n');
           if (behavior.error === message.method) return reply({ id: message.id,
             error: { code: -32000, message: 'SYNTHETIC_PRIVATE_DIAGNOSTIC' } });
+          if (behavior.rpcError?.method === message.method) return reply({ id: message.id,
+            error: { code: behavior.rpcError.code, message: behavior.rpcError.message } });
           const response = result => reply({ id: message.id, result });
           switch (message.method) {
             case 'initialize': response({}); break;
@@ -73,6 +75,10 @@ function fakeCodex(t, behavior = {}) {
               const currentTurnId = behavior.sequentialTurns
                 ? (turnIds.length + 1).toString(16).padStart(8, '0') + '-3333-3333-3333-333333333333' : turnId;
               turnIds.push(currentTurnId);
+              if (behavior.turnBehavior) {
+                behavior.turnBehavior({ reply, response, threadId, turnId: currentTurnId });
+                break;
+              }
               response({ turn: { id: currentTurnId, status: 'inProgress', items: [] } });
               if (behavior.turnHang) break;
               const method = behavior.toolNotification ? 'item/started' : 'item/agentMessage/delta';
@@ -97,8 +103,8 @@ function fakeCodex(t, behavior = {}) {
     return child;
   };
   const control = createCodexControl({ workspace: f.workspace, home: f.home, spawnImpl,
-    externalActivityCheck: behavior.defaultActivityCheck ? undefined : () => behavior.externalActivity || 'clear',
-    rpcTimeoutMs: 100, turnTimeoutMs: 100, ...(behavior.now ? { now: behavior.now } : {}) });
+    rpcTimeoutMs: 100, turnTimeoutMs: 100, ...(behavior.now ? { now: behavior.now } : {}),
+    ...behavior.controllerOptions });
   t.after(() => control.close());
   return { ...f, calls, requests, children, turnIds, control, spawnImpl };
 }
@@ -306,7 +312,122 @@ test('new read-only turn validates returned restrictions and emits bounded, safe
   assert.doesNotMatch(JSON.stringify(result), /PRIVATE_HISTORY/);
 });
 
-test('resume uses fresh metadata, excludes history hydration and rejects external busy sessions', async t => {
+test('completed agent-message text is authoritative even when no deltas were emitted', async t => {
+  const f = fakeCodex(t, { turnBehavior: ({ response, reply, threadId, turnId }) => {
+    response({ turn: { id: turnId, status: 'inProgress', items: [] } });
+    reply({ method: 'item/completed', params: { threadId, turnId, completedAtMs: 1,
+      item: { type: 'agentMessage', id: 'message', text: 'Authoritative final answer.' } } });
+    reply({ method: 'turn/completed', params: { threadId, turn: { id: turnId, status: 'completed', items: [] } } });
+  } });
+  assert.equal((await f.control.run(newInput)).output, 'Authoritative final answer.');
+});
+
+test('matching early completion survives an unrelated same-thread completion before the start reply', async t => {
+  const f = fakeCodex(t, { turnBehavior: ({ response, reply, threadId, turnId }) => {
+    reply({ method: 'turn/completed', params: { threadId, turn: { id: turnId, status: 'completed',
+      items: [{ type: 'agentMessage', id: 'final-message', text: 'Matched early completion.' }] } } });
+    reply({ method: 'turn/completed', params: { threadId, turn: { id: otherId, status: 'completed', items: [] } } });
+    response({ turn: { id: turnId, status: 'inProgress', items: [] } });
+  } });
+  const result = await f.control.run(newInput);
+  assert.equal(result.status, 'completed');
+  assert.equal(result.output, 'Matched early completion.');
+});
+
+test('RPC acknowledgement timeout is distinct from a model-turn timeout and never retries', async t => {
+  const f = fakeCodex(t, { controllerOptions: { rpcTimeoutMs: 50, idleTimeoutMs: 200, turnTimeoutMs: 300 }, turnHang: true, hang: 'turn/start' });
+  const result = await f.control.run(newInput);
+  assert.equal(result.errorCode, 'codex-rpc-timeout');
+  assert.equal(f.requests.filter(request => request.method === 'turn/start').length, 1);
+});
+
+test('model-turn deadlines begin after the bounded RPC acknowledgement phase', async t => {
+  let timer;
+  t.after(() => clearTimeout(timer));
+  const f = fakeCodex(t, { controllerOptions: { rpcTimeoutMs: 300, idleTimeoutMs: 50, turnTimeoutMs: 50 },
+    turnBehavior: ({ response, reply, threadId, turnId }) => {
+      timer = setTimeout(() => {
+        response({ turn: { id: turnId, status: 'inProgress', items: [] } });
+        reply({ method: 'turn/completed', params: { threadId, turn: { id: turnId, status: 'completed',
+          items: [{ type: 'agentMessage', id: 'final', text: 'Completed after acknowledgement.' }] } } });
+      }, 80);
+    } });
+  const result = await f.control.run(newInput);
+  assert.equal(result.status, 'completed');
+  assert.equal(result.output, 'Completed after acknowledgement.');
+});
+
+test('a complete agent message and terminal start response do not replace turn/completed', async t => {
+  const f = fakeCodex(t, { controllerOptions: { idleTimeoutMs: 50, turnTimeoutMs: 200 },
+    turnBehavior: ({ response, reply, threadId, turnId }) => {
+      const item = { type: 'agentMessage', id: 'complete-message', text: 'Finished item, missing terminal notification.' };
+      response({ turn: { id: turnId, status: 'completed', items: [item] } });
+      reply({ method: 'item/completed', params: { threadId, turnId, completedAtMs: 1, item } });
+    } });
+  const result = await f.control.run(newInput);
+  assert.equal(result.status, 'failed');
+  assert.equal(result.errorCode, 'codex-idle-timeout');
+  assert.equal(result.output, 'Finished item, missing terminal notification.');
+});
+
+test('unrelated traffic cannot reset the idle timer and a timeout retains sanitized partial output', async t => {
+  let interval;
+  t.after(() => clearInterval(interval));
+  const f = fakeCodex(t, { controllerOptions: { rpcTimeoutMs: 100, idleTimeoutMs: 60, turnTimeoutMs: 300 },
+    turnBehavior: ({ response, reply, threadId, turnId }) => {
+      response({ turn: { id: turnId, status: 'inProgress', items: [] } });
+      reply({ method: 'item/agentMessage/delta', params: { threadId, turnId, itemId: 'partial', delta: 'Partial answer ' } });
+      interval = setInterval(() => reply({ method: 'item/agentMessage/delta',
+        params: { threadId, turnId: otherId, itemId: 'foreign', delta: 'SYNTHETIC_FOREIGN_MUST_NOT_APPEAR' } }), 15);
+    } });
+  const result = await f.control.run(newInput);
+  clearInterval(interval);
+  assert.equal(result.errorCode, 'codex-idle-timeout');
+  assert.equal(result.output, 'Partial answer ');
+});
+
+test('matching reasoning activity resets idle but cannot extend the absolute turn deadline', async t => {
+  let interval;
+  t.after(() => clearInterval(interval));
+  const f = fakeCodex(t, { controllerOptions: { rpcTimeoutMs: 100, idleTimeoutMs: 60, turnTimeoutMs: 160 },
+    turnBehavior: ({ response, reply, threadId, turnId }) => {
+      response({ turn: { id: turnId, status: 'inProgress', items: [] } });
+      reply({ method: 'item/agentMessage/delta', params: { threadId, turnId, itemId: 'partial', delta: 'Visible answer ' } });
+      interval = setInterval(() => reply({ method: 'item/reasoning/summaryTextDelta',
+        params: { threadId, turnId, itemId: 'reasoning', delta: 'SYNTHETIC_REASONING_MUST_NOT_APPEAR' } }), 15);
+    } });
+  const events = [];
+  const result = await f.control.run(newInput, event => events.push(event));
+  clearInterval(interval);
+  assert.equal(result.errorCode, 'codex-turn-timeout');
+  assert.equal(result.output, 'Visible answer ');
+  assert.doesNotMatch(JSON.stringify({ result, events }), /REASONING_MUST_NOT_APPEAR/);
+});
+
+test('output events are redacted replacement snapshots and final item text replaces streamed deltas', async t => {
+  const f = fakeCodex(t, { turnBehavior: ({ response, reply, threadId, turnId }) => {
+    response({ turn: { id: turnId, status: 'inProgress', items: [] } });
+    queueMicrotask(() => {
+    reply({ method: 'item/agentMessage/delta', params: { threadId, turnId, itemId: 'message', delta: 'Visible text sk-' + 'a'.repeat(10) } });
+    reply({ method: 'item/agentMessage/delta', params: { threadId, turnId, itemId: 'message', delta: 'a'.repeat(22) + ' ' } });
+    reply({ method: 'item/agentMessage/delta', params: { threadId, turnId, itemId: 'message', delta: 'Bearer ' + 'b'.repeat(12) } });
+    reply({ method: 'item/agentMessage/delta', params: { threadId, turnId, itemId: 'message', delta: 'b'.repeat(12) + ' ' } });
+    reply({ method: 'item/completed', params: { threadId, turnId, completedAtMs: 1,
+      item: { type: 'agentMessage', id: 'message', text: 'Canonical final answer.' } } });
+    reply({ method: 'turn/completed', params: { threadId, turn: { id: turnId, status: 'completed', items: [] } } });
+    });
+  } });
+  const events = [];
+  const result = await f.control.run(newInput, event => events.push(event));
+  assert.equal(result.output, 'Canonical final answer.');
+  const outputs = events.filter(event => event.type === 'output').map(event => event.message);
+  assert.ok(outputs.some(output => output.startsWith('Visible text ')));
+  assert.equal(outputs.at(-1), result.output);
+  assert.ok(outputs.every(output => !output.includes('sk-')));
+  assert.ok(outputs.every(output => !output.includes('Bearer b')));
+});
+
+test('resume uses fresh metadata and acquires native ownership without history hydration', async t => {
   const f = fakeCodex(t);
   const result = await f.control.run({ ...newInput, mode: 'resume', threadId });
   assert.equal(result.status, 'completed');
@@ -314,11 +435,6 @@ test('resume uses fresh metadata, excludes history hydration and rejects externa
   assert.equal(resume.params.excludeTurns, true);
   assert.deepEqual(resume.params.config.mcp_servers, {});
   assert.equal(f.requests.some(request => /thread\/read|thread\/turns|thread\/items/.test(request.method || '')), false);
-  const busy = fakeCodex(t, { externalActivity: 'busy' });
-  assert.equal((await busy.control.run({ ...newInput, mode: 'resume', threadId })).errorCode, 'codex-busy');
-  assert.equal(busy.requests.some(request => request.method === 'thread/resume'), false);
-  const unknown = fakeCodex(t, { externalActivity: 'unknown' });
-  assert.equal((await unknown.control.run({ ...newInput, mode: 'resume', threadId })).errorCode, 'session-activity-unverified');
 });
 
 test('synthetic New then Resume retains the app-created thread and read-only policy across distinct turns', async t => {
@@ -395,52 +511,43 @@ test('a resumed thread disappearing at the server produces only a safe rejection
   assert.equal(f.requests.some(request => request.method === 'turn/start'), false);
 });
 
-test('same-workspace external Codex remains busy even for an app-created confirmed thread', async t => {
-  const f = fakeCodex(t, { defaultActivityCheck: true, sequentialTurns: true });
-  const readdir = fs.readdirSync; const stat = fs.statSync; const readlink = fs.readlinkSync; const read = fs.readFileSync;
-  t.mock.method(fs, 'readdirSync', (name, ...args) => name === '/proc' ? ['4001'] : readdir(name, ...args));
-  t.mock.method(fs, 'statSync', (name, ...args) => name === '/proc/4001' ? { uid: process.getuid() } : stat(name, ...args));
-  t.mock.method(fs, 'readlinkSync', (name, ...args) => {
-    if (name === '/proc/4001/exe') return '/synthetic/codex';
-    if (name === '/proc/4001/cwd') return f.workspace;
-    return readlink(name, ...args);
+test('other Codex processes in the same workspace do not block native ownership of a different thread', async t => {
+  const f = fakeCodex(t, { sequentialTurns: true });
+  const readdir = fs.readdirSync;
+  t.mock.method(fs, 'readdirSync', (name, ...args) => {
+    assert.notEqual(name, '/proc', 'A workspace-wide process scan cannot determine thread ownership.');
+    return readdir(name, ...args);
   });
-  t.mock.method(fs, 'readFileSync', (name, ...args) => name === '/proc/4001/stat' ? '4001 (codex) S 1 0 0 0' : read(name, ...args));
   const created = await f.control.run(newInput);
   assert.equal(created.status, 'completed');
   assert.equal((await f.control.listSessions()).sessions[0].eligibility, 'confirmed');
   const resumed = await f.control.run({ ...newInput, mode: 'resume', threadId: created.threadId });
-  assert.equal(resumed.errorCode, 'codex-busy');
-  assert.equal(f.requests.some(request => request.method === 'thread/resume'), false);
-  assert.equal(f.requests.filter(request => request.method === 'turn/start').length, 1);
+  assert.equal(resumed.status, 'completed');
+  assert.equal(f.requests.filter(request => request.method === 'thread/resume').length, 1);
+  assert.equal(f.requests.filter(request => request.method === 'turn/start').length, 2);
 });
 
-test('unreadable owned process metadata blocks Resume until a later explicit request can verify clear activity', async t => {
-  const f = fakeCodex(t, { defaultActivityCheck: true, sequentialTurns: true });
-  const readdir = fs.readdirSync; const stat = fs.statSync; const readlink = fs.readlinkSync;
-  let unreadableOwnedProcess = true;
-  t.mock.method(fs, 'readdirSync', (name, ...args) => name === '/proc'
-    ? (unreadableOwnedProcess ? ['4002'] : []) : readdir(name, ...args));
-  t.mock.method(fs, 'statSync', (name, ...args) => name === '/proc/4002' ? { uid: process.getuid() } : stat(name, ...args));
-  t.mock.method(fs, 'readlinkSync', (name, ...args) => {
-    if (name === '/proc/4002/exe') throw Object.assign(new Error('Synthetic denied process metadata.'), { code: 'EACCES' });
-    return readlink(name, ...args);
-  });
+test('native selected-thread writer conflict blocks even a confirmed thread until explicitly retried after release', async t => {
+  const behavior = { sequentialTurns: true };
+  const f = fakeCodex(t, behavior);
   const created = await f.control.run(newInput);
   assert.equal(created.status, 'completed');
   const input = { ...newInput, mode: 'resume', threadId: created.threadId };
+  behavior.rpcError = { method: 'thread/resume', code: -32600,
+    message: 'error resuming thread: thread ' + threadId + ' already has an active writer' };
   const blocked = await f.control.run(input);
   assert.equal(blocked.status, 'failed');
-  assert.equal(blocked.errorCode, 'session-activity-unverified');
-  assert.equal(f.requests.some(request => request.method === 'thread/resume'), false);
+  assert.equal(blocked.errorCode, 'codex-busy');
+  assert.doesNotMatch(JSON.stringify(blocked), /already has an active writer|error resuming/);
+  assert.equal(f.requests.filter(request => request.method === 'thread/resume').length, 1);
   assert.equal(f.requests.filter(request => request.method === 'turn/start').length, 1);
   assert.equal((await f.control.accountStatus()).status, 'authenticated');
   assert.deepEqual(f.control.recoveryState(), { recoverable: false, errorCode: null });
-  unreadableOwnedProcess = false;
+  behavior.rpcError = null;
   const resumed = await f.control.run(input);
   assert.equal(resumed.status, 'completed');
   assert.equal(resumed.threadId, created.threadId);
-  assert.equal(f.requests.filter(request => request.method === 'thread/resume').length, 1);
+  assert.equal(f.requests.filter(request => request.method === 'thread/resume').length, 2);
   assert.equal(f.requests.filter(request => request.method === 'turn/start').length, 2);
 });
 
@@ -484,15 +591,18 @@ test('stored file existence alone never makes an unknown session executable', as
   assert.equal(f.requests.some(request => request.method === 'thread/resume'), false);
 });
 
-test('native Codex children of the owned npm launcher are excluded from external busy detection', async t => {
-  const f = fakeCodex(t, { defaultActivityCheck: true });
-  const readdir = fs.readdirSync; const stat = fs.statSync; const readlink = fs.readlinkSync; const read = fs.readFileSync;
-  t.mock.method(fs, 'readdirSync', (name, ...args) => name === '/proc' ? ['4000'] : readdir(name, ...args));
-  t.mock.method(fs, 'statSync', (name, ...args) => name === '/proc/4000' ? { uid: process.getuid() } : stat(name, ...args));
-  t.mock.method(fs, 'readlinkSync', (name, ...args) => name === '/proc/4000/exe' ? '/synthetic/codex' : readlink(name, ...args));
-  t.mock.method(fs, 'readFileSync', (name, ...args) => name === '/proc/4000/stat' ? '4000 (codex) S 999999 0 0 0' : read(name, ...args));
-  const result = await f.control.run({ ...newInput, mode: 'resume', threadId });
-  assert.equal(result.status, 'completed');
+test('unverified writer errors reject without raw diagnostics, fallback or a model turn', async t => {
+  for (const error of [
+    { code: -32600, message: 'thread ' + otherId + ' already has an active writer' },
+    { code: -32000, message: 'thread ' + threadId + ' already has an active writer' },
+    { code: -32600, message: 'SYNTHETIC_PRIVATE_DIAGNOSTIC: cannot acquire writer lock' },
+  ]) {
+    const f = fakeCodex(t, { rpcError: { method: 'thread/resume', ...error } });
+    const result = await f.control.run({ ...newInput, mode: 'resume', threadId });
+    assert.equal(result.errorCode, 'codex-request-rejected');
+    assert.doesNotMatch(JSON.stringify(result), /PRIVATE_DIAGNOSTIC|already has an active writer/);
+    assert.equal(f.requests.some(request => request.method === 'thread/start' || request.method === 'turn/start'), false);
+  }
 });
 
 test('idle native exit exposes recoverable state without restarting itself', async t => {
@@ -515,7 +625,7 @@ test('initial startup failure and metadata timeout are safely classified as reco
   assert.deepEqual(startup.control.recoveryState(), { recoverable: true, errorCode: 'codex-unavailable' });
   const timeout = fakeCodex(t, { hang: 'account/read' });
   assert.equal((await timeout.control.accountStatus()).status, 'unavailable');
-  assert.deepEqual(timeout.control.recoveryState(), { recoverable: true, errorCode: 'codex-timeout' });
+  assert.deepEqual(timeout.control.recoveryState(), { recoverable: true, errorCode: 'codex-rpc-timeout' });
 });
 
 test('unsupported versions, malformed metadata, approval denial and policy mismatch never request automatic recovery', async t => {

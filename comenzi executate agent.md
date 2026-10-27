@@ -7244,4 +7244,1004 @@ CWD: [WORKSPACE]. `node .local-run/remove-demo-centralize.mjs` — exit0; comenz
 
 `git diff --check` a raportat inițial exit2 pentru două spații terminale din outputul TAP copiat în jurnal. Corectate punctual prin apply_patch, fără schimbarea comenzilor sau a rezultatului testului. Verificarea repetată a trecut(exit0). Lista staged a fost revizuită: niciun .env/.local-run/secret; documentele istorice au numai antete explicative și nu sunt rescrise rezultatele. Autentificarea, sandboxul și aprobările pentru instrucțiuni reale rămân neschimbate.
 
+
+<!-- remove-demo-final-publication -->
+
+### Publicare și verificare CI — eliminare DEMO
+
+CWD: [WORKSPACE]. Comenzile efectiv executate după centralizare (spațiile terminale din outputurile copiate sunt omise pentru Markdown):
+
+```text
+git diff --check
+```
+
+Exit: 2. comenzi executate agent.md:6581: trailing whitespace.
++706-
+comenzi executate agent.md:6584: trailing whitespace.
++709-
+
+```text
+git status --short --branch
+```
+
+Exit: 0. ## stage2b-local-control...origin/stage2b-local-control
+ M .env.example
+ M AGENTS.md
+ M ETAPA-2-LAPTOP2.md
+ M ETAPA-2A-ARHITECTURA.md
+ M ETAPA-2B-LOCAL.md
+ M INSTRUCTIUNI-RO.md
+ M README.md
+ M VERIFICARE.md
+ M "comenzi executate agent.md"
+ M package.json
+ M src/agent.mjs
+ D src/codex-runner.mjs
+ M src/hub.mjs
+ M src/ui.css
+ M src/ui.html
+ M src/ui.mjs
+ M test/agent-recovery.test.mjs
+ M test/agent.test.mjs
+ M test/api.test.mjs
+ M test/hub.test.mjs
+ M test/local-control.test.mjs
+ M test/local.integration.test.mjs
+ D test/runner.test.mjs
+ M test/stage2.cli.test.mjs
+ M test/stage2.test.mjs
+ M test/ui.test.mjs
+
+```text
+git diff --numstat -- 'comenzi executate agent.md'
+```
+
+Exit: 0. 1186	0	comenzi executate agent.md
+
+```text
+git add -- .env.example AGENTS.md ETAPA-2-LAPTOP2.md ETAPA-2A-ARHITECTURA.md ETAPA-2B-LOCAL.md INSTRUCTIUNI-RO.md README.md VERIFICARE.md 'comenzi executate agent.md' package.json src/agent.mjs src/codex-runner.mjs src/hub.mjs src/ui.css src/ui.html src/ui.mjs test/agent-recovery.test.mjs test/agent.test.mjs test/api.test.mjs test/hub.test.mjs test/local-control.test.mjs test/local.integration.test.mjs test/runner.test.mjs test/stage2.cli.test.mjs test/stage2.test.mjs test/ui.test.mjs
+```
+
+Exit: 0. Fără output.
+
+```text
+node .local-run/review-publication.mjs stage2b-local-control > .local-run/remove-demo-publication-audit.log
+```
+
+Exit: 0. Fără output.
+
+```text
+node --input-type=module -e 'import fs from "node:fs";const r=JSON.parse(fs.readFileSync(".local-run/publication-audit.json","utf8"));console.log(JSON.stringify({commits:r.history.commitsScanned,files:r.workingTree.filesReviewed,historyFindings:r.history.findings,workingFindings:r.workingTree.findings,forbiddenPaths:r.history.forbiddenPaths}));'
+```
+
+Exit: 0. {"commits":8,"files":49,"historyFindings":[],"workingFindings":[],"forbiddenPaths":[]}
+
+```text
+git diff --check
+```
+
+Exit: 0. Fără output.
+
+```text
+git diff --cached --name-status
+```
+
+Exit: 0. M	.env.example
+M	AGENTS.md
+M	ETAPA-2-LAPTOP2.md
+M	ETAPA-2A-ARHITECTURA.md
+M	ETAPA-2B-LOCAL.md
+M	INSTRUCTIUNI-RO.md
+M	README.md
+M	VERIFICARE.md
+M	comenzi executate agent.md
+M	package.json
+M	src/agent.mjs
+D	src/codex-runner.mjs
+M	src/hub.mjs
+M	src/ui.css
+M	src/ui.html
+M	src/ui.mjs
+M	test/agent-recovery.test.mjs
+M	test/agent.test.mjs
+M	test/api.test.mjs
+M	test/hub.test.mjs
+M	test/local-control.test.mjs
+M	test/local.integration.test.mjs
+D	test/runner.test.mjs
+M	test/stage2.cli.test.mjs
+M	test/stage2.test.mjs
+M	test/ui.test.mjs
+
+```text
+git add -- 'comenzi executate agent.md'
+```
+
+Exit: 0. Fără output.
+
+```text
+git diff --cached --check
+```
+
+Exit: 0. Fără output.
+
+```text
+git diff --cached --stat
+```
+
+Exit: 0. .env.example                    |    2 +-
+ AGENTS.md                       |    2 +-
+ ETAPA-2-LAPTOP2.md              |   47 +-
+ ETAPA-2A-ARHITECTURA.md         |    2 +
+ ETAPA-2B-LOCAL.md               |    6 +-
+ INSTRUCTIUNI-RO.md              |   48 +-
+ README.md                       |   34 +-
+ VERIFICARE.md                   |    2 +
+ comenzi executate agent.md      | 1192 +++++++++++++++++++++++++++++++++++++++
+ package.json                    |    2 +-
+ src/agent.mjs                   |   14 +-
+ src/codex-runner.mjs            |   19 -
+ src/hub.mjs                     |   66 +--
+ src/ui.css                      |    4 +-
+ src/ui.html                     |    4 +-
+ src/ui.mjs                      |   60 +-
+ test/agent-recovery.test.mjs    |    1 -
+ test/agent.test.mjs             |   36 +-
+ test/api.test.mjs               |  123 ++--
+ test/hub.test.mjs               |   43 +-
+ test/local-control.test.mjs     |    2 +-
+ test/local.integration.test.mjs |   67 ++-
+ test/runner.test.mjs            |   36 --
+ test/stage2.cli.test.mjs        |    9 +-
+ test/stage2.test.mjs            |   15 +-
+ test/ui.test.mjs                |  114 ++--
+ 26 files changed, 1535 insertions(+), 415 deletions(-)
+
+```text
+git diff --quiet
+```
+
+Exit: 0. Fără output.
+
+```text
+git branch --show-current
+```
+
+Exit: 0. stage2b-local-control
+
+```text
+git ls-remote --heads origin stage2b-local-control
+```
+
+Exit: 0. 19220bc8e311b8af8fe9f425d43b96562b30c9ac	refs/heads/stage2b-local-control
+
+```text
+git commit -m 'Remove demo workflow and keep local read-only Codex control'
+```
+
+Exit: 0. [stage2b-local-control 672190f] Remove demo workflow and keep local read-only Codex control
+ 26 files changed, 1535 insertions(+), 415 deletions(-)
+ delete mode 100755 src/codex-runner.mjs
+ delete mode 100755 test/runner.test.mjs
+
+```text
+git push origin stage2b-local-control
+```
+
+Exit: în curs la prima întoarcere; finalizarea este separată. Fără output.
+
+```text
+tools.write_stdin(session_id=94589, chars='')
+```
+
+Exit: 0. To https://github.com/leverage50x/agents.git
+   19220bc..672190f  stage2b-local-control -> stage2b-local-control
+
+```text
+git log -1 --format='%H%n%an%n%s'
+```
+
+Exit: 0. 672190f6eca19181c0ea6fcb8390938235d5e8ef
+leverage50x
+Remove demo workflow and keep local read-only Codex control
+
+```text
+git status --short --branch
+```
+
+Exit: 0. ## stage2b-local-control...origin/stage2b-local-control
+
+```text
+git rev-list --left-right --count HEAD...origin/stage2b-local-control
+```
+
+Exit: 0. 0	0
+
+```text
+gh run list --repo leverage50x/agents --branch stage2b-local-control --commit 672190f6eca19181c0ea6fcb8390938235d5e8ef --limit 5 --json databaseId,headSha,status,conclusion,url
+```
+
+Exit: 0. [{"conclusion":"success","databaseId":40478238669,"headSha":"672190f6eca19181c0ea6fcb8390938235d5e8ef","status":"completed","url":"https://github.com/leverage50x/agents/actions/runs/40478238669"}]
+
+```text
+gh api repos/leverage50x/agents/commits/672190f6eca19181c0ea6fcb8390938235d5e8ef --jq '{sha: .sha, files: [.files[] | {filename, status}]}'
+```
+
+Exit: 0. {"files":[{"filename":".env.example","status":"modified"},{"filename":"AGENTS.md","status":"modified"},{"filename":"ETAPA-2-LAPTOP2.md","status":"modified"},{"filename":"ETAPA-2A-ARHITECTURA.md","status":"modified"},{"filename":"ETAPA-2B-LOCAL.md","status":"modified"},{"filename":"INSTRUCTIUNI-RO.md","status":"modified"},{"filename":"README.md","status":"modified"},{"filename":"VERIFICARE.md","status":"modified"},{"filename":"comenzi executate agent.md","status":"modified"},{"filename":"package.json","status":"modified"},{"filename":"src/agent.mjs","status":"modified"},{"filename":"src/codex-runner.mjs","status":"removed"},{"filename":"src/hub.mjs","status":"modified"},{"filename":"src/ui.css","status":"modified"},{"filename":"src/ui.html","status":"modified"},{"filename":"src/ui.mjs","status":"modified"},{"filename":"test/agent-recovery.test.mjs","status":"modified"},{"filename":"test/agent.test.mjs","status":"modified"},{"filename":"test/api.test.mjs","status":"modified"},{"filename":"test/hub.test.mjs","status":"modified"},{"filename":"test/local-control.test.mjs","status":"modified"},{"filename":"test/local.integration.test.mjs","status":"modified"},{"filename":"test/runner.test.mjs","status":"removed"},{"filename":"test/stage2.cli.test.mjs","status":"modified"},{"filename":"test/stage2.test.mjs","status":"modified"},{"filename":"test/ui.test.mjs","status":"modified"}],"sha":"672190f6eca19181c0ea6fcb8390938235d5e8ef"}
+
+```text
+git ls-remote origin refs/heads/main refs/heads/stage2b-local-control 'refs/tags/v0.1.1-stage1-demo^{}'
+```
+
+Exit: 0. 906c24f15f8b364d9bec6da8cebb74b57caa8862	refs/heads/main
+672190f6eca19181c0ea6fcb8390938235d5e8ef	refs/heads/stage2b-local-control
+906c24f15f8b364d9bec6da8cebb74b57caa8862	refs/tags/v0.1.1-stage1-demo^{}
+
+```text
+gh run view 40478238669 --repo leverage50x/agents --json headSha,status,conclusion,url,jobs,name
+```
+
+Exit: în curs la prima întoarcere; finalizarea este separată. Fără output.
+
+```text
+tools.write_stdin(session_id=86633, chars='')
+```
+
+Exit: 0. {"conclusion":"success","headSha":"672190f6eca19181c0ea6fcb8390938235d5e8ef","jobs":[{"completedAt":"2026-10-27T09:06:29Z","conclusion":"success","databaseId":122101702373,"name":"test","startedAt":"2026-10-27T09:06:12Z","status":"completed","steps":[{"conclusion":"success","name":"Set up job","number":1,"status":"completed"},{"conclusion":"success","name":"Check out source","number":2,"status":"completed"},{"conclusion":"success","name":"Set up Node.js 22","number":3,"status":"completed"},{"conclusion":"success","name":"Install from lockfile","number":4,"status":"completed"},{"conclusion":"success","name":"Run tests","number":5,"status":"completed"},{"conclusion":"success","name":"Post Set up Node.js 22","number":9,"status":"completed"},{"conclusion":"success","name":"Post Check out source","number":10,"status":"completed"},{"conclusion":"success","name":"Complete job","number":11,"status":"completed"}],"url":"https://github.com/leverage50x/agents/actions/runs/40478238669/job/122101702373"}],"name":"Node.js CI","status":"completed","url":"https://github.com/leverage50x/agents/actions/runs/40478238669"}
+
+Commit creat și publicat: **672190f6eca19181c0ea6fcb8390938235d5e8ef**, autor **leverage50x**, 26 de fișiere. GitHub API a confirmat lista exactă și ștergerea src/codex-runner.mjs/test/runner.test.mjs. Branch-ul local și origin/stage2b-local-control sunt identice, 0 înainte / 0 în urmă. Main și tagul Stage 1 rămân la906c24f15f8b364d9bec6da8cebb74b57caa8862. Repository-ul rămâne PRIVATE.
+
+GitHub Actions **success** pentru SHA-ul exact: https://github.com/leverage50x/agents/actions/runs/40478238669 . Jobul și pașii Node.js22, npmci și npmtest au trecut. Local:141/141PASS,0fail/skip. Testele exclusive simulării au fost eliminate sau înlocuite cu verificări ale rutelor retrase și protecțiilor reale.
+
+Această completare postcommit păstrează rezultatele push-ului și CI și rămâne locală intenționat. Nu se pretinde o inspecție vizuală a browserului sau un nou turn de model. New/Resume au fost verificate prin API-ul real cu controller sintetic; integrarea pornită efectiv a confirmat autentificarea, inventarul, lipsa DEMO și refuzul cererii neconfirmate. Nu există drepturi noi de scriere sau execuție pe alte dispozitive.
+
+
+### Control final după publicare
+
+CWD: [WORKSPACE]. node .local-run/remove-demo-finalize.mjs execută și centralizează:
+
+- `node .local-run/review-publication.mjs stage2b-local-control` — exit 0
+- `git diff --check` — exit 0
+- `git diff --cached --check` — exit 0
+- `git status --short --branch` — exit 0
+- `git rev-list --left-right --count HEAD...origin/stage2b-local-control` — exit 0
+- `node .local-run/remove-demo-live-check.mjs` — exit 0
+- `node .local-run/round-main-status.mjs --after` — exit 0
+
+```json
+{
+  "commit": "672190f6eca19181c0ea6fcb8390938235d5e8ef",
+  "status": "## stage2b-local-control...origin/stage2b-local-control\n M \"comenzi executate agent.md\"",
+  "sync": "0\t0",
+  "audit": {
+    "commits": 9,
+    "files": 49,
+    "historyFindings": 0,
+    "workingFindings": 0,
+    "forbiddenPaths": 0
+  },
+  "runnerRemoved": true,
+  "runnerTestsRemoved": true,
+  "live": {
+    "agentOnline": true,
+    "authentication": "authenticated",
+    "inventory": "available",
+    "sessions": 2,
+    "executionMode": "local-read-only",
+    "noDemoState": true,
+    "retired": {
+      "/api/task": 404,
+      "/api/task/approve": 404,
+      "/api/task/reject": 404,
+      "/api/agent/task": 404,
+      "/api/agent/result": 404
+    },
+    "unconfirmedRealTurnStatus": 400,
+    "queueUnchanged": true,
+    "assets": {
+      "/": {
+        "http": 200,
+        "noDemo": true
+      },
+      "/app.js": {
+        "http": 200,
+        "noDemo": true
+      },
+      "/app.css": {
+        "http": 200,
+        "noDemo": true
+      }
+    },
+    "newOrResumeTurnsStarted": false,
+    "visualBrowserVerified": false
+  },
+  "credentialFilesUnchanged": true,
+  "tests": {
+    "passed": 141,
+    "failed": 0,
+    "skipped": 0
+  },
+  "ci": "success"
+}
+```
+
+Numai jurnalul rămâne modificat local pentru înregistrările postcommit. Helpers, logurile, backup-ul și fișierele private rămân ignorate în .local-run. Nu au fost publicate secrete sau conversații. Aplicația rămâne la http://127.0.0.1:8765; oprire ./leverage stop.
+
+git diff --check după înscrierea rezultatelor: exit0. Helperul final a terminat cu exit0.
+
+Închiderea rundei: `node --check .local-run/remove-demo-finalize.mjs` — exit0; `node .local-run/remove-demo-finalize.mjs` — exit0. Audit final fără constatări în 9 commituri/49 fișiere; runnerul și testele sale sunt eliminate, rutele vechi404, cererea reală fără confirmare400, autentificarea și credențialele păstrate. GitHub Actions success. Această ultimă completare prin apply_patch păstrează numai jurnalul modificat local intenționat.
+
 <!-- publish-next -->
+
+## 2026-10-27 — remediere New timeout / Resume busy, Stage 2B
+
+Workspace: [WORKSPACE]; branch stage2b-local-control, HEAD inițial 672190f6eca19181c0ea6fcb8390938235d5e8ef. Numai jurnalul avea modificări preexistente; acestea au fost păstrate, inclusiv raportul post-publicare anterior. Backup privat .local-run/investigation-backup-AaZdtu (director700/fișiere600), fără copierea credentialelor ori directorului runtime. Nu s-au modificat main/taguri/configurație globală sau autentificarea și nu s-au oprit procese Codex preexistente.
+
+Skill openai-docs consultat pentru protocolul Codex; documentația oficială App Server și sursele publice OpenAI 0.163.0 au fost verificate. Cache-urile oficiale/privatele de test sunt ignorate în .local-run, nu publicate.
+
+### Agent principal — ordine de lansare a comenzilor înregistrate
+
+Comenzile independente au fost uneori lansate în paralel. Căile personale sunt anonimizate explicit. Codurile exit de mai jos sunt reale; nu se inventează timestampuri ori output pentru o operațiune fără raport final. apply_patch desemnează editarea prin tool, nu o comandă shell.
+
+1. Exit 0:
+
+```text
+git status --short --branch
+```
+
+2. Exit 0:
+
+```text
+git log -1 --format='%H %s'
+```
+
+3. Exit 0:
+
+```text
+cat AGENTS.md
+```
+
+4. Exit 0:
+
+```text
+cat [USER_HOME]/.codex/skills/.system/openai-docs/SKILL.md
+```
+
+5. Exit 0:
+
+```text
+sed -n '1,195p' src/codex-control.mjs
+```
+
+6. Exit 0:
+
+```text
+sed -n '195,485p' src/codex-control.mjs
+```
+
+7. Exit 0:
+
+```text
+sed -n '95,225p' src/agent.mjs
+```
+
+8. Exit 0:
+
+```text
+cat test/codex-control.test.mjs
+```
+
+9. Exit 0:
+
+```text
+sed -n '195,344p' src/codex-control.mjs
+```
+
+10. Exit 0:
+
+```text
+sed -n '390,485p' src/codex-control.mjs
+```
+
+11. Exit 0:
+
+```text
+node --input-type=module -e 'import fs from "node:fs"; for(const n of ["ThreadResumeParams","ThreadStartParams","TurnStartParams","TurnCompletedNotification","AgentMessageDeltaNotification","ItemCompletedNotification"]){const f=".local-run/filter-schema/v2/"+n+".json";if(fs.existsSync(f)){const s=JSON.parse(fs.readFileSync(f,"utf8")); console.log(JSON.stringify({type:n,properties:s.properties},null,2));}}'
+```
+
+12. Exit 0:
+
+```text
+rg -n -i 'lock|resume|active|turn.*start|thread.*load' .local-run/filter-official-session-picker.rs .local-run/filter-official-thread-list.rs
+```
+
+13. Exit 0:
+
+```text
+node .local-run/preserve-investigation.mjs
+```
+
+14. Exit 0:
+
+```text
+node .local-run/execution-existing-jobs.mjs
+```
+
+15. Exit 0:
+
+```text
+codex --version
+```
+
+16. Exit 0:
+
+```text
+rg -n 'ThreadLoadedList|thread/loaded/list|TurnAlready|already.*turn|thread.*busy|already.*loaded' .local-run/filter-schema/v2/*.json .local-run/filter-official-resume-picker.rs
+```
+
+17. Exit 0:
+
+```text
+gh api 'repos/openai/codex/git/trees/rust-v0.163.0?recursive=1' --jq '.tree[].path | select(test("thread_manager|codex_message_processor|rollout/recorder|thread.*lock|session.*lock|lease"))'
+```
+
+18. Exit 0:
+
+```text
+gh api 'repos/openai/codex/contents/codex-rs/core/src/thread_manager.rs?ref=rust-v0.163.0' --jq .content | base64 --decode > .local-run/execution-official-thread-manager.rs
+```
+
+19. Exit 1:
+
+```text
+gh api 'repos/openai/codex/contents/codex-rs/core/src/rollout/recorder.rs?ref=rust-v0.163.0' --jq .content | base64 --decode > .local-run/execution-official-recorder.rs
+```
+
+20. Exit 1:
+
+```text
+gh api 'repos/openai/codex/contents/codex-rs/app-server/src/codex_message_processor.rs?ref=rust-v0.163.0' --jq .content | base64 --decode > .local-run/execution-official-processor.rs
+```
+
+21. Exit 0:
+
+```text
+tools.write_stdin(session_id=45109, chars='')
+```
+
+22. Exit 0:
+
+```text
+rg -n -i 'lock|lease|resume|loaded|turn.*active|thread.*active' .local-run/execution-official-thread-manager.rs
+```
+
+23. Exit 0:
+
+```text
+gh api 'repos/openai/codex/git/trees/rust-v0.163.0?recursive=1' --jq '.tree[].path | select(test("app-server/src/.*(thread|turn|processor)|history/src/.*(store|lock|rollout|writer)|daemon/src/.*thread"))' > .local-run/execution-source-paths.txt
+```
+
+24. Exit 0:
+
+```text
+gh api 'repos/openai/codex/contents/codex-rs/app-server/src/turn_admission.rs?ref=rust-v0.163.0' --jq .content | base64 --decode > .local-run/execution-official-turn-admission.rs
+```
+
+25. Exit 0:
+
+```text
+gh api 'repos/openai/codex/contents/codex-rs/app-server/src/request_processors/thread_processor.rs?ref=rust-v0.163.0' --jq .content | base64 --decode > .local-run/execution-official-thread-processor.rs
+```
+
+26. Exit 0:
+
+```text
+gh api 'repos/openai/codex/contents/codex-rs/app-server/src/request_processors/turn_processor.rs?ref=rust-v0.163.0' --jq .content | base64 --decode > .local-run/execution-official-turn-processor.rs
+```
+
+27. Exit 0:
+
+```text
+gh api 'repos/openai/codex/contents/codex-rs/app-server/src/thread_status.rs?ref=rust-v0.163.0' --jq .content | base64 --decode > .local-run/execution-official-thread-status.rs
+```
+
+28. Exit 0:
+
+```text
+gh api 'repos/openai/codex/git/trees/rust-v0.163.0?recursive=1' > .local-run/execution-official-tree.json
+```
+
+29. Exit 0:
+
+```text
+sed -n '1755,1815p' .local-run/execution-official-thread-processor.rs
+```
+
+30. Exit 0:
+
+```text
+sed -n '2135,2220p' .local-run/execution-official-thread-manager.rs
+```
+
+31. Exit 0:
+
+```text
+rg -n 'store::|history::|ThreadStore|WriterLock|writer_lock' .local-run/execution-official-thread-manager.rs .local-run/execution-official-thread-processor.rs
+```
+
+32. Exit 0:
+
+```text
+node --input-type=module -e 'import fs from "node:fs";const t=JSON.parse(fs.readFileSync(".local-run/execution-official-tree.json","utf8"));for(const e of t.tree)if(e.path.startsWith("codex-rs/thread-store/src/"))console.log(e.path);'
+```
+
+33. Exit 0:
+
+```text
+gh api 'repos/openai/codex/contents/codex-rs/thread-store/src/local/mod.rs?ref=rust-v0.163.0' --jq .content | base64 --decode > .local-run/execution-official-store-mod.rs
+```
+
+34. Exit 0:
+
+```text
+gh api 'repos/openai/codex/contents/codex-rs/thread-store/src/local/live_writer.rs?ref=rust-v0.163.0' --jq .content | base64 --decode > .local-run/execution-official-live-writer.rs
+```
+
+35. Exit 0:
+
+```text
+gh api 'repos/openai/codex/contents/codex-rs/thread-store/src/local/tests/acquisition_tests.rs?ref=rust-v0.163.0' --jq .content | base64 --decode > .local-run/execution-official-acquisition-tests.rs
+```
+
+36. Exit 0:
+
+```text
+gh api 'repos/openai/codex/contents/codex-rs/thread-store/src/live_thread.rs?ref=rust-v0.163.0' --jq .content | base64 --decode > .local-run/execution-official-live-thread.rs
+```
+
+37. Exit 0:
+
+```text
+sed -n '328,360p' .local-run/execution-official-store-mod.rs
+```
+
+38. Exit 0:
+
+```text
+sed -n '1630,1735p' .local-run/execution-official-store-mod.rs
+```
+
+39. Exit 0:
+
+```text
+sed -n '18,65p' .local-run/execution-official-live-writer.rs
+```
+
+40. Exit 0:
+
+```text
+node --input-type=module -e 'import fs from "node:fs";const t=JSON.parse(fs.readFileSync(".local-run/execution-official-tree.json","utf8"));for(const e of t.tree)if(e.path.startsWith("codex-rs/rollout/src/")&&/writer|lock|recorder|lib/.test(e.path))console.log(e.path);'
+```
+
+41. Exit 0:
+
+```text
+gh api 'repos/openai/codex/contents/codex-rs/rollout/src/writer_lock.rs?ref=rust-v0.163.0' --jq .content | base64 --decode > .local-run/execution-official-writer-lock.rs
+```
+
+42. Exit 0:
+
+```text
+gh api 'repos/openai/codex/contents/codex-rs/rollout/src/writer_lock_tests.rs?ref=rust-v0.163.0' --jq .content | base64 --decode > .local-run/execution-official-writer-lock-tests.rs
+```
+
+43. Exit 1:
+
+```text
+gh api 'repos/openai/codex/contents/codex-rs/core/src/codex.rs?ref=rust-v0.163.0' --jq .content | base64 --decode > .local-run/execution-official-core-codex.rs
+```
+
+44. Exit 0:
+
+```text
+sed -n '1,245p' .local-run/execution-official-writer-lock.rs
+```
+
+45. Exit 1:
+
+```text
+rg -n 'LiveThread::(resume|create)|live_thread.*acquire|writer_lock|Conflict' .local-run/execution-official-core-codex.rs
+```
+
+46. Exit 0:
+
+```text
+git status --short
+```
+
+47. Exit 0:
+
+```text
+rg -n 'rpcTimeoutMs|idleTimeoutMs|turnTimeoutMs|codex-.*timeout|externalActivity|output.*snapshot' src/codex-control.mjs src/agent.mjs
+```
+
+48. Exit 0:
+
+```text
+rg --files .local-run -g '*execution*' -g '*round-real*'
+```
+
+49. Exit 0:
+
+```text
+node .local-run/execution-native-lock-probe.mjs
+```
+
+50. Exit 0:
+
+```text
+cat .local-run/execution-native-lock-result.json
+```
+
+51. Exit 0:
+
+```text
+sed -n '1,225p' src/codex-control.mjs
+```
+
+52. Exit 0:
+
+```text
+sed -n '225,575p' src/codex-control.mjs
+```
+
+53. Exit 0:
+
+```text
+rg -n 'externalActivity|busy|unknown|resume|timeout|Version|version' test/codex-control.test.mjs
+```
+
+54. Exit 0:
+
+```text
+cat .local-run/execution-concurrency-ledger.md
+```
+
+55. Exit 0:
+
+```text
+sed -n '345,525p' src/codex-control.mjs
+```
+
+56. Exit 0:
+
+```text
+sed -n '1,122p' test/codex-control.test.mjs
+```
+
+57. Exit 0:
+
+```text
+sed -n '425,640p' test/codex-control.test.mjs
+```
+
+58. Exit 0:
+
+```text
+cat package.json && rg -n -i '120|timeout|busy|another.*codex|other.*codex|alt.*codex|concurr|activity.*unverified|ten minutes' README.md ETAPA-2B* src/ui.mjs src/agent.mjs
+```
+
+59. Exit 0:
+
+```text
+apply_patch src/codex-control.mjs
+```
+
+60. Exit 0:
+
+```text
+apply_patch test/codex-control.test.mjs
+```
+
+61. Exit 0:
+
+```text
+node --test test/codex-control.test.mjs > .local-run/execution-controller-tests.tap 2>&1
+```
+
+62. Exit 0:
+
+```text
+apply_patch .local-run/execution-real-resume.mjs
+```
+
+63. Exit 1:
+
+```text
+node .local-run/execution-real-resume.mjs
+```
+
+64. Exit 0:
+
+```text
+cat .local-run/execution-controller-tests.tap
+```
+
+65. Exit 0:
+
+```text
+codex --version
+```
+
+66. Exit 0:
+
+```text
+codex login status
+```
+
+67. Exit 0:
+
+```text
+git diff -- src/codex-control.mjs
+```
+
+68. Exit 0:
+
+```text
+git diff -- src/agent.mjs
+```
+
+69. Exit 0:
+
+```text
+node --input-type=module -e 'import fs from "node:fs"; import {createCodexControl} from "./src/codex-control.mjs"; const owned=JSON.parse(fs.readFileSync(".local-run/execution-owned-thread.json","utf8")); const c=createCodexControl({workspace:owned.workspace}); console.log(JSON.stringify({runtime:process.version,testContext:process.env.NODE_TEST_CONTEXT||null,auth:await c.accountStatus(),recovery:c.recoveryState()})); await c.close();'
+```
+
+70. Exit 0:
+
+```text
+apply_patch .local-run/execution-runtime-diagnostic.mjs
+```
+
+71. Exit 0:
+
+```text
+node .local-run/execution-runtime-diagnostic.mjs
+```
+
+72. Exit 0:
+
+```text
+node test/codex-control.test.mjs > .local-run/execution-controller-direct.tap 2>&1
+```
+
+73. Exit 0:
+
+```text
+cat .local-run/execution-controller-inprocess.tap
+```
+
+74. Exit 0:
+
+```text
+node --test --test-reporter=spec test/codex-control.test.mjs > .local-run/execution-controller-spec.txt 2>&1
+```
+
+75. Exit 9:
+
+```text
+node --test --test-isolation=none test/codex-control.test.mjs > .local-run/execution-controller-inprocess.tap 2>&1
+```
+
+76. Exit 0:
+
+```text
+node .local-run/execution-real-resume.mjs
+```
+
+77. Exit 1:
+
+```text
+npm test > .local-run/execution-full-tests.tap 2>&1
+```
+
+78. Exit 0:
+
+```text
+cat ETAPA-2B-LOCAL.md && sed -n '45,85p' README.md
+```
+
+79. Exit 0:
+
+```text
+git diff -- src/ui.mjs test/ui.test.mjs test/local-control.test.mjs test/agent-recovery.test.mjs
+```
+
+80. Exit 0:
+
+```text
+sed -n '435,467p' test/ui.test.mjs
+```
+
+81. Exit 0:
+
+```text
+tail -n 20 .local-run/execution-full-tests.tap
+```
+
+82. Exit 0:
+
+```text
+sed -n '1,210p' .local-run/review-publication.mjs
+```
+
+83. Exit 0:
+
+```text
+git diff -- test/codex-control.test.mjs
+```
+
+84. Exit 0:
+
+```text
+apply_patch src/ui.mjs test/ui.test.mjs README.md ETAPA-2B-LOCAL.md
+```
+
+85. Exit 1:
+
+```text
+node test/hub.test.mjs > .local-run/execution-sandbox-test-probe.tap 2>&1
+```
+
+86. Exit 0:
+
+```text
+npm test > .local-run/execution-full-tests-approved.tap 2>&1
+```
+
+87. Exit 0:
+
+```text
+./leverage status
+```
+
+88. Exit 0:
+
+```text
+gh repo view leverage50x/agents --json nameWithOwner,isPrivate,viewerPermission,defaultBranchRef
+```
+
+89. Exit 2:
+
+```text
+rg -n '120000|300000|600000|timeout|Timeout|running|expire|deadline|heartbeat' src/state.mjs src/hub.mjs src/agent.mjs src/launcher.mjs
+```
+
+90. Exit 0:
+
+```text
+git diff -- src/ui.mjs test/ui.test.mjs README.md ETAPA-2B-LOCAL.md
+```
+
+91. Exit 0:
+
+```text
+tools.write_stdin(session_id=71762, chars='')
+```
+
+92. Exit 0:
+
+```text
+tools.write_stdin(session_id=62746, chars='')
+```
+
+### Citiri/verificări suplimentare ale coordonatorului
+
+Comenzile suplimentare sunt grupate separat deoarece registrul inițial nu le capturase în ordine intercalată; nu sunt inventate timestampuri.
+
+- Exit 0: `git status --short && rg --files .local-run -g '*execution*' -g '*ledger*' -g '*native-lock*' -g '*owned-thread*'`.
+- Exit 0: `sed -n '425,445p' test/codex-control.test.mjs && sed -n '1,215p' .local-run/execution-native-lock-probe.mjs`.
+- Exit 0: `tail -n 9 .local-run/execution-controller-tests.tap && git diff --stat && git diff --check`.
+- Exit 1: `sed -n '1,135p' test-support/fixtures.mjs && rg -n 'NODE_TEST_CONTEXT|process.exit|mock.method.*process|test-reporter' test/codex-control.test.mjs .github/workflows/ci.yml`.
+- Exit 0: `tail -n 12 .local-run/execution-controller-direct.tap && cat .local-run/execution-controller-spec.txt && cat .github/workflows/ci.yml`.
+- Exit 0: `rg --files .local-run -g '*execution*ledger*' -g '*controller*ledger*' -g '*stream*ledger*' -g '*publication*' && tail -n 45 'comenzi executate agent.md'`.
+- Exit 0: `cat .local-run/execution-full-tests.tap`.
+- Exit 0: `rg -n -C 2 'EPERM|EACCES|listen|permission|not ok|error:' .local-run/execution-sandbox-test-probe.tap`.
+- Exit 0: `tail -n 11 .local-run/execution-full-tests-approved.tap && ./leverage status && git diff --check`.
+- Exit 1: `git status --short --branch && git remote -v && git log -1 --format='%H %s' && gh repo view leverage50x/agents --json nameWithOwner,isPrivate,viewerPermission,defaultBranchRef`.
+- Exit 0: `git diff --numstat && git ls-files --eol src/codex-control.mjs src/agent.mjs src/ui.mjs README.md ETAPA-2B-LOCAL.md && rg -n 'spawn|start|stop|kill|close' test/launcher.test.mjs`.
+- Exit 0: `git diff --check && node --check src/codex-control.mjs && node --check src/agent.mjs && node --check src/ui.mjs`.
+- Exit 0: `git ls-remote --heads origin stage2b-local-control`.
+- Exit 0: `node .local-run/review-publication.mjs stage2b-local-control > .local-run/execution-publication-audit.log 2>&1`.
+- Exit 0: `node .local-run/execution-existing-jobs.mjs`.
+
+### Delegare și rapoarte
+
+Subagentul stage2_inventory a modificat src/codex-control.mjs și test/codex-control.test.mjs; a raportat 42/42 teste după probe de regresie care eșuau pe codul vechi. Subagentul stage2_dashboard a modificat src/agent.mjs, src/ui.mjs și testele agent-recovery/local-control/ui; a raportat 44/44 teste țintite. Rapoartele lor finale cu lista literală completă a comenzilor nu au fost finalizate: platforma a întrerupt toți cei trei subagenți cu limită de utilizare. Nu se reconstruiesc comenzi necunoscute din presupuneri și nu s-au pornit alți agenți pentru a ocoli limita. Coordonatorul a revizuit diff-urile, a finalizat concurența/documentația și a reverificat independent suita completă.
+
+Subagentul stage2_credentials a făcut numai cercetare metadata/protocol/surse cache; fără execuții native, rețea ori modificări source. Raportul său literal, în ordinea executării de către acesta, este centralizat mai jos. Intercalarea exactă între agenți nu poate fi dedusă fără timestampuri și nu este inventată.
+
+### Investigație concurență Codex — subagent
+
+CWD: `[WORKSPACE]`. Numai cod, scheme și surse oficiale în cache; fără transcripturi reale, cmdline/environment/auth de procese, rețea, Git mutations, native Codex turns sau semnalizarea proceselor. Nu au fost editate controllerul existent ori testele altui agent.
+
+#### Comenzi executate
+
+1. `cat [USER_HOME]/.codex/skills/.system/openai-docs/SKILL.md` — exit 0; calea personală din comanda efectivă este anonimizată în ledger. Skill citit; solicitarea explicită a coordonatorului de a folosi cache și a lăsa rețeaua lui a fost respectată.
+2. `rg -n 'externalActivity|busy|lease|lock|thread|resume|statSync|EACCES|/proc' src/codex-control.mjs` — exit 0.
+3. `rg --files .local-run -g '*schema*' -g '*resume*' -g '*thread*' -g '*.rs' -g '*.json' -g '!**/agents.json' -g '!**/hub.env' -g '!**/*agent*.env' -g '!**/publication-audit*' -g '!**/state.json' -g '!**/*manifest.json' -g '!**/*secret*'` — exit 0; numai nume de fișiere, output mare/trunchiat; nu au fost citite rezultatele private enumerate.
+4. `sed -n '38,145p' src/codex-control.mjs` — exit 0.
+5. `rg -n -i 'exclusive|mutex|lock|lease|ownership|concurr|already|loaded|subscribe|status|turn|version|id' .local-run/filter-schema/v2/ThreadResumeParams.json .local-run/filter-schema/v2/TurnStartParams.json .local-run/filter-schema/v2/ThreadLoadedListParams.json .local-run/filter-schema/v2/ThreadLoadedListResponse.json .local-run/filter-schema/v2/ThreadUnsubscribeResponse.json .local-run/filter-schema/v2/ThreadReadParams.json` — exit 0.
+6. `rg --files .local-run -g '*official*' -g '*.rs' -g '*lock*' -g '*activity*' -g '!**/node_modules/**' -g '!**/agents.json'` — exit 0.
+7. Comanda literală de sumarizare a proprietăților schemelor — exit 0:
+
+```bash
+node --input-type=module -e 'import fs from "node:fs"; for (const name of ["ThreadResumeParams","ThreadStartParams","TurnStartParams","ThreadLoadedListResponse","ThreadUnsubscribeResponse"]) {const data=JSON.parse(fs.readFileSync(".local-run/filter-schema/v2/"+name+".json","utf8")); console.log(JSON.stringify({schema:name,description:data.description,properties:Object.keys(data.properties||{}),required:data.required}));}'
+```
+
+8. `rg -n -i 'thread/.*(lock|lease|exclusive)|thread/loaded/list|thread/read|thread/resume|turn/steer|turn/start|thread/unsubscribe' .local-run/filter-schema/ClientRequest.json` — exit 0.
+9. `rg -n -i 'exclusive|lock|lease|thread_manager|resume_thread|running|app.server' .local-run/filter-official-resume-picker.rs .local-run/filter-official-session-picker.rs .local-run/filter-official-thread-list.rs .local-run/filter-official-page-loading.rs` — exit 0.
+10. Comanda literală de verificare a precondițiilor și statusurilor — exit 0:
+
+```bash
+node --input-type=module -e 'import fs from "node:fs"; for (const file of ["TurnStartParams","TurnSteerParams","ThreadResumeResponse","ThreadListResponse"]) {const data=JSON.parse(fs.readFileSync(".local-run/filter-schema/v2/"+file+".json","utf8")); const fields={}; for (const [key,value] of Object.entries(data.properties||{})) if(/clientUserMessageId|expected|threadId|turnId/.test(key)) fields[key]=value; console.log(JSON.stringify({schema:file,fields,ThreadStatus:data.definitions?.ThreadStatus,ThreadActiveFlag:data.definitions?.ThreadActiveFlag},null,2));}'
+```
+
+11. `cat .local-run/filter-schema/v2/ThreadAttachmentOwnerListParams.json .local-run/filter-schema/v2/ThreadAttachmentOwnerListResponse.json .local-run/filter-schema/v2/ThreadLoadedListParams.json .local-run/filter-schema/v2/ThreadLoadedListResponse.json` — exit 0.
+12. `rg -n -i 'exclusive|lease|mutex|fenc|lock|loaded|single|client|queue|active' .local-run/filter-schema/v2/ThreadStatusChangedNotification.json .local-run/filter-schema/v2/ThreadQueueChangedNotification.json .local-run/filter-schema/v2/ThreadReadStateChangedNotification.json .local-run/filter-schema/v2/TurnSteerParams.json` — exit 0.
+13. `rg --files .local-run -g 'execution-official*'` — exit 0; coordonatorul adăugase sursele oficiale native în cache.
+14. `rg -n 'acquire_writer_lock|WriterLockCoordinator|writer_lock|live_writers_reject|resume|legacy|paginated|lock' .local-run/execution-official-store-mod.rs .local-run/execution-official-live-writer.rs .local-run/execution-official-live-thread.rs` — exit 0.
+15. `sed -n '325,397p' .local-run/execution-official-store-mod.rs` — exit 0.
+16. `sed -n '1,145p' .local-run/execution-official-live-writer.rs` — exit 0.
+17. `sed -n '1630,1755p' .local-run/execution-official-store-mod.rs` — exit 0.
+18. `rg -n 'LiveThread::resume|resume_thread|resume_session|ThreadWriter|writer.*lock|WriterLock|Already|already|ThreadStoreError|InvalidRequest|INTERNAL_ERROR|writer' .local-run/execution-official-thread-manager.rs .local-run/execution-official-thread-processor.rs .local-run/execution-official-recorder.rs` — exit 0.
+19. `sed -n '180,226p' .local-run/execution-official-live-thread.rs` — exit 0.
+20. `sed -n '2000,2075p' .local-run/execution-official-thread-manager.rs` — exit 0.
+21. `sed -n '2340,2415p' .local-run/execution-official-thread-processor.rs` — exit 0.
+22. `sed -n '4160,4290p' .local-run/execution-official-thread-processor.rs` — exit 0.
+23. `sed -n '6340,6375p' .local-run/execution-official-thread-processor.rs` — exit 0.
+24. `sed -n '1,75p' .local-run/execution-official-recorder.rs` — exit 0, fără conținut; cache-ul respectiv era gol și nu a fost folosit ca dovadă.
+25. `rg --files .local-run -g 'execution-official*writer*' -g 'execution-official*lock*' -g 'execution-official*codex*' -g 'execution-official*rollout*'` — exit 0.
+26. `cat .local-run/execution-official-writer-lock.rs` — exit 0.
+27. `rg -n 'LiveThread::resume|LiveThread::create|thread_store|writer_lock|WriterLock' .local-run/execution-official-core-codex.rs .local-run/execution-official-writer-lock-tests.rs` — exit 0; rezultate din testele lock, nu din cache-ul core gol.
+28. Comanda literală de verificare a cache-urilor și căilor oficiale — exit 0:
+
+```bash
+node --input-type=module -e 'import fs from "node:fs"; const tree=JSON.parse(fs.readFileSync(".local-run/execution-official-tree.json","utf8")); console.log(JSON.stringify({cachedBytes:Object.fromEntries(["execution-official-core-codex.rs","execution-official-recorder.rs"].map(file=>[file,fs.statSync(".local-run/"+file).size])),candidatePaths:(tree.tree||[]).filter(row=>row.type==="blob"&&/^codex-rs\/core\/src\//.test(row.path)&&/(?:\/codex(?:\/mod)?\.rs$|\/session(?:\/mod)?\.rs$|\/codex\/.*session|live_thread)/.test(row.path)).map(row=>row.path)},null,2));'
+```
+
+29. `sed -n '1,115p' .local-run/execution-official-writer-lock-tests.rs` — exit 0.
+30. `apply_patch` — creat acest ledger ignorat, fără editarea controllerului sau a testelor existente.
+31. `chmod 600 .local-run/execution-concurrency-ledger.md` — exit 0; numai ledgerul nou făcut privat.
+32. `apply_patch` — completat ledgerul cu operațiunea efectivă de permisiuni.
+
+#### Constatări și soluție condiționată de validarea runtime
+
+- `cwd === workspace` nu identifică thread-ul și poate raporta fals Busy pentru un alt thread. Invers, absența FD-ului nu dovedește exclusivitate sau imposibilitatea unui Resume ulterior. EACCES nu poate fi echivalat cu lipsa activității.
+- Schemele 0.163.0 nu prezintă un parametru public de lease/fencing pentru thread/resume ori turn/start. `turn/steer.expectedTurnId` privește un turn deja activ. `thread/loaded/list` descrie thread-uri încărcate în memorie; ThreadAttachmentOwnerList privește atașamentele, nu exclusivitatea execuției. Aceste observații inițiale nu exclud un lock intern nativ.
+- Sursele oficiale adăugate de root confirmă acel lock intern: `WriterLockCoordinator` folosește `File::try_lock`, pe ThreadId, în namespace-ul aceluiași CODEX_HOME. Lock-ul de coordonare protejează crearea/ștergerea fișierelor de lock. Nu trebuie reimplementat ori preluat de aplicație, deoarece copilul Codex trebuie să îl dobândească el însuși.
+- `live_writer::create_thread/resume_thread` dobândesc writer lock înaintea inițializării/resumării, iar `LiveRecorderEntry` și recorderul păstrează guard-ul până la shutdown. Testele oficiale acoperă conflictul pe același ID, acceptarea altui ID și handoff după release; testul local store iterează Legacy și Paginated. Citirea testelor nu înseamnă executarea lor de către subagent.
+- Un Resume reușit prin acest mecanism atomic, validat pentru binarul instalat și aceeași home canonică, este o autoritate mai puternică decât scanarea cwd/FD. Conflictul pe exact thread-ul selectat trebuie să rămână Busy; orice eroare de lock/transport/policy trebuie să rămână fail-closed. Lock-ul se păstrează și pentru cazul în care alt proces încearcă mai târziu să preia thread-ul.
+- Namespace-ul oficial este explicit per CODEX_HOME. Nu se revendică protecție împotriva clienților necooperanți, versiunilor neverificate ori accesului prin alte home-uri/external rollout fără analiză suplimentară. Nu se schimbă autentificarea ori politica READ-ONLY.
+- În momentul acestui raport, root încă verifică întregul call-chain și proba instalată cu două procese/sesiuni strict sintetice. Subagentul nu a făcut această probă și nu pretinde validare runtime. Niciun nou modul source nu a fost creat înaintea acestei validări.
+
+### Rezultate și erori observate
+
+- Jobul New raportat de operator a durat 120256ms, cu 535 caractere la eșec și codul istoric codex-timeout; acesta a atins plafonul absolut de 120s. Resume a fost refuzat în48ms. Au fost citite numai stări/timestampuri/lungimi/tipuri de evenimente, fără prompturi, răspunsuri sau ID-uri personale.
+- Codul vechi publica outputul numai la final/eșec și putea pierde completion-ul timpuriu într-un singur slot. Codul nou corelează pe thread/turn/item și cere notificarea turn/completed corespunzătoare; item/completed oferă textul autoritativ. Nu se afirmă că pierderea notificării a fost cauza observată a jobului istoric.
+- Limite implicite: RPC30s, idle180s, total600s după ACK. Coduri separate codex-rpc-timeout / codex-idle-timeout / codex-turn-timeout. Activitatea relevantă resetează numai idle; traficul străin nu o prelungește. Outputul este redacted și transmis ca snapshot înlocuitor; parțialul sigur rămâne la eșec. Progresul real este combinat cu backpressure, fără a bloca heartbeat-ul.
+- Euristica cwd egal cu workspace confunda alte thread-uri cu thread-ul selectat; accesul /proc refuzat nu certifica exclusivitatea. Versiunea verificată0.163.0 are lock OS atomic pe ThreadId, în același CODEX_HOME, dobândit de thread/resume și păstrat de recorder. Conflictul nativ exact(-32600) pe UUID-ul selectat devine Busy. Orice altă eroare se refuză sigur, fără retry ori New automat. Lease-urile app, selecția, autentificarea și verificarea READ-ONLY rămân obligatorii.
+- Proba reală New: completed în4375ms, marker sintetic confirmat; două procese native au respins același ID, au permis alt ID în același workspace și au transferat ownership după închiderea numai a procesului propriu de test. README neschimbat.
+- Prima probă Resume în sandbox: authentication unavailable, codex-not-authenticated, fără model turn; diagnosticul a identificat App Server exit1/read-only filesystem la propriile metadate. codex login status confirma Logged in using ChatGPT; nu s-a șters ori refăcut login-ul. Proba a fost repetată prin aprobarea platformei, păstrând READ-ONLY/tool-uri blocate. Resume real completed în5681ms, același ID sintetic, contextul anterior confirmat fără includerea markerului în noul prompt, 9 snapshoturi și5 evenimente progres. README neschimbat. Nu s-au reluat conversații personale ori afișat output de model.
+- node --test --test-isolation=none este nesuportat de Node22: exit9, fără teste executate. Testele controllerului rulate direct:42/42 PASS. Runnerul în sandbox a raportat și agregate pe fișier; nu sunt confundate cu numărul subtestelor.
+- npm test inițial în sandbox: exit1,10 fișiere PASS/6 eșuate. Proba directă hub a confirmat listen EPERM pe127.0.0.1. După aprobarea platformei pentru teste loopback: npm test exit0,153 teste PASS,0 FAIL/skip/cancel, durata6237,588ms. Timpul lung/heartbeat și fluxul HTTP/UI sunt sintetice; New/Resume/lock-urile native sunt probe reale distincte. Nu s-a verificat vizual browserul.
+- Trei încercări de căi vechi ale sursei oficiale au primit404/base64 invalid(exit1); cache-urile goale nu sunt dovezi. Căile corecte și testele oficiale ale lock-ului au fost citite. Căutarea src/state.mjs a returnat exit2 deoarece fișierul nu există; Hub-ul este src/hub.mjs. Timeoutul120s din Hub privește numai o selecție rămasă queued înainte de claim; heartbeat TTL15s continuă independent și nu plafonează un turn running.
+- Prima verificare GitHub în sandbox a eșuat de rețea; cea prin aprobarea platformei confirmă leverage50x/agents PRIVATE, acces ADMIN, default main. origin și remote branch indică HEAD-ul inițial672190f. Nu s-a schimbat origin.
+- Statusul launcherului în sandbox nu putea confirma procese/port. Citirea aprobată confirmă Hub și agent ownedRunning=true, agent Online, port8765; HTTP read-only confirmă Codex authenticated și0 joburi active. Instanța preexistentă nu a fost repornită, deci controllerul ei păstrează codul încărcat anterior. Remedierea trebuie încărcată prin restart la un moment ales de operator; niciun proces preexistent nu a fost omorât.
+- Audit înainte de finalizarea jurnalului:9 commituri/141 bloburi/49 fișiere,0 constatări,0 căi private urmărite, primul commit Stage1 păstrat. .env/.local-run rămân ignorate. Se reface auditul după completarea jurnalului și staging; acesta nu garantează absența oricărui secret necunoscut, dar nu a identificat secrete/date personale.
+
+### Fișiere intenționate
+
+Controller/progres/UI: src/codex-control.mjs, src/agent.mjs, src/ui.mjs. Regresii: test/codex-control.test.mjs, test/agent-recovery.test.mjs, test/local-control.test.mjs, test/ui.test.mjs. Documentație: README.md, ETAPA-2B-LOCAL.md, acest jurnal. Fără dependențe noi, fără schimbarea contractului de securitate, main sau taguri. Helpers, fixture-ul sintetic, ID-ul său, backup-uri/cache și rezultatele private rămân ignorate în.local-run.
+
+Operațiuni de centralizare efectuate: apply_patch pentru .local-run/execution-command-data.json și .local-run/append-execution-journal.mjs; apoi node .local-run/append-execution-journal.mjs pentru această înscriere. Commit/push/CI sunt raportate numai după executare, în completarea următoare.

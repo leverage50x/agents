@@ -38,6 +38,7 @@ function scrub(text) {
   return String(text).replace(/-----BEGIN [^-\r\n]*PRIVATE KEY-----[\s\S]*?(?:-----END [^-\r\n]*PRIVATE KEY-----|$)/g, '[REDACTED]')
     .replace(/\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|AKIA[A-Z0-9]{16})\b/g, '[REDACTED]')
     .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, '[REDACTED]')
+    .replace(/\bBearer\s+\S+/gi, 'Bearer [REDACTED]')
     .replace(/\b((?:api[_-]?key|password|secret|token)\s*[=:]\s*)[^\s,;"']{8,}/gi, '$1[REDACTED]')
     .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '');
 }
@@ -49,49 +50,17 @@ function startTicks(pid) {
   } catch { return null; }
 }
 
-function descendantOf(pid, ancestor) {
-  for (let depth = 0; depth < 16 && pid > 1; depth++) {
-    if (pid === ancestor) return true;
-    try {
-      const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8');
-      const parent = Number(stat.slice(stat.lastIndexOf(')') + 2).split(' ')[1]);
-      if (!Number.isInteger(parent) || parent === pid) return false;
-      pid = parent;
-    } catch { return false; }
-  }
-  return false;
-}
-
-/** Metadata only: do not read command lines, transcripts, environment or auth. */
-function externalActivity({ workspace, threadId, childPid }) {
-  if (process.platform !== 'linux' || typeof process.getuid !== 'function') return 'unknown';
-  let entries;
-  try { entries = fs.readdirSync('/proc').filter(name => /^\d+$/.test(name)); } catch { return 'unknown'; }
-  if (entries.length > 4096) return 'unknown';
-  for (const entry of entries) {
-    const pid = Number(entry);
-    if (pid === process.pid || pid === childPid) continue;
-    try {
-      if (fs.statSync(`/proc/${pid}`).uid !== process.getuid()) continue;
-      const executable = fs.readlinkSync(`/proc/${pid}/exe`);
-      if (!/^codex(?:[-_.].*)?$/.test(path.basename(executable))) continue;
-      // npm's codex launcher can be a Node parent of the native stdio server.
-      if (childPid && descendantOf(pid, childPid)) continue;
-      const cwd = fs.readlinkSync(`/proc/${pid}/cwd`);
-      if (cwd === workspace) return 'busy';
-      const descriptors = fs.readdirSync(`/proc/${pid}/fd`);
-      if (descriptors.length > 512) return 'unknown';
-      for (const descriptor of descriptors) {
-        try {
-          const target = fs.readlinkSync(`/proc/${pid}/fd/${descriptor}`);
-          if (target.includes(threadId) && /\/(?:sessions|archived_sessions)\//.test(target)) return 'busy';
-        } catch (error) { if (!['ENOENT', 'ESRCH'].includes(error.code)) return 'unknown'; }
-      }
-    } catch (error) {
-      if (!['ENOENT', 'ESRCH'].includes(error.code)) return 'unknown';
-    }
-  }
-  return 'clear';
+// CLI 0.163.0 atomically owns each thread through its native writer lock for
+// the lifetime of the loaded thread, across processes using the same CODEX_HOME.
+// Verified against writer_lock.rs and two real native App Servers (2026-10-27).
+// A successful thread/resume acquires that lock before loading history. Never
+// infer ownership from cwd, /proc visibility, thread/list, or a session filename.
+// Only this exact selected-thread conflict is translated; other errors reject
+// safely without exposing raw diagnostics or attempting another session.
+function writerConflict(error, threadId) {
+  return UUID.test(threadId) && error?.code === -32600 &&
+    typeof error.message === 'string' && error.message.length <= 4096 &&
+    new RegExp('\\bthread ' + threadId + ' already has an active writer\\b', 'i').test(error.message);
 }
 
 function lease(workspace, key) {
@@ -182,7 +151,8 @@ async function stop(child) {
 
 /** Local-only, one explicitly configured workspace, never a remote executor. */
 export function createCodexControl({ workspace, home, command = 'codex', spawnImpl = spawn,
-  rpcTimeoutMs = 10000, turnTimeoutMs = 120000, externalActivityCheck = externalActivity, now = () => performance.now() } = {}) {
+  rpcTimeoutMs = 30000, turnTimeoutMs = 600000, idleTimeoutMs = Math.min(180000, turnTimeoutMs),
+  now = () => performance.now() } = {}) {
   let canonical;
   let identity;
   try {
@@ -193,7 +163,8 @@ export function createCodexControl({ workspace, home, command = 'codex', spawnIm
   if ((command !== 'codex' && !(path.isAbsolute(command) && path.basename(command) === 'codex' && !/^\/mnt\/[a-z]\//i.test(command))) ||
       (home !== undefined && (typeof home !== 'string' || !path.isAbsolute(home))) ||
       !Number.isInteger(rpcTimeoutMs) || rpcTimeoutMs < 50 || rpcTimeoutMs > 30000 ||
-      !Number.isInteger(turnTimeoutMs) || turnTimeoutMs < 50 || turnTimeoutMs > 300000 ||
+      !Number.isInteger(turnTimeoutMs) || turnTimeoutMs < 50 || turnTimeoutMs > 1800000 ||
+      !Number.isInteger(idleTimeoutMs) || idleTimeoutMs < 50 || idleTimeoutMs > 600000 ||
       typeof now !== 'function') throw new Error('Invalid local Codex configuration.');
   const env = {};
   for (const key of ['PATH', 'HOME', 'LANG', 'LC_ALL', 'TMPDIR']) if (process.env[key]) env[key] = process.env[key];
@@ -255,28 +226,101 @@ export function createCodexControl({ workspace, home, command = 'codex', spawnIm
   };
   const request = (method, params) => new Promise((resolve, reject) => {
     const id = ++sequence;
-    const timer = setTimeout(() => fail('codex-timeout'), rpcTimeoutMs);
-    pending.set(id, { resolve, reject, timer });
+    const timer = setTimeout(() => fail('codex-rpc-timeout'), rpcTimeoutMs);
+    pending.set(id, { resolve, reject, timer,
+      resumeThreadId: method === 'thread/resume' ? params.threadId : null });
     try { write({ id, method, params }); } catch (error) { clearTimeout(timer); pending.delete(id); reject(error); }
   });
-  const finishNotification = params => {
-    if (!active || params.threadId !== active.threadId || !params.turn || typeof params.turn.id !== 'string') return;
-    const result = { status: ['completed', 'failed', 'interrupted'].includes(params.turn.status) ? params.turn.status : 'failed', turnId: params.turn.id };
-    if (active.turnId && active.turnId === result.turnId) active.finish(result);
-    else if (!active.turnId) active.earlyCompletion = result;
+  const validEventId = value => typeof value === 'string' && value.length > 0 && value.length <= 128;
+  const turnRecord = turnId => {
+    if (!active || !validEventId(turnId) || (active.turnId && active.turnId !== turnId)) return;
+    if (!active.turns.has(turnId)) {
+      if (active.turns.size >= 4) { fail('unexpected-turn'); return; }
+      active.turns.set(turnId, { items: new Map(), characters: 0, terminal: null });
+    }
+    return active.turns.get(turnId);
   };
+  const snapshotOutput = (state, complete = false) => {
+    const record = state?.turns.get(state.turnId);
+    if (!record) return '';
+    const text = [...record.items.values()].map(item => {
+      // Withhold an unfinished final word: a token split over deltas must never
+      // escape before the complete value can be redacted from a snapshot.
+      return ((complete || item.complete) && !item.truncated) ? item.text : item.text.replace(/\S+$/u, '');
+    }).filter(Boolean).join('\n\n');
+    return scrub(text).slice(0, 8000);
+  };
+  const publishOutput = complete => {
+    if (!active?.turnId) return;
+    const output = snapshotOutput(active, complete);
+    if (output !== active.lastOutput) {
+      active.lastOutput = output;
+      // Output events always REPLACE the preceding output, never append.
+      emit('output', output);
+    }
+  };
+  const activity = (turnId, phase) => {
+    if (!active?.turnId || active.turnId !== turnId) return;
+    clearTimeout(active.idleTimer);
+    active.idleTimer = setTimeout(() => fail('codex-idle-timeout'), idleTimeoutMs);
+    const time = lastTrafficTime ?? performance.now();
+    if (phase && (active.phase !== phase || time - active.lastProgressAt >= 5000)) {
+      active.phase = phase;
+      active.lastProgressAt = time;
+      emit('progress', phase === 'response' ? 'Codex is producing a response.' : 'Codex is processing the read-only request.');
+    }
+  };
+  const saveMessage = (record, itemId, text, complete) => {
+    if (!validEventId(itemId) || typeof text !== 'string') { fail('codex-protocol-error'); return; }
+    const prior = record.items.get(itemId);
+    if (!prior && record.items.size >= 32) { fail('codex-output-limit'); return; }
+    if (prior?.complete && !complete) return;
+    const value = complete ? text : (prior?.text || '') + text;
+    const allowance = 32000 - record.characters + (prior?.text.length || 0);
+    const bounded = value.slice(0, allowance);
+    record.characters += bounded.length - (prior?.text.length || 0);
+    record.items.set(itemId, { text: bounded, complete, truncated: value.length > allowance || Boolean(prior?.truncated && !complete) });
+  };
+  const safeItems = (record, items) => {
+    if (!Array.isArray(items)) return;
+    if (items.length > 100) { fail('codex-output-limit'); return; }
+    for (const item of items) {
+      if (item?.type === 'agentMessage') saveMessage(record, item.id, item.text, true);
+      else if (!['userMessage', 'reasoning', 'contextCompaction'].includes(item?.type)) { fail('tool-use-blocked'); return; }
+    }
+  };
+  const reasoningEvents = new Set(['item/reasoning/summaryTextDelta', 'item/reasoning/textDelta',
+    'item/reasoning/summaryPartAdded', 'thread/tokenUsage/updated']);
   const notification = message => {
     const params = message.params;
-    if (!params || typeof params !== 'object') return;
-    if (message.method === 'turn/completed') return finishNotification(params);
-    if (!active || params.threadId !== active.threadId) return;
-    if (message.method === 'item/agentMessage/delta' && typeof params.delta === 'string' && typeof params.turnId === 'string') {
-      if (active.chunks.size >= 4 && !active.chunks.has(params.turnId)) return fail('unexpected-turn');
-      const prior = active.chunks.get(params.turnId) || '';
-      active.chunks.set(params.turnId, (prior + params.delta).slice(0, 32000));
-    } else if (message.method === 'item/started' && params.item &&
-        !['userMessage', 'agentMessage', 'reasoning', 'contextCompaction'].includes(params.item.type)) {
-      fail('tool-use-blocked');
+    if (!params || typeof params !== 'object' || !active || params.threadId !== active.threadId) return;
+    const lifecycle = ['turn/started', 'turn/completed'].includes(message.method);
+    const relevant = lifecycle || ['item/agentMessage/delta', 'item/started', 'item/completed'].includes(message.method) || reasoningEvents.has(message.method);
+    if (!relevant) return;
+    const turnId = lifecycle ? params.turn?.id : params.turnId;
+    if (!validEventId(turnId)) return fail('codex-protocol-error');
+    const record = turnRecord(turnId);
+    if (!record) return;
+    if (message.method === 'turn/completed') {
+      if (!['completed', 'failed', 'interrupted'].includes(params.turn.status)) return fail('codex-protocol-error');
+      safeItems(record, params.turn.items);
+      if (broken) return;
+      if (record.terminal && record.terminal.status !== params.turn.status) return fail('codex-protocol-error');
+      record.terminal = { status: params.turn.status, turnId };
+      if (active.turnId === turnId) { publishOutput(params.turn.status === 'completed'); active.finish(record.terminal); }
+    } else if (message.method === 'item/agentMessage/delta') {
+      saveMessage(record, params.itemId, params.delta, false);
+      activity(turnId, 'response'); publishOutput(false);
+    } else if (['item/started', 'item/completed'].includes(message.method)) {
+      if (!['userMessage', 'agentMessage', 'reasoning', 'contextCompaction'].includes(params.item?.type)) return fail('tool-use-blocked');
+      if (message.method === 'item/completed' && params.item.type === 'agentMessage') {
+        saveMessage(record, params.item.id, params.item.text, true); publishOutput(false);
+      }
+      activity(turnId, params.item.type === 'agentMessage' ? 'response' : 'processing');
+    } else activity(turnId, 'processing');
+    if (message.method === 'turn/started') {
+      safeItems(record, params.turn.items);
+      activity(turnId, 'processing');
     }
   };
   const spawnChild = args => {
@@ -288,7 +332,7 @@ export function createCodexControl({ workspace, home, command = 'codex', spawnIm
     try {
       await new Promise((resolve, reject) => {
         const bad = () => reject(new ControlError());
-        timer = setTimeout(bad, rpcTimeoutMs); probe.once('error', bad); probe.stdin.on('error', bad);
+        timer = setTimeout(() => reject(new ControlError('codex-rpc-timeout')), rpcTimeoutMs); probe.once('error', bad); probe.stdin.on('error', bad);
         probe.stdout.on('data', chunk => { bytes += chunk.length; if (bytes > 4096) bad(); else output += chunk.toString(); });
         probe.stderr.on('data', chunk => { bytes += chunk.length; if (bytes > 4096) bad(); });
         probe.once('close', code => code === 0 ? resolve() : bad());
@@ -326,7 +370,8 @@ export function createCodexControl({ workspace, home, command = 'codex', spawnIm
         const waiter = pending.get(message.id);
         if (!waiter) return fail('codex-protocol-error');
         pending.delete(message.id); clearTimeout(waiter.timer);
-        if (message.error || !Object.hasOwn(message, 'result')) waiter.reject(new ControlError('codex-request-rejected'));
+        if (message.error || !Object.hasOwn(message, 'result')) waiter.reject(new ControlError(
+          writerConflict(message.error, waiter.resumeThreadId) ? 'codex-busy' : 'codex-request-rejected'));
         else waiter.resolve(message.result);
         message = null;
       }
@@ -406,7 +451,8 @@ export function createCodexControl({ workspace, home, command = 'codex', spawnIm
     try {
       assertWorkspace(); releases.push(lease(canonical, 'workspace'));
       const context = snapshot(canonical);
-      state = { onEvent, chunks: new Map(), threadId: null, turnId: null };
+      state = { onEvent, turns: new Map(), threadId: null, turnId: null, lastOutput: '', phase: null,
+        lastProgressAt: -Infinity, idleTimer: null };
       active = state; emit('progress', 'Preparing a local read-only Codex session.');
       if ((await accountStatus()).status !== 'authenticated') throw new ControlError('codex-not-authenticated');
       if (input.mode === 'resume') {
@@ -415,8 +461,6 @@ export function createCodexControl({ workspace, home, command = 'codex', spawnIm
         if (!selected) throw new ControlError('session-unavailable');
         if (selected.eligibility === 'busy') throw new ControlError('codex-busy');
         releases.push(lease(canonical, input.threadId));
-        const other = await externalActivityCheck({ workspace: canonical, threadId: input.threadId, childPid: child?.pid });
-        if (other !== 'clear') throw new ControlError(other === 'busy' ? 'codex-busy' : 'session-activity-unverified');
       }
       assertWorkspace();
       let started = await request(input.mode === 'new' ? 'thread/start' : 'thread/resume', {
@@ -432,34 +476,42 @@ export function createCodexControl({ workspace, home, command = 'codex', spawnIm
       if (input.mode === 'new') releases.push(lease(canonical, state.threadId));
       loaded.add(state.threadId); started = null;
       const completion = new Promise(resolve => { state.finish = resolve; });
-      timer = setTimeout(() => fail('codex-timeout'), turnTimeoutMs);
       emit('progress', 'Codex is generating a response with read-only restrictions.');
       const turn = await request('turn/start', { threadId: state.threadId, cwd: canonical,
         approvalPolicy: 'on-request', approvalsReviewer: 'user', sandboxPolicy: { type: 'readOnly', networkAccess: false },
         input: [{ type: 'text', text: input.prompt + '\n\n' + context }] });
       if (typeof turn?.turn?.id !== 'string' || turn.turn.id.length > 128) throw new ControlError('codex-protocol-error');
       state.turnId = turn.turn.id;
-      if (state.earlyCompletion?.turnId === state.turnId) state.finish(state.earlyCompletion);
-      else if (['completed', 'failed', 'interrupted'].includes(turn.turn.status)) state.finish({ status: turn.turn.status });
+      const record = turnRecord(state.turnId);
+      if (!record || broken) throw broken || new ControlError('codex-protocol-error');
+      for (const id of state.turns.keys()) if (id !== state.turnId) state.turns.delete(id);
+      timer = setTimeout(() => fail('codex-turn-timeout'), turnTimeoutMs);
+      activity(state.turnId, 'processing');
+      // A terminal start response alone is not a turn/completed notification.
+      // Its current-turn agent messages may still provide authoritative text.
+      if (turn.turn.status !== 'inProgress') safeItems(record, turn.turn.items);
+      publishOutput(record.terminal?.status === 'completed');
+      if (record.terminal) state.finish(record.terminal);
       const result = await completion;
-      const output = scrub(state.chunks.get(state.turnId) || '').slice(0, 8000);
+      const output = snapshotOutput(state, result.status === 'completed');
       const status = ['completed', 'interrupted'].includes(result.status) ? result.status : 'failed';
-      if (output) emit('output', output);
+      publishOutput(status === 'completed');
       emit(status === 'completed' ? 'completed' : 'error', status === 'completed' ? 'Local read-only Codex turn completed.' : 'Local Codex turn stopped.');
       return { status, output, threadId: state.threadId, ...(result.errorCode ? { errorCode: result.errorCode } : {}) };
     } catch (error) {
       if (error instanceof ControlError && ['codex-policy-mismatch', 'codex-protocol-error',
         'method-blocked', 'workspace-changed'].includes(error.code)) fail(error.code);
+      publishOutput(false);
       emit('error', 'Local Codex request could not be completed safely.');
-      return { status: closed ? 'interrupted' : 'failed', output: '', ...(state?.threadId ? { threadId: state.threadId } : {}),
+      return { status: closed ? 'interrupted' : 'failed', output: snapshotOutput(state), ...(state?.threadId ? { threadId: state.threadId } : {}),
         errorCode: error instanceof ControlError ? error.code : 'codex-unavailable' };
     } finally {
-      clearTimeout(timer); if (active === state) active = null;
+      clearTimeout(timer); clearTimeout(state?.idleTimer); if (active === state) active = null;
       for (const release of releases.reverse()) release();
     }
   };
   const recoveryState = () => ({
-    recoverable: !closed && !active && ['codex-unavailable', 'codex-timeout'].includes(broken?.code),
+    recoverable: !closed && !active && ['codex-unavailable', 'codex-rpc-timeout', 'codex-idle-timeout', 'codex-turn-timeout'].includes(broken?.code),
     errorCode: closed ? 'codex-closed' : broken?.code || null,
   });
   return { accountStatus, listSessions, run, recoveryState, async close() {

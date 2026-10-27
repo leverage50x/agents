@@ -30,7 +30,7 @@ function resumeAvailability(device, session) {
   return resumeLabel(session);
 }
 const localErrors = {
-  'codex-busy': 'Session or workspace in use by another Codex process. Finish that activity before trying Resume.',
+  'codex-busy': 'The selected session has an active owner, or this app already has a running turn. Wait for that ownership to be released, then explicitly retry.',
   'session-activity-unverified': 'Session activity could not be verified. Resume was refused safely; check other Codex processes before retrying.',
   'session-unavailable': 'The session is no longer available in the selected workspace. Refresh inventory or choose New.',
   'codex-version-unsupported': 'The installed Codex CLI version is unsupported. Check the supported version before retrying local control.',
@@ -38,6 +38,10 @@ const localErrors = {
   'codex-policy-mismatch': 'Local safety settings could not be verified. The turn was refused; check local configuration.',
   'codex-request-rejected': 'Codex rejected the local request. Check local Codex status and refresh inventory before retrying.',
   'codex-unavailable': 'Local Codex is unavailable. Check the local agent and Codex status before retrying.',
+  'controller-unavailable': 'The local controller stopped unexpectedly. Any received partial response is shown below.',
+  'codex-rpc-timeout': 'Codex did not acknowledge a protocol request in time. Any received partial response is shown below.',
+  'codex-idle-timeout': 'No Codex turn activity was received before the idle timeout. The turn stopped; any partial response is shown below.',
+  'codex-turn-timeout': 'The local Codex turn reached its maximum duration. It stopped without replay; any partial response is shown below.',
   'agent-disconnected': 'The agent disconnected. This turn will not replay automatically; reconnect and confirm a new instruction.',
   'agent-revoked': 'Agent authorization was revoked. Check enrollment before submitting another turn.',
   'selection-no-longer-available': 'The selected device or session changed before the turn started. Refresh and select again.'
@@ -190,7 +194,8 @@ function renderLocalControl() {
     (job.errorCode ? '<p class="off">Error: <code>' + escape(job.errorCode) + '</code></p><p class="muted">' +
       escape(Object.hasOwn(localErrors, job.errorCode) ? localErrors[job.errorCode] :
         'The local turn stopped. Check the error code and current device status before retrying.') + '</p>' : '') +
-    (job.output ? '<pre>' + escape(job.output) + '</pre>' : '') + '</article>'
+    (job.output ? '<p class="muted">' + (job.status === 'completed' ? 'Final response' : job.status === 'running'
+      ? 'Partial response — turn still running' : 'Partial response — turn stopped') + '</p><pre>' + escape(job.output) + '</pre>' : '') + '</article>'
   ).join('') : '<p class="muted">No local read-only turns submitted.</p>';
 }
 function render() {

@@ -116,9 +116,12 @@ export function createAgent({ env = process.env, fetchImpl = fetch, controlFacto
     const runControl = control;
     const events = [];
     let stream = '';
-    let lastUpdate = 0;
+    let lastUpdate = -Infinity;
     let updates = Promise.resolve();
     let acceptingEvents = true;
+    let trailingTimer;
+    let dirty = false;
+    let sending = false;
     const update = body => {
       const payload = { deviceId, jobId: job.id, ...body,
         output: boundedText(body.output || '', 8000),
@@ -136,26 +139,50 @@ export function createAgent({ env = process.env, fetchImpl = fetch, controlFacto
       }
       return request('POST', '/api/agent/local/update', payload, signal);
     };
+    function scheduleUpdate() {
+      if (closing || !acceptingEvents || !dirty || sending) return;
+      const remaining = Math.max(0, 300 - (Date.now() - lastUpdate));
+      if (remaining === 0) { flushUpdate(); return; }
+      trailingTimer ||= setTimeout(() => { trailingTimer = undefined; flushUpdate(); }, remaining);
+    }
+    function flushUpdate() {
+      if (closing || !acceptingEvents || !dirty || sending) return;
+      clearTimeout(trailingTimer); trailingTimer = undefined;
+      dirty = false; sending = true; lastUpdate = Date.now();
+      const snapshot = { status: 'running', output: stream, events: events.map(event => ({ ...event })) };
+      updates = Promise.resolve().then(() => closing ? undefined : update(snapshot)).catch(() => {}).finally(() => {
+        sending = false;
+        scheduleUpdate();
+      });
+    }
     const onEvent = event => {
       if (closing || !acceptingEvents) return;
       const type = ['progress', 'output', 'error', 'completed'].includes(event?.type) ? event.type : 'progress';
       const message = typeof event?.message === 'string' ? event.message : '';
-      if (type === 'output') stream = boundedText(stream + message, 8000);
-      events.push({ type, message: type === 'output' ? 'Codex response received.' : boundedText(message, 160) });
-      if (events.length > 20) events.shift();
-      if (Date.now() - lastUpdate > 300) {
-        lastUpdate = Date.now();
-        const snapshot = { status: 'running', output: stream, events: events.map(e => ({ ...e })) };
-        updates = updates.then(() => closing ? undefined : update(snapshot)).catch(() => {});
+      // Output events are complete sanitized replacement snapshots, not deltas.
+      if (type === 'output') stream = boundedText(message, 8000);
+      if (type !== 'output' || events.at(-1)?.type !== 'output') {
+        events.push({ type, message: type === 'output' ? 'Codex response received.' : boundedText(message, 160) });
       }
+      if (events.length > 20) events.shift();
+      dirty = true;
+      scheduleUpdate();
     };
     let result;
     try { result = await runControl.run(job, onEvent); }
-    catch { result = { status: 'failed', output: 'Local READ-ONLY operation failed safely.', errorCode: 'controller-unavailable' }; }
-    finally { acceptingEvents = false; }
+    catch {
+      result = { status: 'failed', output: '', errorCode: 'controller-unavailable' };
+      events.push({ type: 'error', message: 'Local READ-ONLY operation failed safely.' });
+      if (events.length > 20) events.shift();
+    } finally {
+      acceptingEvents = false; dirty = false;
+      clearTimeout(trailingTimer); trailingTimer = undefined;
+    }
     await updates.catch(() => {});
-    await update({ status: ['completed', 'failed', 'interrupted'].includes(result?.status) ? result.status : 'failed',
-      output: typeof result?.output === 'string' ? boundedText(result.output, 8000) : stream,
+    const status = ['completed', 'failed', 'interrupted'].includes(result?.status) ? result.status : 'failed';
+    const output = typeof result?.output === 'string'
+      ? (status !== 'completed' && !result.output ? stream : boundedText(result.output, 8000)) : stream;
+    await update({ status, output,
       ...(typeof result?.threadId === 'string' ? { threadId: result.threadId } : {}),
       ...(typeof result?.errorCode === 'string' ? { errorCode: result.errorCode } : {}), events });
   }

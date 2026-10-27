@@ -450,7 +450,7 @@ test('local errors explain busy, unverified, unavailable, unsupported and authen
   const b = browser(localState());
   await b.login();
   const messages = {
-    'codex-busy': 'Session or workspace in use by another Codex process. Finish that activity before trying Resume.',
+    'codex-busy': 'The selected session has an active owner, or this app already has a running turn.',
     'session-activity-unverified': 'Session activity could not be verified.',
     'session-unavailable': 'The session is no longer available in the selected workspace.',
     'codex-version-unsupported': 'The installed Codex CLI version is unsupported.',
@@ -465,5 +465,37 @@ test('local errors explain busy, unverified, unavailable, unsupported and authen
     assert.ok(b.element('local-jobs').innerHTML.includes(message));
     assert.ok(b.element('local-jobs').innerHTML.includes('<code>' + errorCode + '</code>'));
   }
+  assert.equal(localRequests(b).length, 0);
+});
+
+test('UI distinguishes partial streaming, stopped partials and final answers with specific timeout errors', async () => {
+  const job = { id: 'synthetic-streaming-job', deviceId: localDevice.id, mode: 'new', workspaceId: 'project',
+    status: 'running', output: '<script>Synthetic partial</script>',
+    events: [{ type: 'progress', message: 'Synthetic response generation.' }] };
+  const b = browser({ ...localState(), readonlyJobs: [job] });
+  await b.login();
+  assert.ok(b.element('local-jobs').innerHTML.includes('Partial response — turn still running'));
+  assert.ok(b.element('local-jobs').innerHTML.includes('Synthetic response generation.'));
+  assert.ok(b.element('local-jobs').innerHTML.includes('&lt;script&gt;Synthetic partial&lt;/script&gt;'));
+  assert.doesNotMatch(b.element('local-jobs').innerHTML, /<script>|aria-valuenow|<progress\b/);
+  const errors = {
+    'codex-rpc-timeout': 'did not acknowledge a protocol request in time',
+    'codex-idle-timeout': 'No Codex turn activity was received before the idle timeout',
+    'codex-turn-timeout': 'reached its maximum duration'
+  };
+  for (const [errorCode, message] of Object.entries(errors)) {
+    b.state({ ...localState(), readonlyJobs: [{ ...job, status: 'failed', errorCode }] });
+    await b.poll();
+    assert.ok(b.element('local-jobs').innerHTML.includes('Partial response — turn stopped'));
+    assert.ok(b.element('local-jobs').innerHTML.includes(message));
+    assert.ok(b.element('local-jobs').innerHTML.includes('&lt;script&gt;Synthetic partial&lt;/script&gt;'));
+  }
+  b.state({ ...localState(), readonlyJobs: [{ ...job, status: 'interrupted' }] });
+  await b.poll();
+  assert.ok(b.element('local-jobs').innerHTML.includes('Partial response — turn stopped'));
+  b.state({ ...localState(), readonlyJobs: [{ ...job, status: 'completed', output: 'Synthetic final answer.' }] });
+  await b.poll();
+  assert.ok(b.element('local-jobs').innerHTML.includes('Final response'));
+  assert.equal(b.element('local-jobs').innerHTML.includes('Partial response'), false);
   assert.equal(localRequests(b).length, 0);
 });

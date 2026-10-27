@@ -1,7 +1,10 @@
+import path from 'node:path';
+
 // Codex CLI 0.163.0 resume picker, include_non_interactive=false:
 // sourceKinds=[cli,vscode], Cwd=current workspace, Active=archived:false.
 // Runtime status is independent of the archive filter.
 export const RESUME_SOURCE_KINDS = Object.freeze(['cli', 'vscode']);
+const UUID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 
 export function matchesResumePickerThread(thread, workspace) {
   return Boolean(thread && typeof thread === 'object' && !Array.isArray(thread) &&
@@ -24,4 +27,22 @@ export function sanitizeSessionTitle(value) {
     title += character;
   }
   return title.trimEnd() + '…';
+}
+/** Official metadata only: never return cwd, preview, history or account data. */
+export function resumeSessionMetadata(thread, workspace) {
+  if (!matchesResumePickerThread(thread, workspace) || typeof thread.id !== 'string' || !UUID.test(thread.id) ||
+      !Number.isSafeInteger(thread.updatedAt) || thread.updatedAt < 0) return;
+  const timestamp = new Date(thread.updatedAt * 1000);
+  if (!Number.isFinite(timestamp.getTime())) return;
+  const modified = timestamp.toISOString();
+  const basename = typeof thread.cwd === 'string' && thread.cwd.length <= 4096 && path.isAbsolute(thread.cwd)
+    ? path.basename(thread.cwd) : '';
+  const project = /^[A-Za-z0-9][A-Za-z0-9._ -]{0,79}$/.test(basename) ? basename : undefined;
+  const title = sanitizeSessionTitle(thread.name);
+  return { id: thread.id.toLowerCase(), modified, lastActivity: modified,
+    ...(project ? { project } : {}), ...(title ? { title } : {}), activity: 'discovered', source: 'app-server' };
+}
+
+export function compareSessionActivity(a, b) {
+  return b.modified.localeCompare(a.modified) || a.id.localeCompare(b.id);
 }

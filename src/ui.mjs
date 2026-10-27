@@ -17,7 +17,6 @@ const authLabel = value => value === 'authenticated' ? 'Codex authenticated' : v
 const localDevice = () => state.devices.find(device => device.id === $('local-device').value);
 function resumeLabel(session) {
   if (session.eligibility === 'busy') return 'Busy — unavailable';
-  if (session.eligibility === 'confirmed') return 'Loaded by this app — Resume will be rechecked';
   return 'Discovered — resume not yet verified';
 }
 function resumeAvailability(device, session) {
@@ -30,8 +29,8 @@ function resumeAvailability(device, session) {
   return resumeLabel(session);
 }
 const localErrors = {
-  'codex-busy': 'The selected session has an active owner, or this app already has a running turn. Wait for that ownership to be released, then explicitly retry.',
-  'session-activity-unverified': 'Session activity could not be verified. Resume was refused safely; check other Codex processes before retrying.',
+  'codex-busy': 'The selected session is still loaded by another Codex client, or this app already has a running turn. An idle CLI or editor can keep its native lock; release the session in its owning client, then explicitly retry.',
+  'codex-cleanup-unconfirmed': 'The app could not confirm that its Codex worker exited. Further turns are blocked; inspect the local agent before an explicit restart.',
   'session-unavailable': 'The session is no longer available in the selected workspace. Refresh inventory or choose New.',
   'codex-version-unsupported': 'The installed Codex CLI version is unsupported. Check the supported version before retrying local control.',
   'codex-not-authenticated': 'Codex authentication could not be confirmed. Check local Codex login before retrying.',
@@ -146,7 +145,6 @@ function renderSessions() {
     ' · Last heartbeat: ' + timestamp(device.lastSeen) + ' · Inventory: ' + (inventory.status || 'unknown') +
     (inventory.truncated ? ' · scan incomplete' : '') + (inventory.reason ? ' · ' + inventory.reason : '');
   $('sessions').innerHTML = (device.sessions || []).length ? device.sessions.map(session => {
-    const activity = session.activity === 'active-confirmed' ? 'Activity confirmed' : 'Discovered only — activity unconfirmed';
     const source = session.source === 'app-server' ? 'App Server inventory' : session.source === 'files' ? 'Session filename inventory' : 'Unspecified inventory source';
     return '<article class="session"><div class="session-heading"><h3 title="' + escape(sessionTitle(session)) + '">' +
       escape(shortTitle(session)) + '</h3><span class="session-age">' + escape(relativeTime(session.lastActivity)) +
@@ -156,7 +154,7 @@ function renderSessions() {
       '</code></dd><dt>Project</dt><dd>' + escape(session.project || 'Not available') +
       '</dd><dt>Device</dt><dd>' + escape(deviceLabel(device)) + '</dd><dt>Last known activity</dt><dd>' +
       escape(timestamp(session.lastActivity)) + '</dd><dt>Last modified metadata</dt><dd>' +
-      escape(timestamp(session.modified)) + '</dd><dt>Activity</dt><dd>' + escape(activity) +
+      escape(timestamp(session.modified)) + '</dd><dt>Activity</dt><dd>Discovered only — activity unconfirmed' +
       '</dd><dt>Source</dt><dd>' + escape(source) + '</dd><dt>Resume</dt><dd>' +
       escape(resumeAvailability(device, session)) + '</dd></dl></details></article>';
   }).join('') : '<p class="muted">No sessions reported by this device.</p>';

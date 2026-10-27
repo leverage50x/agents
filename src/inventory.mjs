@@ -104,8 +104,3 @@ export function listSessionInventory(home = codexHome(), limit = 40, { maxEntrie
     .map(([id, modified]) => ({ id, modified: new Date(modified).toISOString() }));
   return { status: partial ? 'partial' : 'available', truncated: truncated || result.size > limit, sessions };
 }
-
-/** Compatibility helper: metadata is available from listSessionInventory. */
-export function listSessionIds(home = codexHome(), limit = 40) {
-  return listSessionInventory(home, limit).sessions;
-}

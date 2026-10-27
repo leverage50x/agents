@@ -8245,3 +8245,2119 @@ node --input-type=module -e 'import fs from "node:fs"; const tree=JSON.parse(fs.
 Controller/progres/UI: src/codex-control.mjs, src/agent.mjs, src/ui.mjs. Regresii: test/codex-control.test.mjs, test/agent-recovery.test.mjs, test/local-control.test.mjs, test/ui.test.mjs. Documentație: README.md, ETAPA-2B-LOCAL.md, acest jurnal. Fără dependențe noi, fără schimbarea contractului de securitate, main sau taguri. Helpers, fixture-ul sintetic, ID-ul său, backup-uri/cache și rezultatele private rămân ignorate în.local-run.
 
 Operațiuni de centralizare efectuate: apply_patch pentru .local-run/execution-command-data.json și .local-run/append-execution-journal.mjs; apoi node .local-run/append-execution-journal.mjs pentru această înscriere. Commit/push/CI sunt raportate numai după executare, în completarea următoare.
+
+### 2026-10-27 — commit, publicare și verificare ulterioară
+
+Ordinea operațiunilor efective după centralizare:
+
+1. `node .local-run/append-execution-journal.mjs && git diff --check` — exit0; jurnal actualizat cu107 intrări ale coordonatorului și raportul disponibil al subagentului; citirile suplimentare și limita rapoartelor sunt marcate explicit.
+2. `node .local-run/review-publication.mjs stage2b-local-control > .local-run/execution-final-publication-audit.log 2>&1` — exit0. Verificarea sumară prin `node --input-type=module -e` a citit numai contoarele auditului;49 fișiere,0 constatări,9 commituri înainte de commit. Comanda combinată a inclus `git status --short && git diff --check`, exit0.
+3. `git add -- ETAPA-2B-LOCAL.md README.md 'comenzi executate agent.md' src/agent.mjs src/codex-control.mjs src/ui.mjs test/agent-recovery.test.mjs test/codex-control.test.mjs test/local-control.test.mjs test/ui.test.mjs` — exit0, prin aprobarea sandboxului pentru .git. Numai cele10 fișiere intenționate.
+4. `git diff --cached --check && git diff --cached --stat && git diff --cached --name-status && git status --short --branch` — exit0;10 fișiere,1480 inserări/151 ștergeri, fără erori whitespace. Majoritatea inserărilor sunt jurnalul, inclusiv modificările sale preexistente.
+5. Verificare prin `node --input-type=module -e` și `git config --local --get user.name` / `git config --local --get user.email` executate ca subprocese cu output capturat numai în memorie — exit0; identitatea corespunde exact celei autorizate de operator; emailul nu este reprodus în jurnal. Nu s-a modificat configurația locală/globală.
+6. `git commit -m 'Fix local Codex deadlines, progress and per-thread ownership'` — exit0, aprobare platformă pentru .git; commit f4fb6b5debce7defd4b239f9cbcdb5ee4ae58dd4, autor leverage50x,10 fișiere.
+7. `git log -1 --format='%H %an %s' && git status --short --branch && node .local-run/review-publication.mjs stage2b-local-control > .local-run/execution-committed-audit.log 2>&1` — exit0; commitul nou verificat, branch ahead1 înainte de push. Audit: 10 commituri/151 bloburi/49 fișiere; historyFindings=0, workingFindings=0, forbiddenPaths=0; Stage1 first commit retained=true.
+8. `git push origin stage2b-local-control` — exit0, aprobare platformă pentru publicarea explicit autorizată;672190f..f4fb6b5, fără force, fără main/taguri.
+9. `gh run list --repo leverage50x/agents --branch stage2b-local-control --commit f4fb6b5debce7defd4b239f9cbcdb5ee4ae58dd4 --limit 5 --json databaseId,headSha,status,conclusion,url,workflowName` — exit0; run40518220908 inițial queued.
+10. `git status --short --branch && git log -1 --format='%H %an' && git diff --check` și sumarul auditului prin node — exit0; repository curat și branch sincronizat înaintea acestei completări postcommit.
+11. `gh api repos/leverage50x/agents/commits/stage2b-local-control --jq '{sha:.sha,html_url:.html_url,files:[.files[].filename]}'` — exit0; GitHub confirmă exact hash-ul și toate cele10 fișiere. Repository PRIVATE verificat anterior.
+12. `gh run view 40518220908 --repo leverage50x/agents --json status,conclusion,headSha,url,jobs` — exit0; inițial queued. `gh run watch 40518220908 --repo leverage50x/agents --exit-status --interval 5` — rezultatul real este în raportul final de mai jos, nu presupus din queued. Citirea finală `gh run view 40518220908 --repo leverage50x/agents --json status,conclusion,headSha,url,jobs > .local-run/execution-final-ci.json` — exit0; status=completed, conclusion=success, exact HEAD=f4fb6b5debce7defd4b239f9cbcdb5ee4ae58dd4.
+
+CI: https://github.com/leverage50x/agents/actions/runs/40518220908. `npm ci` / `npm test` și numărul testelor sunt verificate din etapele/logul GitHub; nu se deduc doar din rezultatul local. Rezultatul watch/finalele verificări sunt completate după executare dacă diferă.
+
+Această completare este locală intenționat: un singur fișier jurnal modificat după commitul publicat. Remedierile și jurnalul până la audit/staging sunt în GitHub. Instanța aplicației preexistentă a fost lăsată pornită; nu s-a dat stop/start și nu s-au semnalizat procesele sale Codex. Încărcarea controllerului nou necesită o repornire ulterioară aleasă de operator. Nu s-au activat scrierea, execuția pe alte dispozitive sau alte funcționalități.
+
+Confirmări finale executate: watch exit0; gh run view --log redirecționat în .local-run/execution-ci.log exit0. Citirea raportului CI și rg pentru tests/pass/fail/npm/Node exit0 confirmă Node v22.23.3, npm ci și npm test reușite,153 teste PASS/0 FAIL. Toate etapele, inclusiv cleanup, au conclusion success. apply_patch a creat și completat helperul ignorat .local-run/append-execution-publication.mjs; node .local-run/append-execution-publication.mjs înscrie această completare locală.
+
+Verificări după completarea jurnalului, executate de helper (stdout auditului capturat în memorie, fără secrete):
+
+```json
+[
+  {
+    "command": "git diff --check",
+    "exit": 0,
+    "result": ""
+  },
+  {
+    "command": "git status --short --branch",
+    "exit": 0,
+    "result": "## stage2b-local-control...origin/stage2b-local-control\n M \"comenzi executate agent.md\""
+  },
+  {
+    "command": "node .local-run/review-publication.mjs stage2b-local-control",
+    "exit": 0,
+    "historyFindings": 0,
+    "workingFindings": 0
+  }
+]
+```
+
+git diff --check final după raportul de mai sus: exit0. Numai jurnalul rămâne local modificat.
+
+## 2026-10-27 — Resume și curățenie aprofundată, Stage 2B
+
+CWD: [WORKSPACE]. Branch stage2b-local-control, HEAD inițial f4fb6b5debce7defd4b239f9cbcdb5ee4ae58dd4. Singura modificare preexistentă era acest jurnal(+48linii postcommit); păstrată, cu backup privat .local-run/cleanup-preexisting-journal.md. Nicio modificare personală necunoscută eliminată. Userul a autorizat explicit implementarea/refactoring/teste/commit/push numai pe acest branch, fără main/taguri/force/globalconfig/credchanges.
+
+Ordine: audit/Resume și probe reale mai întâi, apoi curățenie source/UI/docs/backend, apoi verificare completă. Toți subagenții au primit AGENTS actual, scope disjunct, interdicții pentru secrets/transcripts/personalsignals/Gitmutations și obligația ledgerului. Delegările/review-urile au fost coordonate, iar toate patchurile partajate au fost predate/înghețate înaintea integrării root.
+
+### Agent principal — comenzi și editări
+
+Ordinea este cea de lansare înregistrată; comenzile independente au rulat uneori în paralel. Rezultatele provin din tool-urile reale. Căile personale și thread-ul personal sunt anonimizate explicit. apply_patch este tool de editare, nu shell; exit0 aici înseamnă editare reușită. Așteptările/poll-urile au confirmat codul final al sesiunilor și nu sunt teste distincte.
+
+1. Exit 0 — ## stage2b-local-control...origin/stage2b-local-control
+ M "comenzi executate agent.md"
+f4fb6b5debce7defd4b239f9cbcdb5ee4ae58dd4 Fix local Codex deadlines, progress and per-thread ownership
+672190f6eca19181c0ea6fcb8390938235d5e8ef Remove demo workflow and keep local read-only Codex control
+origin	https://github.com/leverage50x/agents.git (fetch)
+origin	https://github.com/leverage50x/agents.git (push)
+
+
+```text
+git status --short --branch && git log -2 --format='%H %s' && git remote -v
+```
+
+2. Exit 0 — Citire instrucțiuni/configurație/controller.
+
+```text
+cat AGENTS.md && cat package.json
+```
+
+3. Exit 0 — Citire instrucțiuni/configurație/controller.
+
+```text
+sed -n '1,260p' src/codex-control.mjs
+```
+
+4. Exit 0 — Citire instrucțiuni/configurație/controller.
+
+```text
+sed -n '260,580p' src/codex-control.mjs
+```
+
+5. Exit 0 — Citire lifecycle/teste/scheme sau skill oficial; fără date private.
+
+```text
+sed -n '1,290p' src/agent.mjs
+```
+
+6. Exit 0 — Citire lifecycle/teste/scheme sau skill oficial; fără date private.
+
+```text
+sed -n '1,155p' test/codex-control.test.mjs && sed -n '425,685p' test/codex-control.test.mjs
+```
+
+7. Exit 0 — Citire lifecycle/teste/scheme sau skill oficial; fără date private.
+
+```text
+sed -n '1,170p' .local-run/execution-native-lock-probe.mjs
+```
+
+8. Exit 0 — Citire lifecycle/teste/scheme sau skill oficial; fără date private.
+
+```text
+cat [USER_HOME]/.codex/skills/.system/openai-docs/SKILL.md
+```
+
+9. Exit 0 — Consultare documentație oficială pentru lifecycle (nu execuție MCP).
+
+```text
+web search official OpenAI: Codex App Server thread unsubscribe shutdown active writer
+```
+
+10. Exit 0 — Documentație deschisă: turn completed nu înseamnă unload; unsubscribe grace30m.
+
+```text
+web open https://learn.chatgpt.com/docs/app-server
+```
+
+11. Exit 0 — Integrare HTTP/fixtures inspectate.
+
+```text
+sed -n '1,115p' src/hub.mjs && sed -n '1,100p' test/local.integration.test.mjs && sed -n '115,165p' test/codex-control.test.mjs
+```
+
+12. Exit 0 — Worker de execuție perturn închis înaintelease-release; metadata persistent fărăthreads; eliminat loadedstale; fatalssticky.
+
+```text
+apply_patch src/codex-control.mjs
+```
+
+13. Exit 0 — Binding original păstrat întreworkers; cleanup confirmat înainteleasing; shutdown neconfirmat fatal/failclosed.
+
+```text
+apply_patch src/codex-control.mjs
+```
+
+14. Exit 1 — Regresii controller inițiale după patch.
+
+```text
+node test/codex-control.test.mjs > .local-run/cleanup-controller-first.tap 2>&1
+```
+
+15. Exit 0 — Confirmare close event cu WeakSet; exitwrapper nu certifică release dacăpipe rămâne deschis.
+
+```text
+apply_patch src/codex-control.mjs
+```
+
+16. Exit 0 — Regresii vechi relevante identificate pentru semantica Loaded/fatal.
+
+```text
+rg -n -C 4 'not ok|error:|expected:|actual:' .local-run/cleanup-controller-first.tap
+```
+
+17. Exit 0 — Citire teste/API sau help CLI readonly.
+
+```text
+sed -n '690,720p' test/codex-control.test.mjs && sed -n '440,478p' test/codex-control.test.mjs
+```
+
+18. Exit 0 — Citire teste/API sau help CLI readonly.
+
+```text
+codex exec --help && codex --version
+```
+
+19. Exit 0 — Citire teste/API sau help CLI readonly.
+
+```text
+sed -n '175,232p' src/hub.mjs && sed -n '165,197p' src/hub.mjs
+```
+
+20. Exit 0 — Metadata fatal nu poate fi ocolit prin worker nou; testeconfirmareinventorydiscovered și recuperaretransportseparat.
+
+```text
+apply_patch src/codex-control.mjs test/codex-control.test.mjs
+```
+
+21. Exit 0 — Regresii controller cu lifecycle nou.
+
+```text
+node test/codex-control.test.mjs > .local-run/cleanup-controller-fixed.tap 2>&1
+```
+
+22. Exit 0 — Feedbackreview: propagare fatalmetadata înainte/în timpul workerului, close neconfirmat nu este ascuns.
+
+```text
+apply_patch src/codex-control.mjs
+```
+
+23. Exit 0 — Controller42/42dupăadaptări (înainteultimeiîntăriri metadata); whitespacecurat.
+
+```text
+tail -n 10 .local-run/cleanup-controller-fixed.tap && git diff --check
+```
+
+24. Exit 0 — Helper privat HTTPHub+agent+Codex real, CLIexecsursăcliexplicită, protecțiiidentice. Doarthreadssintetice;fărăoutputmodel înlog.
+
+```text
+apply_patch .local-run/cleanup-real-integration.mjs
+```
+
+25. Exit 1 — Aprobareplatformă pentruCLIAppServermetadate+loopbacksyntheticintegration.
+
+```text
+node .local-run/cleanup-real-integration.mjs
+```
+
+26. Exit 0 — Review: pollnuîntoarceACKvechidupăfatalînaceeașirafală.
+
+```text
+apply_patch src/codex-control.mjs
+```
+
+27. Exit 0 — Controller+lifecycle suite.
+
+```text
+node --test test/codex-control.test.mjs test/codex-lifecycle.test.mjs > .local-run/cleanup-resume-regressions.tap 2>&1
+```
+
+28. Exit 0 — Suitedupălifecycleînaintecurățenie, loopbackautorizat.
+
+```text
+npm test > .local-run/cleanup-resume-all-tests.tap 2>&1
+```
+
+29. Exit 0 — Cercetaremetadate/source CLI pentruvalidarefărălărgirefiltre.
+
+```text
+rg -n 'session.source|thread_source|thread-source|SessionSource' .local-run/execution-official-tree.json .local-run/filter-official-resume-picker.rs .local-run/execution-official-thread-processor.rs
+```
+
+30. Exit 0 — Suite160/160PASSdupăResume lifecycle.
+
+```text
+tail -n 10 .local-run/cleanup-resume-all-tests.tap && rg -n 'not ok|fail|error:' .local-run/cleanup-resume-all-tests.tap
+```
+
+31. Exit 0 — VerificareopțiuneTUI --no-alt-screen; niciunCLIturn.
+
+```text
+codex --help
+```
+
+32. Exit 0 — CLIexecare sourceExecanalyticscli; helperTUIrealPTYno-daemonîlocuieșteproba, fărălărgirefiltru. Oricedialogtrust/loginopreșteproba.
+
+```text
+apply_patch .local-run/cleanup-cli-pty.py .local-run/cleanup-real-integration.mjs
+```
+
+33. Exit 0 — ProbarealăTUICLI→dashboard.
+
+```text
+node .local-run/cleanup-real-integration.mjs
+```
+
+34. Exit 0 — {"firstFailurePreserved":true,"preexistingJournalPreserved":true,"secretsPrinted":false}
+
+
+```text
+node --input-type=module -e 'import fs from "node:fs";fs.copyFileSync(".local-run/cleanup-real-result.json",".local-run/cleanup-real-first-attempt.json",fs.constants.COPYFILE_EXCL);fs.chmodSync(".local-run/cleanup-real-first-attempt.json",0o600);fs.copyFileSync("comenzi executate agent.md",".local-run/cleanup-preexisting-journal.md",fs.constants.COPYFILE_EXCL);fs.chmodSync(".local-run/cleanup-preexisting-journal.md",0o600);console.log(JSON.stringify({firstFailurePreserved:true,preexistingJournalPreserved:true,secretsPrinted:false}));'
+```
+
+35. Exit 0 — Regresiefatalmetadataînainteșiîntimpulworkerului; fărăreîncărcareocolindpolicy.
+
+```text
+apply_patch test/codex-control.test.mjs
+```
+
+36. Exit 0 — Regresiicontrollerfinale43cazuri.
+
+```text
+node test/codex-control.test.mjs > .local-run/cleanup-controller-final.tap 2>&1
+```
+
+37. Exit 0 — Auditcompletfișiere/source/exports, nusecrete.
+
+```text
+rg --files -g '!.local-run/**' -g '!node_modules/**' -g '!package-lock.json' && git ls-files && cat .gitignore && cat .env.example
+```
+
+38. Exit 0 — Auditcompletfișiere/source/exports, nusecrete.
+
+```text
+sed -n '1,265p' src/codex-app-server.mjs && cat src/codex-session-metadata.mjs
+```
+
+39. Exit 0 — Auditcompletfișiere/source/exports, nusecrete.
+
+```text
+cat src/local-config.mjs && sed -n '1,235p' src/credentials.mjs
+```
+
+40. Exit 0 — Auditcompletfișiere/source/exports, nusecrete.
+
+```text
+rg -n '^export|^import|^const |^function|^class|^async function' src/*.mjs
+```
+
+41. Exit 0 — Extrassharedreapwatch/closeownedCodexhandle; douăstrategiiledispar; neconfirmatfailclosed.
+
+```text
+apply_patch src/codex-child.mjs src/codex-control.mjs
+```
+
+42. Exit 0 — ReviewAPIsharedmetadataînaintedeintegrare și verificareEOF.
+
+```text
+sed -n '1,95p' src/codex-session-metadata.mjs && sed -n '1,120p' src/codex-app-server.mjs && sed -n '155,215p' src/codex-app-server.mjs
+```
+
+43. Exit 0 — ReviewAPIsharedmetadataînaintedeintegrare și verificareEOF.
+
+```text
+sed -n '380,432p' src/codex-control.mjs && tail -n 10 src/inventory.mjs && git diff --stat
+```
+
+44. Exit 0 — Controller și adaptor folosescaceeașiproiecțiemetadata/comparator și aceeașireap/closeowned; eliminatenormalizăristopduplicate.
+
+```text
+apply_patch src/codex-control.mjs src/codex-app-server.mjs src/codex-session-metadata.mjs
+```
+
+45. Exit 1 — Suiteadaptor/controller/inventardupărefactor.
+
+```text
+node --test test/codex-control.test.mjs test/codex-lifecycle.test.mjs test/app-server.test.mjs test/inventory.test.mjs test/codex-session-metadata.test.mjs > .local-run/cleanup-shared-tests.tap 2>&1
+```
+
+46. Exit 0 — Helperlauncherpe copiesurse reale/credsynthetic/porttemporar; nouserprivatemutations.
+
+```text
+apply_patch .local-run/cleanup-launcher-real.mjs
+```
+
+47. Exit 1 — VerificareCLIlauncheractualizareframeworkfărărestartinstanțăpersonală.
+
+```text
+node .local-run/cleanup-launcher-real.mjs
+```
+
+48. Exit 0 — Diagnosticheltălauncherfixture+rapoarteteste.
+
+```text
+sed -n '13,24p' src/launcher.mjs && sed -n '130,172p' src/launcher.mjs && sed -n '279,310p' src/hub.mjs
+```
+
+49. Exit 2 — Diagnosticheltălauncherfixture+rapoarteteste.
+
+```text
+sed -n '1,110p' .local-run/cleanup-backend-ledger.md && tail -n 15 .local-run/cleanup-test-ledger.md
+```
+
+50. Exit 0 — Fixtureinițialrespinsdewhitelistconfig; corectatcheilefixture-uluinumai,fărărăzirevalidărilor.
+
+```text
+apply_patch .local-run/cleanup-launcher-real.mjs
+```
+
+51. Exit 0 — Reverificarelauncherizolat.
+
+```text
+node .local-run/cleanup-launcher-real.mjs
+```
+
+52. Exit 0 — Reviewbackend și controller43/43PASS.
+
+```text
+git status --short --branch && git diff -- src/hub.mjs src/launcher.mjs && tail -n 10 .local-run/cleanup-controller-final.tap
+```
+
+53. Exit 0 — FixturesTTLși heartbeatproiecțieinspectate.
+
+```text
+sed -n '1,42p' test/local-control.test.mjs && tail -n 75 test/local-control.test.mjs && sed -n '65,96p' src/hub.mjs
+```
+
+54. Exit 0 — Eliminatalsecondmap și metadataeligibilityconfirmedneprodus; expirăjoburisecvențăreconectareînainteheartbeatrescrie timpul.
+
+```text
+apply_patch src/hub.mjs
+```
+
+55. Exit 0 — Regresii reconectarefărăpollnureînviejobexpiratși metadataidleownershipnecertificată.
+
+```text
+apply_patch test/local-control.test.mjs
+```
+
+56. Exit 1 — Suitecompletăpostrefactorfinal.
+
+```text
+npm test > .local-run/cleanup-final-tests.tap 2>&1
+```
+
+57. Exit 0 — Controlled real pre-refactor proof preserved.
+
+
+```text
+node --input-type=module -e 'import fs from "node:fs";fs.copyFileSync(".local-run/cleanup-real-result.json",".local-run/cleanup-real-before-refactor.json",fs.constants.COPYFILE_EXCL);fs.chmodSync(".local-run/cleanup-real-before-refactor.json",0o600);console.log("Controlled real pre-refactor proof preserved.");'
+```
+
+58. Exit 1 — Probarealăfinalădupărefactor, copiiiproprii/portnoufixture.
+
+```text
+node .local-run/cleanup-real-integration.mjs
+```
+
+59. Exit 0 — Auditfișiere/documentație/regresii și coveragepăstrat.
+
+```text
+cat leverage && cat package-lock.json && cat LICENSE && sed -n '1,32p' ETAPA-2A-ARHITECTURA.md && sed -n '1,32p' ETAPA-2-LAPTOP2.md && sed -n '1,28p' INVESTIGATIE-GIT-CODEX.md && sed -n '1,28p' VERIFICARE.md
+```
+
+60. Exit 0 — Diffcheck0; singuramatchrgreferințăistoricătagStage1README, niciuncodDEMOcurent.
+
+```text
+git diff --check && rg -n 'DEMO|demo|codex-runner|listSessionIds|ownerAlive|Loaded by this app|active-confirmed' src package.json .github README.md INSTRUCTIUNI-RO.md
+```
+
+61. Exit 0 — Auditfișiere/documentație/regresii și coveragepăstrat.
+
+```text
+git diff -- test/inventory.test.mjs test/codex-session-metadata.test.mjs test/app-server.test.mjs test/launcher.test.mjs
+```
+
+62. Exit 0 — Suita170cazuri:168PASS/2FAIL, investigate fără presupuneri.
+
+```text
+rg -n -C 10 'not ok|error:|expected:|actual:' .local-run/cleanup-final-tests.tap
+```
+
+63. Exit 0 — Corectatefixture: înlocuit sleep1100fragil cuobservareexpiry; testexpiry120s mențineheartbeats5s distinctdeoffline.
+
+```text
+apply_patch test/launcher.test.mjs test/local-control.test.mjs
+```
+
+64. Exit 0 — Reverificarecompletădupăinvestigare2FAIL.
+
+```text
+npm test > .local-run/cleanup-final-tests-verified.tap 2>&1
+```
+
+65. Exit 0 — {"status":"configured-only","configuredNames":0,"liveMcpInvoked":false,"privateConfigurationPrinted":false}
+
+
+```text
+node --input-type=module -e 'import {listMcp,codexHome} from "./src/inventory.mjs";const m=listMcp(codexHome()); console.log(JSON.stringify({status:m.status,configuredNames:m.servers.length,liveMcpInvoked:false,privateConfigurationPrinted:false}));'
+```
+
+66. Exit 0 — Platformapproved: lockselectedîncăde90565pp15917external; appleaseabsent, HubagentOnline, mtimecontroller>agentstartdeci restartnecesarpentruNOULpatch.
+
+```text
+node .local-run/cleanup-owner-audit.mjs && ./leverage status
+```
+
+67. Exit 0 — PRIVATE/ADMIN,originbranchf4fb6b5 încăneschimbat.
+
+```text
+gh repo view leverage50x/agents --json nameWithOwner,isPrivate,viewerPermission,defaultBranchRef && git ls-remote --heads origin stage2b-local-control
+```
+
+68. Exit 0 — Citireraportmetadatafixture/audithelper.
+
+```text
+sed -n '1,155p' .local-run/cleanup-cli-source-audit.mjs && sed -n '1,70p' .local-run/review-publication.mjs && tail -n 8 .local-run/cleanup-inventory-ledger.md
+```
+
+69. Exit 0 — {"scope":"latest synthetic workspace only","sources":[{"source":"vscode","archived":false},{"source":"cli","archived":false}],"transcriptsRead":false,"modelCalls":false}
+(node:2) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+```text
+node --input-type=module -e 'import fs from "node:fs";import path from "node:path";import os from "node:os";import {DatabaseSync} from "node:sqlite";const local=fs.realpathSync(".local-run");const roots=fs.readdirSync(local,{withFileTypes:true}).filter(d=>d.isDirectory()&&/^cleanup-real-[A-Za-z0-9]+$/.test(d.name)).map(d=>path.join(local,d.name,"workspace")).filter(p=>fs.existsSync(p)).sort((a,b)=>fs.statSync(b).birthtimeMs-fs.statSync(a).birthtimeMs);const db=new DatabaseSync(path.join(os.homedir(),".codex","state_5.sqlite"),{readOnly:true});try{const rows=db.prepare("SELECT source,archived FROM threads WHERE cwd=? LIMIT 100").all(roots[0]);console.log(JSON.stringify({scope:"latest synthetic workspace only",sources:rows.map(r=>({source:r.source,archived:!!r.archived})),transcriptsRead:false,modelCalls:false}));}finally{db.close();}'
+```
+
+70. Exit 0 — Reviewfinalcod/documentație/semanticaUI,lifecycle și permisii păstrate.
+
+```text
+git diff --check && git diff -- src/codex-control.mjs src/codex-child.mjs src/hub.mjs
+```
+
+71. Exit 0 — Reviewfinalcod/documentație/semanticaUI,lifecycle și permisii păstrate.
+
+```text
+git diff -- README.md ETAPA-2B-LOCAL.md src/ui.mjs test/ui.test.mjs
+```
+
+72. Exit 0 — Numai.env.exampleurmărit; runtime/configignorate; referințeprotejatecitite.
+
+```text
+git ls-files '.env' '.env.*' '.local-run/**' '*.pem' '*.key' && git check-ignore .env .local-run/cleanup-real-result.json .codex/config.toml && git show-ref --heads --tags
+```
+
+73. Exit 0 — Codex CLIstatusLogged inusingChatGPT,fărălogin/configchanges.
+
+```text
+codex login status
+```
+
+74. Exit 0 — Auditistoric+workspaceînaintedepregătirearaportului.
+
+```text
+node .local-run/review-publication.mjs stage2b-local-control > .local-run/cleanup-audit-before-report.log 2>&1
+```
+
+75. Exit 0 — Statisticiși fișiereintenționateînaintedocfinal.
+
+```text
+git diff --numstat && git status --short
+```
+
+76. Exit 0 — Raportcomplet, dateverificate/simulări/TUIrepeatinconcludent/ownerpersonalreal/statsplaceholderprecommit.
+
+```text
+apply_patch RAPORT-CURATENIE.md
+```
+
+### Citiri/verificări suplimentare centralizate
+
+Aceste comenzi reale sunt grupate separat fiindcă registrul inițial nu le intercalase; nu se inventează timestampuri fine.
+
+- Exit 0: `node --input-type=module -e 'import fs from "node:fs";import {spawnSync} from "node:child_process";const dirs=["src","test","test-support"];let checked=0;for(const dir of dirs)for(const name of fs.readdirSync(dir)){if(!name.endsWith(".mjs"))continue;const file=dir+"/"+name;const r=spawnSync(process.execPath,["--check",file],{encoding:"utf8"});if(r.status!==0){console.log(JSON.stringify({file,exit:r.status}));process.exit(1);}checked++;}console.log(JSON.stringify({syntaxChecked:checked,failed:0}));' && git diff --check` — 30fișiereESM sintaxăPASS,diffcheck0.
+- Exit 0: `rg -n 'defaultActivity|confirmed|Loaded by this app|session-activity-unverified|codex-timeout' src test README.md ETAPA-2B-LOCAL.md` — Localizatstărideadpentruștergereintenționată.
+- Exit 0: `sed -n '233,255p' test/launcher.test.mjs && sed -n '400,429p' test/local-control.test.mjs` — Diagnosticefixtureale2eșecurinoi.
+- Exit 0: `cat INSTRUCTIUNI-RO.md && cat PROMPT-CODEX-RO.md && cat codex-project.example.toml && cat CODEX-AUTONOMIE.md && cat .github/workflows/ci.yml` — Documentațiestorică/dezvoltareCIverificată,păstrată.
+- Exit 0: `git diff --check && git diff --stat && rg -n 'ownerAlive|failJob|expireDisconnected|Map\(' src/launcher.mjs src/hub.mjs` — Reviewsimplificăribackend.
+- Exit 0: `tail -n 10 .local-run/cleanup-final-tests-verified.tap && git diff --check` — 170/170PASS,0skip/cancel/FAIL.
+- Exit 0: `node --input-type=module -e 'import fs from "node:fs";const r=JSON.parse(fs.readFileSync(".local-run/publication-audit.json","utf8"));console.log(JSON.stringify({commits:r.history.commitsScanned,blobs:r.history.blobsScanned,historyFindings:r.history.findings.length,forbiddenPaths:r.history.forbiddenPaths.length,files:r.workingTree.filesReviewed,workingFindings:r.workingTree.findings.length}));'` — Audit10commituri151blobs51fișiere0constatăriînainteaRAPORT.
+
+### Subagent — Proprietar nativ și diferența exec/TUI, metadata-only
+
+### Audit metadata Resume — subagent resume_owner_audit
+
+CWD pentru toate comenzile: `[WORKSPACE]`. Numai helpers/raport/ledger ignorate în `.local-run` au fost create. Source, teste și jurnalul global nu au fost modificate. Nu s-au executat turns, nu s-au citit auth/env/cmdline/transcripturi, nu s-au achiziționat/șters/forțat lock-uri și nu s-au trimis semnale. OpenAI Docs a fost citit; nu s-a făcut rețea deoarece părintele a limitat subtaskul la metadata și cache-ul oficial existent.
+
+#### Comenzi în ordine
+
+1. `cat AGENTS.md` — exit0.
+
+Instrucțiuni citite.
+
+2. `sed -n '1,210p' src/launcher.mjs` — exit0.
+
+Cod launcher metadata/ownership citit.
+
+3. `rg -n 'writer_lock|thread-writer-locks|coordination|File::try_lock' .local-run/execution-official-writer-lock.rs` — exit0.
+
+Implementare lock oficială cache inspectată.
+
+4. `cat [USER_HOME]/.codex/skills/.system/openai-docs/SKILL.md` — exit0.
+
+Skill openai-docs citit pentru troubleshooting Codex.
+
+5. `apply_patch .local-run/cleanup-owner-audit.mjs` — exit0.
+
+Helper ignorat creat: numai lock/proc/launcher metadata, fără auth/env/cmdline/transcripturi/semafoare.
+
+6. `node .local-run/cleanup-owner-audit.mjs` — exit0.
+
+```text
+{
+  "nativeLock": {
+    "filePresent": true,
+    "fileRegular": true,
+    "ownerMatchesCurrentUid": true,
+    "held": []
+  },
+  "appLocks": [
+    {
+      "scope": "workspace",
+      "present": false
+    },
+    {
+      "scope": "selected-thread",
+      "present": false
+    }
+  ],
+  "launcher": {
+    "hub": {
+      "recorded": true,
+      "pid": 281993,
+      "generationMatches": false,
+      "state": null,
+      "unavailable": "ENOENT",
+      "uidMatches": false,
+      "startedAt": null,
+      "predatesCurrentCommit": null
+    },
+    "agent": {
+      "recorded": true,
+      "pid": 282002,
+      "generationMatches": false,
+      "state": null,
+      "unavailable": "ENOENT",
+      "uidMatches": false,
+      "startedAt": null,
+      "predatesCurrentCommit": null
+    }
+  },
+  "visibleCodexProcessCount": 1,
+  "sameUidExecutableMetadataDenied": 0,
+  "workspaceCommit": "f4fb6b5debce7defd4b239f9cbcdb5ee4ae58dd4",
+  "rawEnvironmentRead": false,
+  "cmdlineRead": false,
+  "transcriptsRead": false,
+  "signalsSent": false,
+  "locksChanged": false,
+  "modelTurnsStarted": false
+}
+```
+
+7. `node .local-run/cleanup-owner-audit.mjs` — exit0; require_escalated pentru vizibilitatea read-only /proc a proceselor host; nu bypass al politicii controllerului..
+
+```text
+{
+  "nativeLock": {
+    "filePresent": true,
+    "fileRegular": true,
+    "ownerMatchesCurrentUid": true,
+    "held": [
+      {
+        "mechanism": "FLOCK",
+        "access": "WRITE",
+        "pid": 90565,
+        "state": "S",
+        "ownerRole": "external-or-unclassified",
+        "parentPid": 15917,
+        "startedAt": "2026-10-26T15:00:13.840Z"
+      }
+    ]
+  },
+  "appLocks": [
+    {
+      "scope": "workspace",
+      "present": false
+    },
+    {
+      "scope": "selected-thread",
+      "present": false
+    }
+  ],
+  "launcher": {
+    "hub": {
+      "recorded": true,
+      "pid": 281993,
+      "generationMatches": true,
+      "state": "S",
+      "unavailable": null,
+      "uidMatches": true,
+      "startedAt": "2026-10-27T17:39:38.700Z",
+      "predatesCurrentCommit": false
+    },
+    "agent": {
+      "recorded": true,
+      "pid": 282002,
+      "generationMatches": true,
+      "state": "S",
+      "unavailable": null,
+      "uidMatches": true,
+      "startedAt": "2026-10-27T17:39:38.930Z",
+      "predatesCurrentCommit": false,
+      "controllerSourceModifiedAfterStart": false
+    }
+  },
+  "visibleCodexProcessCount": 5,
+  "sameUidExecutableMetadataDenied": 2,
+  "workspaceCommit": "f4fb6b5debce7defd4b239f9cbcdb5ee4ae58dd4",
+  "rawEnvironmentRead": false,
+  "cmdlineRead": false,
+  "transcriptsRead": false,
+  "signalsSent": false,
+  "locksChanged": false,
+  "modelTurnsStarted": false
+}
+```
+
+8. `apply_patch .local-run/cleanup-owner-audit.mjs` — exit0.
+
+Adăugată clasificare safe exe/comm/parentchain maxim6 niveluri, fără cmdline ori paths personale afișate.
+
+9. `node .local-run/cleanup-owner-audit.mjs` — exit0; require_escalated pentru /proc host read-only, ca verificarea anterioară..
+
+```text
+{
+  "nativeLock": {
+    "filePresent": true,
+    "fileRegular": true,
+    "ownerMatchesCurrentUid": true,
+    "held": [
+      {
+        "mechanism": "FLOCK",
+        "access": "WRITE",
+        "pid": 90565,
+        "state": "S",
+        "ownerRole": "external-or-unclassified",
+        "parentPid": 15917,
+        "startedAt": "2026-10-26T15:00:12.840Z",
+        "parentChain": [
+          {
+            "pid": 90565,
+            "parentPid": 15917,
+            "state": "S",
+            "executableCategory": "codex",
+            "executableUnderVSCodeServer": false,
+            "commCategory": "codex"
+          },
+          {
+            "pid": 15917,
+            "parentPid": 1,
+            "state": "S",
+            "executableCategory": "codex",
+            "executableUnderVSCodeServer": false,
+            "commCategory": "codex"
+          },
+          {
+            "pid": 1,
+            "parentPid": null,
+            "state": "S",
+            "executableUnavailable": "EACCES",
+            "commCategory": "systemd"
+          }
+        ]
+      }
+    ]
+  },
+  "appLocks": [
+    {
+      "scope": "workspace",
+      "present": false
+    },
+    {
+      "scope": "selected-thread",
+      "present": false
+    }
+  ],
+  "launcher": {
+    "hub": {
+      "recorded": true,
+      "pid": 281993,
+      "generationMatches": true,
+      "state": "S",
+      "unavailable": null,
+      "uidMatches": true,
+      "startedAt": "2026-10-27T17:39:37.700Z",
+      "predatesCurrentCommit": false
+    },
+    "agent": {
+      "recorded": true,
+      "pid": 282002,
+      "generationMatches": true,
+      "state": "S",
+      "unavailable": null,
+      "uidMatches": true,
+      "startedAt": "2026-10-27T17:39:37.930Z",
+      "predatesCurrentCommit": false,
+      "controllerSourceModifiedAfterStart": false
+    }
+  },
+  "visibleCodexProcessCount": 5,
+  "sameUidExecutableMetadataDenied": 2,
+  "workspaceCommit": "f4fb6b5debce7defd4b239f9cbcdb5ee4ae58dd4",
+  "rawEnvironmentRead": false,
+  "cmdlineRead": false,
+  "transcriptsRead": false,
+  "signalsSent": false,
+  "locksChanged": false,
+  "modelTurnsStarted": false
+}
+```
+
+#### Subprocesele helperului
+
+Fiecare dintre cele3 rulări ale helperului a executat `getconf CLK_TCK` pentru conversia timestampului și `git show -s --format=%H%n%ct HEAD` pentru commit/time. Git a ieșit0, demonstrat de câmpul workspaceCommit. Codul getconf nu a fost inclus separat în raportul helperului; outputul numeric a permis conversia, dar nu se inventează un exit explicit. Nu s-au executat alte comenzi/subagenți.
+
+#### Concluzie verificată și limite
+
+- Prima rulare în sandbox vedea namespace-ul /proc izolat: PID-urile launcherului lipseau și lock-ul host nu era vizibil. Această absență nu este dovadă că sesiunea este liberă. Nu se raportează fals PASS.
+- Rulările aprobate pe host confirmă un FLOCK WRITE actual pe inode-ul lock-ului thread-ului indicat de operator, deținut de PID90565 (codex), PPID15917 (codex), apoi systemd PID1. Ambii executabili accesibili sunt codex, fără cale .vscode-server. Exe pentru PID1 este EACCES. Nu există dovadă suficientă pentru eticheta exactă CLI/VSCode/AppServer; parentchain nu conține un extensionhost observabil.
+- Ownerul90565 NU este descendentul agentului aplicației. El este viu (state S), cu start aproximativ26oct2026. Timestampurile sunt conversii btime+ticks și pot varia aproximativ1s când ceasul sistemului este ajustat; nu sunt utilizate ca identificatori de generație. Identificarea generației folosește exact start ticks, nu timestampul civil.
+- Lock-urile proprii aplicației pentru workspace și thread-ul selectat lipsesc. Un fișier de lock nativ există și este regular/owned currentUID; fișierul singur nu dovedește Busy, FLOCK-ul real corelat pe dev/inode îl dovedește.
+- Agent282002 și Hub281993 corespund exact PID/startTime/UID din registrul launcherului. Au pornit aproximativ27oct2026 17:39UTC, după commit f4fb6b5. Source controller mtime nu era după pornirea agentului la acest audit: nu avem indiciul codului vechi încărcat pentru incidentul curent. Aceasta nu atestă fiecare modul/digest de cod din memorie, dar exclude explicația simplă de start anterior commitului.
+- Procesul Codex282029 este descendentul agentului aplicației; ownerul thread-ului afectat este alt PID. Două metadate exe ale aceluiași UID sunt EACCES, deci enumerarea completă nu este certificată. FLOCK-ul selectat rămâne probă directă.
+- Busy pentru thread-ul personal selectat este REAL. Nu se forțează handoff-ul și nu se reia sesiunea. Soluția sigură este eliberarea graceful de către clientul/proprietarul original, aleasă de operator; a închide o conversație nu certifică oprirea procesului care păstrează recorderul/lock-ul. Protecțiile aplicației trebuie păstrate.
+
+Helpers înghețate după raport; părintele poate centraliza acest ledger înainte de ultimul commit. Nu s-au rulat teste automate în acest subtask, numai diagnostice read-only reale. Operațiuni finale de documentare: apply_patch a creat .local-run/cleanup-owner-ledger.md și a marcat încheierea; nu se modifică jurnalul global după commit.
+
+#### Continuare ETAPA1 — sursa CLI și filtrul dashboard
+
+La solicitarea părintelui, fără execuții native/model noi, source edit sau schimbarea criteriilor de inventar. Ordine de lansare a comenzilor din continuare (batch-urile independente sunt paralele):
+
+1. Exit0:
+
+```text
+rg -n 'thread-source|threadSource|cli|source|inventory|workspace|report|exec' .local-run/cleanup-real-integration.mjs
+```
+
+Cercetare sursă/helper/scheme pentru clasificarea reală CLI, fără citirea outputului ori transcripturilor.
+
+2. Exit0:
+
+```text
+rg --files .local-run -g '*official*' -g '*schema*' -g '*cleanup*result*' -g '*cleanup*report*'
+```
+
+Cercetare sursă/helper/scheme pentru clasificarea reală CLI, fără citirea outputului ori transcripturilor.
+
+3. Exit2:
+
+```text
+rg -n 'SessionSource|thread_source|thread-source|SubAgent|Custom|Exec' .local-run/filter-schema/v2/Thread.json .local-run/filter-schema/v2/ThreadStartParams.json .local-run/filter-official-resume-picker.rs .local-run/filter-official-session-picker.rs
+```
+
+Cercetare sursă/helper/scheme pentru clasificarea reală CLI, fără citirea outputului ori transcripturilor.
+
+4. Exit0:
+
+```text
+sed -n '1,28p' .local-run/cleanup-real-integration.mjs && sed -n '1,135p' src/codex-app-server.mjs
+```
+
+Sursă/cache inspectate pentru separarea SessionSource de thread_source; fără output/model history.
+
+5. Exit0:
+
+```text
+rg -n 'SessionSource|ThreadSource|threadSource|thread_source|source' .local-run/filter-schema/v2/ThreadListResponse.json | head -45
+```
+
+Sursă/cache inspectate pentru separarea SessionSource de thread_source; fără output/model history.
+
+6. Exit0:
+
+```text
+node --input-type=module -e 'import fs from "node:fs"; const t=JSON.parse(fs.readFileSync(".local-run/execution-official-tree.json","utf8")); console.log((t.tree||[]).filter(e=>e.type==="blob"&&(/^codex-rs\/exec\/src\//.test(e.path)||/^codex-rs\/protocol\/src\/(?:protocol|models)\.rs$/.test(e.path))).map(e=>e.path).join("\n"));'
+```
+
+Sursă/cache inspectate pentru separarea SessionSource de thread_source; fără output/model history.
+
+7. Exit0; Citire autorizată sursă publică oficială OpenAI, require_escalated pentru rețea.:
+
+```text
+set -o pipefail
+gh api 'repos/openai/codex/contents/codex-rs/exec/src/lib.rs?ref=rust-v0.163.0' --jq .content | base64 --decode > .local-run/cleanup-official-exec-lib.rs
+```
+
+Fetch în cache ignorat.
+
+8. Exit0; Citire autorizată sursă publică oficială OpenAI, require_escalated pentru rețea.:
+
+```text
+set -o pipefail
+gh api 'repos/openai/codex/contents/codex-rs/exec/src/cli.rs?ref=rust-v0.163.0' --jq .content | base64 --decode > .local-run/cleanup-official-exec-cli.rs
+```
+
+Fetch în cache ignorat.
+
+9. Exit0:
+
+```text
+rg -n -C 4 'SessionSource::Exec|thread_source|thread-source|ThreadSource|session_source' .local-run/cleanup-official-exec-lib.rs .local-run/cleanup-official-exec-cli.rs
+```
+
+Sursa oficială confirmă SessionSource::Exec hardcoded separat de thread_source analytics.
+
+10. Exit0:
+
+```text
+apply_patch .local-run/cleanup-cli-source-audit.mjs
+```
+
+Helper ignorat creat pentru SELECT read-only metadata source/thread_source/archived, strict cwd cleanup-real-*; fără auth/transcript sau UUID output.
+
+11. Exit0:
+
+```text
+node .local-run/cleanup-cli-source-audit.mjs
+```
+
+```text
+{
+  "scope": "cleanup-real synthetic workspaces only",
+  "source": "read-only official local state DB metadata",
+  "workspacesFound": 1,
+  "authOrTranscriptsRead": false,
+  "modelTurnsStarted": false,
+  "credentialsModified": false,
+  "databaseModified": false,
+  "rows": [
+    {
+      "syntheticWorkspaceIndex": 0,
+      "source": "vscode",
+      "analyticsSource": null,
+      "archived": false
+    },
+    {
+      "syntheticWorkspaceIndex": 0,
+      "source": "exec",
+      "analyticsSource": "cli",
+      "archived": false
+    }
+  ],
+  "requiredColumnsAvailable": true,
+  "analyticsColumnAvailable": true
+}
+(node:2) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+```
+
+Citire suplimentară efectuată în același batch cu fetch-urile oficiale: `sed -n '979,1020p' .local-run/filter-schema/v2/ThreadListResponse.json && sed -n '2330,2375p' .local-run/filter-schema/v2/ThreadListResponse.json` — exit0. Schema confirmă SessionSource enum cli/vscode/exec/appServer/unknown și ThreadSource string separat. Căutarea inițială a fișierului inexistent .local-run/filter-schema/v2/Thread.json a returnat exit2; s-a folosit apoi definiția din ThreadListResponse, fără a presupune conținutul unui fișier lipsă.
+
+Constatări confirmate:
+
+- Sursa oficială OpenAI `rust-v0.163.0/codex-rs/exec/src/lib.rs` linia744 construiește App Server cu `session_source: SessionSource::Exec`; la772 convertește flagul thread_source și la1463 îl transmite separat în ThreadStartParams. `exec/src/cli.rs` definește `--thread-source` ca `Option<ThreadSource>`.
+- Flagul `codex exec --thread-source cli` setează clasificarea analytics `threadSource`, NU `Thread.source` folosit de Cwd+Active/sourceKinds. Nu este o metodă validă de simulare a unui TUI CLI interactiv.
+- Confirmare runtime fără model/procese noi: helperul metadata-only a deschis default state_5.sqlite cu DatabaseSync(readOnly:true), a citit numai PRAGMA columns și SELECT source,archived,thread_source FROM threads WHERE cwd exact egal cu workspace sintetic cleanup-real-*. A găsit exact un workspace cu rândurile source=vscode/thread_source=null și source=exec/thread_source=cli, ambele nearhivate. Nu s-au selectat UUID-uri, titluri, transcripturi, preview-uri sau alte workspace-uri. Nu se certifică o schemă generală stabilă: helperul ignorat verifică prezența coloanelor și este numai diagnostic pentru versiunea instalată.
+- Warningul NodeSQLite ExperimentalWarning a fost afișat; nu este FAIL și nu au fost dezactivate warninguri/protecții. Helperul a terminat exit0, fără scriere în DB; raportul safe este .local-run/cleanup-cli-source-result.json.
+- Filtrul dashboard a exclus corect exec. Nu se schimbă sourceKinds și nu se rescriu metadatele pentru a forța o apariție falsă. Validarea CLI→dashboard trebuie făcută de root cu un TUI codex REAL în PTY, exclusiv într-un workspace sintetic și cu aceleași restricții/tooluri dezactivate, apoi ieșire graceful numai a TUI-ului de test și Resume explicit. Agentul acesta nu a executat acea probă și nu o declară PASS.
+
+Fișiere suplimentare ignorate: .local-run/cleanup-official-exec-lib.rs, .local-run/cleanup-official-exec-cli.rs, .local-run/cleanup-cli-source-audit.mjs, .local-run/cleanup-cli-source-result.json. Source/testele/criteriile inventarului și helperul root au rămas nemodificate. Ultima operațiune efectivă este apply_patch pe acest ledger; helpers din nou înghețate, la cererea părintelui. Nu s-au executat alte comenzi/teste/turns/semnale.
+
+
+
+### Subagent — Review lifecycle și corecturi de review
+
+### Review independent lifecycle Resume — subagent
+
+CWD: [WORKSPACE], branch de lucru stage2b-local-control. Task read-only: fără editări source, Git mutations, rețea/MCP, model turns, date personale, autentificare brută, transcripturi ori procese externe. S-a creat numai acest raport ignorat în .local-run. Skill openai-docs a fost citit; căutarea/rețeaua a rămas la coordonator conform delegării explicite. Nu se pretinde aplicarea unui workflow docs-first cu acces de rețea de către subagent.
+
+#### Comenzi efectiv executate
+
+1. Exit 0: `cat AGENTS.md` — AGENTS actual citit.
+
+2. Exit 0: `cat [USER_HOME]/.codex/skills/.system/openai-docs/SKILL.md` — Skill oficial openai-docs citit; fără rețea.
+
+3. Exit 0: `nl -ba src/agent.mjs | sed -n '1,290p'` — Review source/teste; fără date personale.
+
+4. Exit 0: `nl -ba src/codex-control.mjs | sed -n '150,555p'` — Review source/teste; fără date personale.
+
+5. Exit 0: `rg -n 'active|busy|completed|failed|timeout|close|run\(|listSessions|lease|recovery' test/codex-control.test.mjs test/codex-agent-restart.test.mjs test/agent-recovery.test.mjs` — Review source/teste; fără date personale.
+
+6. Exit 0: `sed -n '195,272p' src/agent.mjs` — Review lifecycle/lock/source/teste fără date personale.
+
+7. Exit 0: `sed -n '130,225p' src/codex-control.mjs` — Review lifecycle/lock/source/teste fără date personale.
+
+8. Exit 0: `sed -n '435,525p' src/codex-control.mjs` — Review lifecycle/lock/source/teste fără date personale.
+
+9. Exit 0: `sed -n '425,595p' test/codex-control.test.mjs` — Review lifecycle/lock/source/teste fără date personale.
+
+10. Exit 0: `rg -n 'WriterLock|writer_lock|try_lock|already has an active writer|LiveRecorderEntry|resume_thread|shutdown|shutdown_thread' .local-run/execution-official-writer-lock.rs .local-run/execution-official-live-writer.rs .local-run/execution-official-thread-manager.rs .local-run/execution-official-thread-processor.rs` — Review lifecycle/lock/source/teste fără date personale.
+
+11. Exit 1: `cat .local-run/filter-schema/v2/ThreadUnsubscribeResponse.json .local-run/filter-schema/v2/ThreadStatusChangedNotification.json .local-run/filter-schema/v2/ThreadStatus.json` — Scheme metadata/status lifecycle; eventualele fișiere inexistente sunt erori de căutare, nu dovezi.
+
+12. Exit 0: `sed -n '1,105p' .local-run/execution-official-writer-lock.rs && sed -n '170,200p' .local-run/execution-official-writer-lock.rs` — Review surse oficiale cache0.163 și fixture test; fără model/metadata personale.
+
+13. Exit 0: `sed -n '15,55p' .local-run/execution-official-live-writer.rs && sed -n '110,140p' .local-run/execution-official-live-writer.rs && sed -n '165,216p' .local-run/execution-official-live-writer.rs` — Review surse oficiale cache0.163 și fixture test; fără model/metadata personale.
+
+14. Exit 0: `sed -n '1270,1315p' .local-run/execution-official-thread-processor.rs && sed -n '4520,4635p' .local-run/execution-official-thread-processor.rs` — Review surse oficiale cache0.163 și fixture test; fără model/metadata personale.
+
+15. Exit 0: `rg -n 'active|idle|turn.completed|TurnComplete|TurnStarted' .local-run/execution-official-thread-status.rs` — Review surse oficiale cache0.163 și fixture test; fără model/metadata personale.
+
+16. Exit 0: `rg -n '^test\(' test/codex-control.test.mjs && sed -n '1,115p' test/codex-control.test.mjs` — Review surse oficiale cache0.163 și fixture test; fără model/metadata personale.
+
+17. Exit 0: `sed -n '135,205p' .local-run/execution-official-thread-status.rs && sed -n '275,306p' .local-run/execution-official-thread-status.rs && sed -n '435,470p' .local-run/execution-official-thread-status.rs` — Semantica ThreadStatus și shutdown recitită din surse cache; nu dovedește global proc ownership.
+
+18. Exit 1: `rg -n 'turn/completed|TurnCompletedNotification|note_turn_completed|ThreadStatusChanged' .local-run/execution-official-thread-processor.rs .local-run/execution-official-turn-processor.rs` — Semantica ThreadStatus și shutdown recitită din surse cache; nu dovedește global proc ownership.
+
+19. Exit 0: `sed -n '2450,2510p' .local-run/execution-official-thread-manager.rs` — Semantica ThreadStatus și shutdown recitită din surse cache; nu dovedește global proc ownership.
+
+Unele citiri paralele au output trunchiat; s-au recitit fragmentele relevante prin comenzile ulterioare. Eroare reală: fișierul schema v2/ThreadStatus.json nu există (cat exit1); definiția ThreadStatus a fost citită efectiv din ThreadStatusChangedNotification.json. Căutarea turn/completed/TurnCompletedNotification/note_turn_completed în cele două cache-uri processor a întors exit1 fără rezultate; nu este folosită ca dovadă că protocolul nu emite finalizare.
+
+#### Constatări
+
+1. În implementarea de la începutul acestei runde, run.finally curăță timer-ele și lease-urile aplicației, apoi active=null. Nu închide App Server și nu eliberează loaded. Completed și failed nativ pot lăsa thread-ul încărcat între turnuri. Account/read + thread/list sunt refolosite de agent pe același controller.
+2. Sursa oficială cache0.163 confirmă lock OS per thread în aceeași CODEX_HOME (writer_lock.rs File.try_lock); live_writer create/resume dobândește guard și îl păstrează în live recorder. shutdown_thread execută recorder.shutdown și scoate recorderul din live_recorders. Turn completed schimbă running=false în ThreadWatchManager, dar is_loaded rămâne true. Idle nu înseamnă fără writer lock. Lock-ul fișierului nu trebuie șters/forțat de aplicație.
+3. Astfel un Busy poate fi corect nativ, dar surprinzător pentru operator: aplicația inactivă poate fi proprietar după propriul turn. Acest review nu stabilește proprietarul thread-ului personal indicat și nu a citit metadata lui; acel audit aparține celuilalt subagent.
+4. active?.threadId null înainte de Resume.listSessions nu este singur un bug: null nu coincide cu UUID valid, iar thread-lease este dobândit după inventar. Lease-ul workspace nu folosește cheia unui thread. Nu elimina aceste verificări pe baza unei presupuneri. Stale status.active sau codul vechi încărcat într-un proces sunt ipoteze de verificat separat.
+5. ThreadStatus.active înseamnă turn running ori request approval/user-input pendinte în managerul procesului nativ, nu orice proces sau thread nearhivat. ThreadStatus.idle nu certifică disponibilitatea cross-process. Native writer ownership rămâne autoritatea pentru alt proces. Thread/list dintr-un server nou nu este un detector global de procese.
+6. Timeout/fail în controller semnalizează numai copilul propriu și marchează broken; agentul poate reface idle controller numai pentru erori recoverable. Fatal policy/protocol/approval/output/clock nu trebuie să fie vindecate incidental prin refactor worker-per-turn.
+
+#### Soluție propusă coordonatorului
+
+Păstrează transport metadata persistent (account/read + thread/list) care nu încarcă thread-uri. Pentru fiecare instrucțiune explicită creează worker App Server separat, cu exact aceleași verificări de versiune/policy, fără metode suplimentare. Worker-ul dobândește nativ thread/start/resume, execută un singur turn și este închis/așteptat în finally la completed, failed, timeout sau respingere. Închiderea se aplică numai handle-ului creat de aplicație; nu se scanează ori opresc procese personale și nu se șterg lock-uri.
+
+Ține semaforul aplicației și lease-urile până la confirmarea închiderii worker-ului. Într-un facade, propagă erorile fatale în starea controllerului, închide ambii copii la close/revocare, păstrează no-replay. Close care nu poate confirma terminarea trebuie să blocheze următoarea execuție; nu raporta disponibilitate prematur. Evenimentele provenite de la worker închis trebuie să nu poată corupe transportul nou.
+
+Nu păstra metadata «Loaded by this app»/eligibility confirmed după închiderea workerului. Aceasta ar însemna proprietate prezentă, deși nu mai există. Poți afișa discovered și revalida la fiecare Resume; memoria unei validări istorice nu certifică executabilitate curentă. Native Busy rămâne Busy, iar erorile necunoscute se refuză sigur.
+
+Nu introduce thread/unsubscribe în whitelist doar pentru a elimina procesul: nu este metodă autorizată actual și status unsubscribed singur nu certifică writer release. Reciclarea copilului propriu, validată cu transfer nativ al aceluiași ID, evită această extindere de protocol.
+
+#### Regresii necesare
+
+- Un controller metadata își refolosește doar serverul de inventar, dar două run-uri explicite folosesc doi workeri și fiecare este închis după un turn.
+- New completed → alt controller/CLI poate dobândi aceeași sesiune, apoi Resume completed cu context păstrat; ambele workeri sunt închise înainte ca API-ul să raporteze execuția încheiată.
+- Failed nativ, RPC timeout, idle timeout, turn timeout și native exit eliberează handle/lease numai după terminare confirmată; nu retrimit niciun turn.
+- Close/revocare în timpul unui turn oprește doar workerul propriu și închide metadata; callbackurile întârziate nu ating alt run.
+- Worker close lent ține Busy local; exit necunoscut/failure rămâne fail-closed, fără crearea următorului worker.
+- Conflictul OS pe thread-ul selectat împiedică turn/start; un alt thread din același workspace este permis nativ, fără cwd scan.
+- O eroare fatală (policy/protocol/approval/output/clock) împiedică următorul run și nu este autorecuperată de crearea unui worker proaspăt.
+- Inventory în timpul turnului indică Busy numai pe ID-ul activ local; după release nu afirmă Loaded/confirmed fals. Alte thread-uri rămân candidați discovered.
+- Returned thread.status active continuă să blocheze fără turn/start; fără forțare/deducere din CLI închis.
+
+#### Validare realizată de acest subagent
+
+Numai analiză statică de surse și scheme. Niciun test executat și nicio probă nativă/model/CLI/dashboard nu sunt revendicate. Rezultatele trebuie verificate de coordonator prin teste automate și native controlate.
+
+Operațiune de scriere: apply_patch a creat .local-run/cleanup-lifecycle-ledger.md, fără a modifica source sau jurnalul global. Mesajele de colaborare au transmis coordonatorului constatările și granițele de siguranță; fără mesaje către terți.
+
+`chmod 600 .local-run/cleanup-lifecycle-ledger.md` — exit0. apply_patch a înregistrat acest rezultat real; numai fișierul de raport privat este modificat.
++
+#### Review concret al patchului facade/per-turn (în lucru)
+
+- Exit 0: `git diff -- src/codex-control.mjs` — Review concret al patch-ului root perturn/facade; source nealterat.
+
+- Exit 0: `rg -n 'WeakSet|stop\(|close\(|createCodex|fatal|worker|run\(|finally|lease|metadata|closing|signalCode|exitCode' src/codex-control.mjs` — Review concret al patch-ului root perturn/facade; source nealterat.
+
+- Exit 0: `sed -n '130,255p' src/codex-control.mjs && sed -n '450,720p' src/codex-control.mjs` — Review concret al patch-ului root perturn/facade; source nealterat.
+
+##### Constatări transmise coordonatorului
+
+- Designul nou închide/așteaptă worker în engine.run.finally înainte de lease release; copilul metadata rămâne persistent, fără loaded set. Binding-ul original canon/dev/ino este verificat la fiecare engine nou. Nu au fost schimbate whitelist-ul RPC sau politica READ-ONLY.
+- Blocaj identificat în snapshot-ul citit: facade.run verifică numai fatal-ul propriu, nu failure/recoveryState fatal al metadata engine. După metadata JSON/protocol/output/clock/version/approval failure poate crea un worker proaspăt. Este necesară propagarea sticky a erorilor fatale metadata și anularea numai a workerului propriu dacă acea eroare apare în paralel cu un run. Regresie: metadata listSessions malformed/unavailable → run refuzat fără worker/turn nou.
+- În snapshot-ul citit stop(child) trata exitCode/signalCode drept confirmare de reap. Root a anunțat deja întărirea cu WeakSet de close events; close al process+stdio este dovada potrivită, inclusiv wrapper npm. Nu se pretinde că patchul încă nevăzut conține această întărire.
+- facade.close folosește allSettled și ignoră cleanup failures. Recomandare: raportare codex-cleanup-unconfirmed către apelant; siguranța cere păstrarea blocării și a lease-urilor când reap nu poate fi confirmat. Lipsa close confirmat nu trebuie prezentată ca succes.
+- listSessions delegat către metadata transport nu mai vede active.threadId al workerului. Se poate suprapune numai ID-ul workerului activ local, fără deducții globale. Agentul folosește cache pe durata turnului; nu s-a observat bypass, dar semantica metadata Busy local trebuie păstrată sau limitarea documentată.
+- Cleanup unconfirmed lasă intenționat lease-urile când await close aruncă; este conservator. Reluarea ulterioară nu trebuie realizată prin ștergerea/forțarea manuală a lockurilor.
+
+Nu s-au executat teste și nu s-au modificat source. Toate observațiile sunt despre snapshot-ul citit; coordonatorul lucrează în paralel, astfel constatările trebuie reverificate după patchul final.
+
+apply_patch a completat numai .local-run/cleanup-lifecycle-ledger.md cu review-ul și comenzile efective de mai sus.
++
+#### Re-review după corecțiile coordonatorului
+
+- Exit 0: `sed -n '135,225p' src/codex-control.mjs && sed -n '350,378p' src/codex-control.mjs` — recitire concretă a patchului final în lucru.
+
+- Exit 0: `sed -n '408,435p' src/codex-control.mjs && sed -n '505,675p' src/codex-control.mjs` — recitire concretă a patchului final în lucru.
+
+- Exit 0: `rg -n -C 4 'reapedChildren|const spawnChild|const busy =' src/codex-control.mjs` — recitire concretă a patchului final în lucru.
+
+Confirmat: WeakSet reapedChildren este populat pe eveniment close pentru fiecare copil din spawnChild; stop nu echivalează exitCode/signalCode cu închiderea pipe-urilor. Termenul de cleanup neconfirmat rămâne fail-closed. engine.run așteaptă cleanup înainte de lease release, iar facade ține running până la cleanup. Façade propagă acum failure fatal al metadata prin guard și poll și raportează eșecurile cleanup din close.
+
+Corecție a review-ului anterior: observația că metadata inventory nu vede Busy local se retrage. processLocks este un Set comun tuturor engine-urilor și listSessions verifică exact canonical:threadId; workerul păstrează acel lease până la close confirmat. Nu este necesar accessor suplimentar. root a semnalat această verificare și subagentul a confirmat-o efectiv în cod.
+
+Nu se identifică blocaje suplimentare în snapshot-ul final citit. Întărire opțională transmisă: poll poate normaliza imediat rezultatul la unavailable dacă o eroare fatală a sosit după ACK-ul metodei, înainte de continuarea promise; altfel poate afișa temporar un rezultat metadata vechi, deși run este deja blocat sigur. Acest caz nu a fost reprodus și nu este prezentat drept bypass observat.
+
+Nu s-au executat teste/probe reale de către acest subagent. Coordonatorul a comunicat că șapte teste noi lifecycle trec, dar acel rezultat nu este revendicat drept execuție a subagentului. Review-ul a fost numai de cod, scheme și surse cache. apply_patch a actualizat numai ledgerul ignorat.
+
+
+
+
+### Subagent — Baseline și regresii lifecycle
+
+### Resume baseline — raport subagent teste
+
+CWD pentru toate comenzile: `[WORKSPACE]` (rădăcina proiectului). Nicio execuție reală Codex, acces la autentificarea reală, transcript, proces personal, Windows sau dispozitiv extern. Fără Git mutations. Source-ul și jurnalul principal nu au fost modificate.
+
+#### Comenzi în ordinea lansării
+
+1. `cat AGENTS.md` — exit0; instrucțiunile actuale citite.
+2. `sed -n '1,250p' test/codex-control.test.mjs` — exit0; teste existente inspectate.
+3. `sed -n '250,680p' test/codex-control.test.mjs` — exit0; teste existente inspectate. Citirile1–3 au fost paralele; outputul combinat a fost parțial trunchiat, deci s-a folosit și căutarea structurată de mai jos.
+4. `npm test > .local-run/cleanup-baseline-tests.tap 2>&1` — exit1 în sandbox; 10 fișiere PASS/6 FAIL (agregat pe fișier, nu153 subteste). Nu este raportat ca PASS.
+5. `tail -n 15 .local-run/cleanup-baseline-tests.tap` — exit0; sumarul eșecului citit.
+6. `rg -n '^test\(|lease|confirmed|close|native|busy|sequential|controllerOptions' test/codex-control.test.mjs` — exit0; inventar cazuri existente.
+7. `cp .local-run/cleanup-baseline-tests.tap .local-run/cleanup-baseline-sandbox.tap` — exit0; păstrat outputul eșecului fără a-l pierde la reluarea testelor.
+8. `node test/hub.test.mjs > .local-run/cleanup-baseline-loopback-probe.tap 2>&1` — exit1; diagnostic separat.
+9. `rg -n -C 2 'EPERM|EACCES|listen|error:' .local-run/cleanup-baseline-loopback-probe.tap` — exit0; confirmat `listen EPERM: operation not permitted 127.0.0.1`.
+10. `npm test > .local-run/cleanup-baseline-tests.tap 2>&1` — exit0, reluat prin `sandbox_permissions=require_escalated`, cu aprobare platformă pentru porturi sintetice loopback. **153/153 PASS,0 FAIL,0 skip/cancel**, durata7851.863129ms.
+11. `tail -n 12 .local-run/cleanup-baseline-tests.tap && sed -n '1,78p' test-support/fixtures.mjs` — exit0; sumarul testelor și fixture-urile sintetice citite.
+12. `apply_patch` — creat acest ledger ignorat. Source/teste/jurnal global neschimbate.
+13. `apply_patch` — completat exit0 și rezultatele finale baseline, fără repetarea testelor.
+
+#### Cazuri propuse, încă neimplementate
+
+- Broker sintetic comun pe UUID: thread/start și thread/resume dobândesc ownership; doar închiderea workerului eliberează lock-ul.
+- După completed/failed/timeouts, workerul de execuție trebuie să elibereze ownership înainte de rezultatul terminal; serverul de inventar rămâne sănătos.
+- Al doilea controller poate relua un thread eliberat, dar este blocat cât timp primul îl execută. Alt UUID din același workspace nu se blochează prin metadata native.
+- Închiderea/rerotirea workerului propriu nu semnalizează serverul de metadata sau alte procese. Erorile de policy/approval rămân fail-closed.
+
+După confirmarea explicită a designului de către coordonator, a fost creat exclusiv `test/codex-lifecycle.test.mjs`. Harness-ul modelează brokerul nativ de ownership pe UUID, eliberarea numai la evenimentul close și un server metadata distinct. Nu rulează Codex/model/CLI real.
+
+#### Operațiuni după confirmarea designului
+
+14. `sed -n '1,68p' test-support/fixtures.mjs && sed -n '140,205p' src/codex-control.mjs && sed -n '1,65p' test/agent-recovery.test.mjs` — exit0; adaptarea harness-ului la API-ul public și fixture-urile existente.
+15. `apply_patch` — creat `test/codex-lifecycle.test.mjs` cu cinci regresii, fără editarea controllerului sau testelor existente.
+16. `node test/codex-lifecycle.test.mjs > .local-run/cleanup-lifecycle-tests.tap 2>&1` — exit0; rezultate detaliate citite la pasul următor.
+17. `cat .local-run/cleanup-lifecycle-tests.tap && git diff --check -- test/codex-lifecycle.test.mjs` — exit0; outputul TAP și whitespace verificate.
+18. `apply_patch` — completat acest ledger.
+
+19. `apply_patch` — extins exclusiv fișierul nou de test, conform mesajului coordonatorului: timeout absolut; încălcări sticky output/clock; shutdown neconfirmat cu exitCode anticipat; înlocuirea directorului după capturarea bindingului.
+20. `node test/codex-lifecycle.test.mjs > .local-run/cleanup-lifecycle-extended-tests.tap 2>&1` — exit0; **7/7 PASS,0 FAIL/skip/cancel**, durata2164.779428ms. Cazul de shutdown neconfirmat a așteptat1514.088475ms și a verificat păstrarea lease-urilor app/fail-closed. Nu sunt model turns sau procese Codex reale.
+21. `cat .local-run/cleanup-lifecycle-extended-tests.tap` — exit0; citite toate cele7 rezultate.
+22. `apply_patch` — clarificat numai titlul cazului Busy ca simulare nativă și completat ledgerul. Nu s-au schimbat aserțiile după rularea7/7.
+
+Fișiere create de acest subagent: `test/codex-lifecycle.test.mjs` și ledgerul ignorat; outputuri TAP ignorate în `.local-run`. Source-ul controllerului, toate testele preexistente și jurnalul global au rămas exclusiv la coordonator. Nu au fost făcute commit/push ori schimbări ale main/tagurilor/configurației. Nicio operațiune externă și nicio intervenție asupra unui proces personal. Rapoartele către root și așteptarea designului au folosit numai tool-urile de colaborare.
+
+### Subagent — UI și documentația curentă
+
+### ETAPA2 — UI și documentație curentă, subagent resume_owner_audit
+
+CWD: `[WORKSPACE]`. Ownership explicit pentru src/ui.mjs, test/ui.test.mjs, README.md și ETAPA-2B-LOCAL.md. Nu au fost editate alte fișiere urmărite sau jurnalul global. Nu s-au făcut Git mutations, servere/turns/browser real, acces auth/credentiale sau semnale.
+
+#### Comenzi în ordinea lansării
+
+1. Exit0:
+
+```text
+git status --short && sed -n '1,325p' src/ui.mjs
+```
+
+Citire UI/teste/docs/controllercurent, fărăruntime/model/output personal.
+
+2. Exit0:
+
+```text
+rg -n 'confirmed|Loaded|legacy|session-activity|codex-timeout|busy|cleanup|cleanup-unconfirmed|eligibility|source|status' test/ui.test.mjs src/codex-control.mjs src/hub.mjs
+```
+
+Citire UI/teste/docs/controllercurent, fărăruntime/model/output personal.
+
+3. Exit0:
+
+```text
+cat README.md && cat ETAPA-2B-LOCAL.md
+```
+
+Citire UI/teste/docs/controllercurent, fărăruntime/model/output personal.
+
+4. Exit0:
+
+```text
+cat src/ui.css && cat src/ui.html
+```
+
+Citire UI/teste/docs/controllercurent, fărăruntime/model/output personal.
+
+5. Exit0:
+
+```text
+sed -n '1,210p' test/ui.test.mjs
+```
+
+Inspecție fixturesUI, controller lifecycle șiREADME; fărăruntime/model.
+
+6. Exit0:
+
+```text
+sed -n '210,515p' test/ui.test.mjs
+```
+
+Inspecție fixturesUI, controller lifecycle șiREADME; fărăruntime/model.
+
+7. Exit0:
+
+```text
+rg -n -C 3 'cleanup|unconfirmed|released|closeWorker|worker|recoveryState|eligibility|activity' src/codex-control.mjs
+```
+
+Inspecție fixturesUI, controller lifecycle șiREADME; fărăruntime/model.
+
+8. Exit0:
+
+```text
+cat README.md
+```
+
+Inspecție fixturesUI, controller lifecycle șiREADME; fărăruntime/model.
+
+9. Exit0:
+
+```text
+sed -n '390,468p' test/ui.test.mjs
+```
+
+Inspecție fixtures UI și rezultate sintetice safe raportate de root; nu am executat modelturns.
+
+10. Exit0:
+
+```text
+cat .local-run/cleanup-real-result.json && rg -n 'thread-source|session_source|source' .local-run/cleanup-official-exec-lib.rs | head -12
+```
+
+Inspecție fixtures UI și rezultate sintetice safe raportate de root; nu am executat modelturns.
+
+11. Exit0:
+
+```text
+rg -n 'activity|eligibility' src/hub.mjs test/ui.test.mjs
+```
+
+Inspecție fixtures UI și rezultate sintetice safe raportate de root; nu am executat modelturns.
+
+12. Exit0:
+
+```text
+sed -n '368,402p' test/ui.test.mjs && sed -n '539,620p' src/codex-control.mjs
+```
+
+Testul label Loaded și contractul per-worker citite.
+
+13. Exit0:
+
+```text
+apply_patch src/ui.mjs test/ui.test.mjs
+```
+
+Eliminate branch-uri eligibilityconfirmed/activityactive-confirmed și mesaj legacy; păstrat approved instruction confirmed:true; Busy explică ownership și cleanup fatal distinct.
+
+14. Exit0:
+
+```text
+apply_patch test/ui.test.mjs README.md ETAPA-2B-LOCAL.md
+```
+
+FixturesUI folosesc numaiDiscovered/Busy; documentație actualizată lifecycle metadata/worker și CLIsource vs analytics, confirmări reale root și probe vechi marcateistorice; nu s-a șters istoric.
+
+15. Exit0:
+
+```text
+node test/ui.test.mjs > .local-run/cleanup-ui-tests.tap 2>&1
+```
+
+RulareUI cuDOMsimulat, outputînartifactignorat.
+
+16. Exit2:
+
+```text
+tail -n 12 .local-run/cleanup-ui-tests.tap && node --check src/ui.mjs && git diff --check
+```
+
+```text
+  duration_ms: 6.274284
+  type: 'test'
+  ...
+1..19
+### tests 19
+### suites 0
+### pass 19
+### fail 0
+### cancelled 0
+### skipped 0
+### todo 0
+### duration_ms 112.226103
+src/inventory.mjs:107: new blank line at EOF.
+
+```
+
+17. Exit0:
+
+```text
+git diff --stat -- src/ui.mjs test/ui.test.mjs README.md ETAPA-2B-LOCAL.md && git diff -- src/ui.mjs test/ui.test.mjs
+```
+
+Diff/referințe revizuite: păstrată confirmarea instrucțiunii și istoricul.
+
+18. Exit0:
+
+```text
+rg -n 'Loaded by this app|active-confirmed|session-activity-unverified|confirmed|codex-cleanup-unconfirmed|daemon|Lifecycle|Lifecycle' src/ui.mjs test/ui.test.mjs README.md ETAPA-2B-LOCAL.md
+```
+
+Diff/referințe revizuite: păstrată confirmarea instrucțiunii și istoricul.
+
+19. Exit0:
+
+```text
+apply_patch README.md ETAPA-2B-LOCAL.md
+```
+
+README descrie eligibilitățile curente; Loadedbyapp păstrat numai în explicația istorică a retenției lockului.
+
+20. Exit0:
+
+```text
+git diff --check -- src/ui.mjs test/ui.test.mjs README.md ETAPA-2B-LOCAL.md && git diff --numstat -- src/ui.mjs test/ui.test.mjs README.md ETAPA-2B-LOCAL.md
+```
+
+```text
+21	5	ETAPA-2B-LOCAL.md
+5	1	README.md
+3	5	src/ui.mjs
+7	7	test/ui.test.mjs
+
+```
+
+21. Exit1:
+
+```text
+rg -n 'session-activity-unverified|active-confirmed|Loaded by this app|eligibility: .confirmed' src/ui.mjs test/ui.test.mjs
+```
+
+rg exit1: niciun branch/fixture legacy rămas înUI sau testele sale.
+
+#### Schimbări efective
+
+- src/ui.mjs: eliminată ramura eligibility=confirmed/Loaded by this app, pentru că workerul se închide după turn și backendul nu mai produce acea eligibilitate; eliminată ramura activity=active-confirmed, niciodată certificată/produsă de schema Hub. Textul inventarului rămâne explicit Discovered/activity unconfirmed.
+- Eliminat mesajul legacy session-activity-unverified din UI curent; codul rămâne în documentația istorică. Erorile necunoscute continuă să aibă fallback sigur/escaped.
+- Busy explică thread-ul încărcat de alt client chiar inactiv și protecția pe thread, fără a cere oprirea altor sesiuni/workspace-uri. Adăugat mesajul fatal codex-cleanup-unconfirmed: ieșire worker neconfirmată, alte turnuri blocate, verificare locală înainte de restart explicit. Nicio instrucțiune de ștergere/forțare lock.
+- test/ui.test.mjs: fixtures și așteptări obsolete Loaded/eligibilityconfirmed înlocuite cu Discovered; testul de erori verifică ownership și cleanup. Nu a fost șters niciun test/regresie importantă. Au rămas verificate confirmarea confirmed:true, selecțiile explicite New/Resume, izolare dispozitive, auth/offline/revocare, escaping, progres/timeout și lipsa DEMO.
+- README/ETAPA2B: lifecycle de metadate separat de worker, confirmarea ieșirii înainte de release/admitere, fatal cleanup/policy, handoff de la clientul nativ, semantica source=exec versus analytics threadSource=cli, restart manual al aplicației la momentul ales de operator. Rezultatele vechi sunt marcate istorice, inclusiv limitele probei care nu verificase release automat; nu s-a șters istoricul. Rezultatele reale noi 6,2/4,1/4,2/3,6s sunt raportul root .local-run/cleanup-real-result.json, nu execuții făcute de acest subagent.
+- CSS și HTML: inspectate, toate clasele actuale citite au utilizări confirmate. Nu s-a inventat o eliminare CSS; fișierele au rămas nemodificate. Fallbackurile pentru metadate/erori necunoscute au fost păstrate pentru a evita false afirmații.
+
+#### Verificări și erori
+
+`node test/ui.test.mjs > .local-run/cleanup-ui-tests.tap 2>&1` — exit0,19 teste PASS,0 FAIL/skip/cancel; DOM simulat prin vm, fără browser vizual. `node --check src/ui.mjs` — exit0 (comanda următoare git diff --check a fost atinsă). Primul git diff --check global a ieșit2 din src/inventory.mjs:107, new blank line at EOF, fișier editat de alt agent; a fost raportat coordonatorului și nu s-a modificat în afara ownershipului. Verificarea scoped finală — exit0, fără probleme în cele4 fișiere. Ultimul rg a ieșit1 deoarece nu mai există referințele obsolete în UI/testele sale: acesta este rezultatul așteptat, nu un test eșuat.
+
+Stats finale scoped: ETAPA-2B-LOCAL.md +21/-5, README.md +5/-1, src/ui.mjs +3/-5, test/ui.test.mjs +7/-7; total36 linii adăugate/18 eliminate,4 fișiere urmărite modificate,0 create/șterse. Helperul/ledgerul ignorat nu intră în numărul fișierelor publicate.
+
+Ultima operațiune: apply_patch creează acest ledger ignorat pentru centralizarea de către root înainte de ultimul commit. Modificările și testele sunt înghețate după raport; nu se completează jurnalul după commit.
+
+
+### Subagent — Inventar și metadata comune
+
+### Curățenie inventar — subagent
+
+CWD: `[WORKSPACE]` (rădăcina proiectului). Domeniu: numai inventar/adaptor metadata/teste aferente; fără Codex/model real, transcripturi, autentificare reală, procese personale, Git mutations, main/taguri, Windows, MCP sau mesaje către terți.
+
+#### Comenzi executate
+
+1. Exit 0:
+
+```text
+cat src/codex-session-metadata.mjs && sed -n '1,280p' src/codex-app-server.mjs
+```
+
+Audit read-only adaptor/inventory/metadata, dependențe și fișiere urmărite.
+
+2. Exit 0:
+
+```text
+cat src/inventory.mjs && cat package.json && cat package-lock.json && cat .gitignore
+```
+
+Audit read-only adaptor/inventory/metadata, dependențe și fișiere urmărite.
+
+3. Exit 0:
+
+```text
+rg -n 'matchesResumePickerThread|sanitizeSessionTitle|RESUME_SOURCE_KINDS|updatedAt|nextCursor|sourceKinds|thread/list' src test/app-server.test.mjs test/inventory.test.mjs test/codex-session-metadata.test.mjs
+```
+
+Audit read-only adaptor/inventory/metadata, dependențe și fișiere urmărite.
+
+4. Exit 0:
+
+```text
+git ls-files
+```
+
+Audit read-only adaptor/inventory/metadata, dependențe și fișiere urmărite.
+
+5. Exit 0:
+
+```text
+rg -n 'listSessionIds|listSessionInventory|sessionMetadata|projectName' --glob '!comenzi executate agent.md' --glob '!INVESTIGATIE-GIT-CODEX.md' --glob '!VERIFICARE.md' --glob '!RAPORT-CURATENIE.md' .
+```
+
+Referințe de producție/teste și diferențe normalizare verificate.
+
+6. Exit 0:
+
+```text
+cat test/codex-session-metadata.test.mjs && sed -n '1,280p' test/app-server.test.mjs
+```
+
+Referințe de producție/teste și diferențe normalizare verificate.
+
+7. Exit 0:
+
+```text
+cat test/inventory.test.mjs && sed -n '400,450p' src/codex-control.mjs
+```
+
+Referințe de producție/teste și diferențe normalizare verificate.
+
+8. Exit 0:
+
+```text
+apply_patch src/codex-session-metadata.mjs src/codex-app-server.mjs src/inventory.mjs test/inventory.test.mjs
+```
+
+Centralizat allowlist de metadata/comparator, eliminat normalizatoare duplicate și wrapper dead; păstrat coverage nested/privacy.
+
+9. Exit 0:
+
+```text
+apply_patch test/codex-session-metadata.test.mjs test/app-server.test.mjs
+```
+
+Regresii: UUID/timestamp/privacy și duplicate vechi nu suprascriu metadata nouă.
+
+10. Exit 0:
+
+```text
+node test/codex-session-metadata.test.mjs > .local-run/cleanup-metadata-tests.tap 2>&1
+```
+
+Teste sintetice țintite; output TAP ignorat.
+
+11. Exit 0:
+
+```text
+node test/inventory.test.mjs > .local-run/cleanup-inventory-tests.tap 2>&1
+```
+
+Teste sintetice țintite; output TAP ignorat.
+
+12. Exit 1:
+
+```text
+node test/app-server.test.mjs > .local-run/cleanup-adapter-tests.tap 2>&1
+```
+
+Teste sintetice țintite; output TAP ignorat.
+
+13. Exit 2:
+
+```text
+git diff --check && tail -n 12 .local-run/cleanup-metadata-tests.tap && tail -n 12 .local-run/cleanup-inventory-tests.tap && tail -n 12 .local-run/cleanup-adapter-tests.tap
+```
+
+Whitespace nou blanklineEOF src/inventory; comenzile tail după && nu au rulat.
+
+14. Exit 0:
+
+```text
+tail -n 8 src/inventory.mjs && rg -n -C 3 'not ok|error:|code:|message:|expected:|actual:' .local-run/cleanup-adapter-tests.tap && tail -n 10 .local-run/cleanup-metadata-tests.tap && tail -n 10 .local-run/cleanup-inventory-tests.tap
+```
+
+Diagnosticate eșecuri adapter, metadata6PASS/inventory6PASS.
+
+15. Exit 0:
+
+```text
+apply_patch src/inventory.mjs
+```
+
+Eliminată linia goală EOF introdusă la scoaterea wrapperului.
+
+16. Exit 0:
+
+```text
+node test/app-server.test.mjs > .local-run/cleanup-adapter-approved-tests.tap 2>&1
+```
+
+Rulare aprobată subprocese sintetice după checkVersion incompatible în sandbox.
+
+17. Exit 1:
+
+```text
+git diff --check && git diff --numstat -- src/codex-app-server.mjs src/inventory.mjs src/codex-session-metadata.mjs test/app-server.test.mjs test/inventory.test.mjs test/codex-session-metadata.test.mjs && rg -n 'listSessionIds' src test
+```
+
+diff --check exit0; numstat citit; rg fără listSessionIds în src/test(exit1 normal no matches). Adapterul include deja refactorul close al root.
+
+18. Exit 0:
+
+```text
+tail -n 12 .local-run/cleanup-adapter-approved-tests.tap && sed -n '1,95p' src/codex-session-metadata.mjs
+```
+
+Citit sumar adapter aprobat și exporturile shared.
+
+#### Rezultate finale
+
+- Tests metadata: 6/6 PASS,0 FAIL/skip/cancel,33.070864ms.
+- Tests inventory: 6/6 PASS,0 FAIL/skip/cancel,106.879623ms.
+- Adapter în sandbox: exit1 la checkVersion/app-server-incompatible, înaintea normalizării; nu este PASS. Aceeași familie de teste eșuase în baseline-ul sandbox anterior. Nu s-a modificat codul pentru a ascunde această eroare.
+- Adapter prin aprobarea platformei pentru subprocese Node sintetice: 15/15 PASS,0 FAIL/skip/cancel,2042.423665ms. Niciun Codex/model/login real nu a fost folosit. Output .local-run/cleanup-adapter-approved-tests.tap.
+- git diff --check final pentru snapshot-ul verificat: exit0. Un blank line EOF introdus de eliminarea wrapperului a fost raportat exit2 și corectat; lanțurile după && nu sunt inventate ca executate.
+- `rg listSessionIds src test` nu mai găsește referințe; exit1 este normal pentru no matches.
+
+#### Schimbări efective și coordonare
+
+- src/codex-session-metadata.mjs: exporturi comune resumeSessionMetadata(thread,workspace) și compareSessionActivity(a,b). Criteriile Cwd+Active, surse cli/vscode și privacy/title sanitization sunt păstrate. Allowlist-ul exclude preview/history/account/cwd; UUID string și timestamp integer>=0/Date valid sunt validate.
+- src/codex-app-server.mjs: eliminate proiect/normalizare duplicate, consumat helperul comun; dedup-ul păstrează metadata cea mai recentă, inclusiv când paginarea întoarce o copie mai veche. Clasificarea partial pentru malformed eligible și available pentru excluded este păstrată. Transportul nu a fost modificat de acest subagent; root a integrat separat shared close utility după înghețarea editărilor noastre.
+- src/inventory.mjs: eliminat wrapperul listSessionIds, folosit numai de teste și fără consumator de producție.
+- test/inventory.test.mjs: înlocuite apelurile wrapperului cu API-ul real; eliminat testul legacy duplicat și importurile aferente. Verificarea walk-ului pe directoare nested a fost mutată în testul cu dedup/timestamps/readFileSync spy, păstrând regresiile.
+- test/codex-session-metadata.test.mjs: regresii pentru timestamp negativ/non-integer/out-of-range, UUID invalid, privacy allowlist/getters și sortare stabilă.
+- test/app-server.test.mjs: regresie la duplicate paginated mai vechi, care nu mai pot suprascrie titlul/timestampul mai recent.
+- Root a fost informat înaintea editărilor care implicau controllerul; a confirmat designul și a adaptat controllerul separat. Nu s-a editat controllerul, nici jurnalul global, de către acest subagent.
+
+#### Audit fără ștergeri
+
+- package.json și package-lock.json: zero dependențe externe; nimic de dezinstalat.
+- .gitignore acoperă .env/.env.*, excepția .env.example, .local-run, .codex, node_modules, logs/cache/coverage.
+- git ls-files nu a enumerat credențiale, cache-uri, temporare/runtime sau .local-run urmărite. Documentația istorică/jurnalul, backups și probele locale au fost păstrate. Auditul complet al secretelor este gestionat de root.
+
+`apply_patch` a creat acest ledger ignorat cu operațiunile reale raportate. Sursele deținute au fost înghețate după integrare/teste; orice modificare ulterioară este coordonată de root.
+
+Verificare finală executată după crearea ledgerului: `git diff --check && git diff --numstat -- src/codex-app-server.mjs src/codex-session-metadata.mjs src/inventory.mjs test/app-server.test.mjs test/codex-session-metadata.test.mjs test/inventory.test.mjs` — exit0. Numstat-ul adaptorului include deja schimbarea shared close a root; nu este atribuit integral acestui subagent. Această completare folosește apply_patch, fără alte comenzi source/test/Git mutation.
+
+
+### Subagent — Hub și launcher
+
+### Audit și refactoring backend — subagent
+
+CWD: [WORKSPACE], branch stage2b-local-control. ETAPA1 stabilizată înaintea acestui audit, conform raportului coordonatorului. Au fost respectate instrucțiunile AGENTS actuale. Fără model turns, citirea transcripturilor/auth/env reale, rețea externă/MCP, modificarea credentialelor/politicii, Git mutation ori oprirea proceselor personale. Numai source și teste sintetice desemnate. Procesele/lockurile din teste aparțin exclusiv fixture-urilor.
+
+#### Comenzi efective în ordine de lansare
+
+1. Exit 0:
+
+```text
+wc -l src/hub.mjs src/agent.mjs src/credentials.mjs src/local-config.mjs src/launcher.mjs src/manage.mjs && rg -n '^export|^function|^async function|^const [A-Za-z].*=>' src/hub.mjs src/agent.mjs src/credentials.mjs src/local-config.mjs src/launcher.mjs src/manage.mjs
+```
+
+Audit read-only backend complet în ariile numite; fără date runtime/auth personale.
+
+2. Exit 0:
+
+```text
+cat src/local-config.mjs && cat src/credentials.mjs
+```
+
+Audit read-only backend complet în ariile numite; fără date runtime/auth personale.
+
+3. Exit 0:
+
+```text
+cat src/manage.mjs && sed -n '1,300p' src/hub.mjs
+```
+
+Audit read-only backend complet în ariile numite; fără date runtime/auth personale.
+
+4. Exit 0:
+
+```text
+sed -n '1,300p' src/agent.mjs
+```
+
+Audit read-only backend complet în ariile numite; fără date runtime/auth personale.
+
+5. Exit 0:
+
+```text
+sed -n '1,198p' src/hub.mjs
+```
+
+Citire Hub, launcher integral și inventar al regresiilor; fără runtime personal.
+
+6. Exit 0:
+
+```text
+sed -n '1,202p' src/launcher.mjs
+```
+
+Citire Hub, launcher integral și inventar al regresiilor; fără runtime personal.
+
+7. Exit 0:
+
+```text
+sed -n '202,458p' src/launcher.mjs
+```
+
+Citire Hub, launcher integral și inventar al regresiilor; fără runtime personal.
+
+8. Exit 0:
+
+```text
+rg -n '^test\(|assertNewSecretFile|preparePrivateDirectory|validateDeviceName|readJson|readEnvironment|validToken|writeNewSecretFile|createCredentialStore' test/agent.test.mjs test/api.test.mjs test/credentials.test.mjs test/stage2.cli.test.mjs test/launcher.test.mjs && cat .gitignore
+```
+
+Citire Hub, launcher integral și inventar al regresiilor; fără runtime personal.
+
+9. Exit 0:
+
+```text
+sed -n '171,202p' src/launcher.mjs && sed -n '100,125p' src/manage.mjs && sed -n '198,266p' src/hub.mjs
+```
+
+Completare fragmente source și review regresii filesystem/launcher/API/local-control, numai fixtures.
+
+10. Exit 0:
+
+```text
+cat test/credentials.test.mjs
+```
+
+Completare fragmente source și review regresii filesystem/launcher/API/local-control, numai fixtures.
+
+11. Exit 0:
+
+```text
+sed -n '1,170p' test/launcher.test.mjs && sed -n '255,340p' test/launcher.test.mjs
+```
+
+Completare fragmente source și review regresii filesystem/launcher/API/local-control, numai fixtures.
+
+12. Exit 0:
+
+```text
+sed -n '1,205p' test/api.test.mjs
+```
+
+Completare fragmente source și review regresii filesystem/launcher/API/local-control, numai fixtures.
+
+13. Exit 0:
+
+```text
+sed -n '1,205p' test/local-control.test.mjs
+```
+
+Completare fragmente source și review regresii filesystem/launcher/API/local-control, numai fixtures.
+
+14. Exit 0:
+
+```text
+sed -n '34,74p' test/launcher.test.mjs && sed -n '255,316p' test/launcher.test.mjs
+```
+
+Citire fixture/teste pentru regresii înaintea editării.
+
+15. Exit 0:
+
+```text
+sed -n '180,235p' test/local-control.test.mjs
+```
+
+Citire fixture/teste pentru regresii înaintea editării.
+
+16. Exit 0 (rezultat confirmat prin polling ulterior):
+
+```text
+node --test test/launcher.test.mjs test/api.test.mjs test/local-control.test.mjs > .local-run/cleanup-backend-baseline.tap 2>&1
+```
+
+Baseline înainte de editarea backend; aprobare platformă loopback.
+
+17. Exit 0:
+
+```text
+apply_patch test/launcher.test.mjs test/local-control.test.mjs
+```
+
+Adăugat regresii liveness EACCES/unknown și update după TTL inclusiv body întârziat.
+
+18. Exit 1:
+
+```text
+node --test --test-name-pattern='live or unverifiable launcher|late progress and results|update whose body crosses' test/launcher.test.mjs test/local-control.test.mjs > .local-run/cleanup-backend-regressions-before.tap 2>&1
+```
+
+Regresii rulate pe codul vechi, cu aprobarea platformei.
+
+19. Exit 0:
+
+```text
+tools.write_stdin(session_id=55528, chars='')
+```
+
+Baseline complet.
+
+20. Exit 0:
+
+```text
+rg -n 'not ok|error:|expected:|actual:|tests |pass |fail |skipped ' .local-run/cleanup-backend-baseline.tap .local-run/cleanup-backend-regressions-before.tap
+```
+
+.local-run/cleanup-backend-regressions-before.tap:4:    not ok 1 - exe
+.local-run/cleanup-backend-regressions-before.tap:10:      error: 'Missing expected rejection.'
+.local-run/cleanup-backend-regressions-before.tap:13:      expected:
+.local-run/cleanup-backend-regressions-before.tap:24:    not ok 2 - stat
+.local-run/cleanup-backend-regressions-before.tap:30:      error: 'Missing expected rejection.'
+.local-run/cleanup-backend-regressions-before.tap:33:      expected:
+.local-run/cleanup-backend-regressions-before.tap:44:not ok 1 - live or unverifiable launcher lock owners cannot be replaced when process metadata is unavailable
+.local-run/cleanup-backend-regressions-before.tap:50:  error: '2 subtests failed'
+.local-run/cleanup-backend-regressions-before.tap:54:not ok 2 - late progress and results expire disconnected jobs without relying on a dashboard poll
+.local-run/cleanup-backend-regressions-before.tap:60:  error: |-
+.local-run/cleanup-backend-regressions-before.tap:67:  expected: 409
+.local-run/cleanup-backend-regressions-before.tap:68:  actual: 200
+.local-run/cleanup-backend-regressions-before.tap:77:not ok 3 - an update whose body crosses the heartbeat deadline is rejected after the complete body is read
+.local-run/cleanup-backend-regressions-before.tap:83:  error: |-
+.local-run/cleanup-backend-regressions-before.tap:90:  expected: 409
+.local-run/cleanup-backend-regressions-before.tap:91:  actual: 200
+.local-run/cleanup-backend-regressions-before.tap:97:    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+.local-run/cleanup-backend-regressions-before.tap:100:# tests 5
+.local-run/cleanup-backend-regressions-before.tap:102:# pass 0
+.local-run/cleanup-backend-regressions-before.tap:103:# fail 5
+.local-run/cleanup-backend-regressions-before.tap:105:# skipped 0
+.local-run/cleanup-backend-baseline.tap:80:# Subtest: missing and unsafe credential files fail without generating replacements or printing secrets
+.local-run/cleanup-backend-baseline.tap:81:ok 14 - missing and unsafe credential files fail without generating replacements or printing secrets
+.local-run/cleanup-backend-baseline.tap:158:# Subtest: authentication, Offline, disabled capability and revocation fail local work closed
+.local-run/cleanup-backend-baseline.tap:159:ok 27 - authentication, Offline, disabled capability and revocation fail local work closed
+.local-run/cleanup-backend-baseline.tap:201:# tests 33
+.local-run/cleanup-backend-baseline.tap:203:# pass 33
+.local-run/cleanup-backend-baseline.tap:204:# fail 0
+.local-run/cleanup-backend-baseline.tap:206:# skipped 0
+
+
+21. Exit 0:
+
+```text
+apply_patch src/launcher.mjs src/hub.mjs
+```
+
+Eliminat ownerAlive duplicat/fail-open; shared failJob; expiry update după reauth/readbody; lookup liniar prinMap.
+
+22. Exit 1 (rezultat confirmat prin polling ulterior):
+
+```text
+node --test test/launcher.test.mjs test/api.test.mjs test/local-control.test.mjs test/credentials.test.mjs test/stage2.test.mjs > .local-run/cleanup-backend-after.tap 2>&1
+```
+
+Teste targetate dupăfix, aprobare platformă loopback.
+
+23. Exit 1:
+
+```text
+tools.write_stdin(session_id=10136, chars='')
+```
+
+Suita targetată52:51PASS/1FAIL; investigare necesară.
+
+24. Exit 0:
+
+```text
+tail -n 12 .local-run/cleanup-backend-after.tap && git diff --check && git diff --stat -- src/hub.mjs src/launcher.mjs test/launcher.test.mjs test/local-control.test.mjs
+```
+
+  duration_ms: 93.735929
+  type: 'test'
+  ...
+1..50
+### tests 52
+### suites 0
+### pass 51
+### fail 1
+### cancelled 0
+### skipped 0
+### todo 0
+### duration_ms 7078.602674
+ src/hub.mjs                 | 15 +++++++++++----
+ src/launcher.mjs            |  9 +++------
+ test/launcher.test.mjs      | 34 ++++++++++++++++++++++++++++++++++
+ test/local-control.test.mjs | 43 +++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 91 insertions(+), 10 deletions(-)
+
+
+25. Exit 0:
+
+```text
+rg -n -C 7 'not ok|error:|expected:|actual:|failureType' .local-run/cleanup-backend-after.tap
+```
+
+110-# Subtest: launcher starts real owned children, prevents duplicates, reports heartbeat and stops only its children
+111-ok 19 - launcher starts real owned children, prevents duplicates, reports heartbeat and stops only its children
+112-  ---
+113-  duration_ms: 654.016845
+114-  type: 'test'
+115-  ...
+116-# Subtest: independent concurrent launchers serialize start and detached children survive their controllers
+117:not ok 20 - independent concurrent launchers serialize start and detached children survive their controllers
+118-  ---
+119-  duration_ms: 1415.005638
+120-  type: 'test'
+121-  location: '[WORKSPACE]/test/launcher.test.mjs:96:1'
+122:  failureType: 'testCodeFailure'
+123:  error: |-
+124-    The expression evaluated to a falsy value:
+125-
+126-      assert.ok(result.code === 0 || (result.code === 1 && result.output.includes('already running')))
+127-
+128-  code: 'ERR_ASSERTION'
+129-  name: 'AssertionError'
+130:  expected: true
+131:  actual: false
+132-  operator: '=='
+133-  stack: |-
+134-    TestContext.<anonymous> (file://[WORKSPACE]/test/launcher.test.mjs:114:12)
+135-    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+136-    async Test.run (node:internal/test_runner/test:1054:7)
+137-    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+138-  ...
+
+
+26. Exit 0:
+
+```text
+apply_patch src/launcher.mjs
+```
+
+Corectat mesajul cu 'already running' pentru compatibilitatea diagnosticelor/testului existent, păstrând explicit ieșirea neconfirmată.
+
+27. Exit 0 (rezultat confirmat prin polling ulterior):
+
+```text
+node --test test/launcher.test.mjs test/api.test.mjs test/local-control.test.mjs test/credentials.test.mjs test/stage2.test.mjs > .local-run/cleanup-backend-final.tap 2>&1
+```
+
+Suita backend repetată după regresia reală de mesaj.
+
+28. Exit 0:
+
+```text
+tools.write_stdin(session_id=14558, chars='')
+```
+
+Suita backend52/52PASS,0FAIL/skip/cancel.
+
+29. Exit 0:
+
+```text
+tail -n 12 .local-run/cleanup-backend-final.tap && git diff --check && git diff --numstat -- src/hub.mjs src/launcher.mjs test/launcher.test.mjs test/local-control.test.mjs
+```
+
+  duration_ms: 58.562822
+  type: 'test'
+  ...
+1..50
+### tests 52
+### suites 0
+### pass 52
+### fail 0
+### cancelled 0
+### skipped 0
+### todo 0
+### duration_ms 5804.198368
+11	4	src/hub.mjs
+3	6	src/launcher.mjs
+34	0	test/launcher.test.mjs
+43	0	test/local-control.test.mjs
+
+
+#### Audit efectuat și decizii
+
+Au fost citite modulele src/hub.mjs, src/agent.mjs, src/credentials.mjs, src/local-config.mjs, src/launcher.mjs și src/manage.mjs (1388 linii la începutul auditului), fragmentele/fișierele relevante din test/api, test/credentials, test/launcher, test/local-control și lista regresiilor conexe agent/stage2. Unele output-uri paralele au fost trunchiate; fragmentele relevante au fost recitite ulterior. Nu s-au găsit exporturi/module complet moarte confirmate în aceste șase module. Nu s-a șters nimic pentru o presupusă economie de linii.
+
+Coordonatorul a aprobat explicit cele trei simplificări propuse și a atribuit exclusiv src/hub.mjs, src/launcher.mjs și testele lor; celelalte arii au rămas neatinse.
+
+1. Launcher ownerAlive era o strategie redundantă de liveness, bazată pe procIdentity complet. Când exe/cwd/cmdline nu erau accesibile, întorcea false și lock() putea șterge un lock de operațiune încă deținut de o generație activă. S-a eliminat funcția ownerAlive și s-a refolosit generationState existent: numai exited permite îndepărtarea unui lock stale; running și unknown blochează operațiunea. Verificările complete UID/PID/startTime/exe/cwd/cmdline înainte de semnalizarea serviciilor au rămas intacte; nu s-au extins drepturile de kill.
+2. Hub-ul avea trei atribuiri duplicate status/errorCode/finishedAt pentru eșecuri. Helperul intern failJob unifică expireDisconnected, revocare și invalidarea selecției, fără a șterge partial output/events. Endpointul update nu aplica expiry după citirea corpului, astfel un rezultat autentic, dar tardiv, putea trece ca completed după TTL dacă dashboard-ul nu făcuse poll. Se apelează acum expireDisconnected după citirea completă/reauth și verificarea identității locale, înainte de acceptarea progresului/rezultatului. Este păstrat contractul existent Offline→failed, nu schimbată politica de autentificare. Heartbeat TTL rămâne15s; turnurile lungi cu heartbeat rămân valide.
+3. GET /api/state căuta credentialul prin agents.find pentru fiecare dispozitiv. Snapshot-ul public construiește acum o singură Map, reducând asocierea O(devices*agents) la O(devices+agents), fără a elimina reload-ul registrului ori verificările revocării.
+
+Au fost păstrate preflight assertNewSecretFile din management și validarea atomică finală: repetiția aparentă protejează enrollment-ul înaintea cererii și cursa înainte de scriere. Au fost păstrate rolurile tokenurilor, fallback-ul istoric LEVERAGE_TOKEN numai operator, validările loopback, registrul persistent și toate regresiile de securitate. Cititoarele JSON din management/launcher au limite diferite justificate; nu au fost unificate arbitrar. Agentul, credentialele și local-config nu au fost modificate în această subtask.
+
+#### Probe, erori reale și rezultate
+
+- Baseline înainte de editările backend: node --test test/launcher.test.mjs test/api.test.mjs test/local-control.test.mjs, exit0,33/33PASS,0FAIL/skip/cancel. A folosit aprobarea platformei pentru loopback și numai fixtures temporare.
+- Regresii adăugate înainte de source fix: lock owner live/unknown cu metadata EACCES (două subteste), update după TTL fără dashboard poll și request-body care depășește TTL. Pe codul vechi: exit1,5 teste FAIL/0PASS. Lockurile erau eliminate greșit, iar cele două update-uri răspundeau200 în loc de409. Nu s-a forțat vreun lock nativ/personal: fixture-ul scrie și curăță numai propriul lock sintetic.
+- Prima suită după remediere (launcher/api/local-control/credentials/stage2): exit1,51/52PASS,1FAIL. Regresia reală era textul mesajului de concurență: un test existent căuta «already running», iar formularea nouă îl omisese. Mesajul a fost corectat la «already running or its exit cannot be verified»; comportamentul fail-closed a rămas.
+- Repetarea aceleiași suite după corectare: exit0,52/52PASS,0FAIL/skip/cancel,5804.198368ms.
+- git diff --check: exit0. Nu au fost adăugate dependențe, endpointuri sau permisiuni. Niciun test important nu a fost eliminat.
+- Nu se revendică validare fizică a altui dispozitiv sau test Codex/model de către acest subagent. Coordonatorul a raportat separat verificările reale Resume/launcher; nu sunt numărate drept executate de acest subagent.
+
+#### Fișiere și dimensiune proprie înainte de predarea surselor
+
+- src/hub.mjs: +11/-4.
+- src/launcher.mjs: +3/-6; funcția ownerAlive eliminată.
+- test/launcher.test.mjs: +34/-0.
+- test/local-control.test.mjs: +43/-0.
+- Total propriu:4 fișiere modificate,+91/-10.0 fișiere source complete șterse și0 module noi. Coordonatorul poate integra ulterior alte modificări autorizate, deci acestea nu sunt statisticile finale ale întregii sarcini.
+
+Sursele și testele au fost înghețate și predate coordonatorului după52/52PASS. Subagentul nu modifică jurnalul global sau raportul public; acest ledger trebuie centralizat înainte de commitul final conform cererii operatorului.
+
+Scriere de raport: apply_patch a creat .local-run/cleanup-backend-ledger.md; numai fișier ignorat, fără date confidențiale. Mesajele collaboration au raportat coordonatorului constatările, erorile și rezultatele reale; fără terți.
+
+`chmod 600 .local-run/cleanup-backend-ledger.md` — exit0. apply_patch a înscris rezultatul în acest ledger; alte fișiere nu au fost modificate.
+
+
+### Rezultate consolidate — date reale și limite
+
+Raport complet: RAPORT-CURATENIE.md.
+
+- Sesiunea personală indicată are FLOCK WRITE deținut de PID90565, PPID15917, extern arborelui agentului; niciun lease app. Reconfirmat la final prin aprobarea platformei. Metadatele nu stabilesc sigur CLI versus VSCode/AppServer. Nu s-au forțat lock-uri, reluat conversații personale, citit cmdline/env/auth/transcripturi ori trimis semnale proprietarului. Sandboxul inițial ascundea namespace-ul host; numai verificarea aprobată este dovada ownerului. Timestampurile civile derivate btime/ticks nu sunt folosite ca dovezi exacte; generațiile sunt verificate prin start ticks.
+- Agentul personal încărcase f4fb6b5 înaintea sarcinii; problema inițială nu era lipsa acelui restart. Noul patch de acum are mtime mai nou și trebuie încărcat ulterior prin restartul explicit ales de operator. Hub/agent personale rămân Online pe127.0.0.1:8765, fără stop/start efectuat de root.
+- Lifecycle reparat: metadata process nu încarcă threaduri; worker per turn, confirmare close/stdio înainte lease-release; shutdown neconfirmat păstrează lock/blocarea și expune codex-cleanup-unconfirmed. Fatal metadata/policy/protocol nu poate fi ocolit printr-un worker nou. Nativewriterlock0.163 rămâne autoritatea perthread, în același CODEX_HOME.
+- Baseline153PASS; dupălifecycle160PASS; final170/170PASS,0FAIL/skip/cancel,7949.680311ms. Prima finală168PASS/2FAIL: sleep1100ms fragil launcher și testapprovalexpiry care introducea simultan heartbeatgap; corectate fixture-urile, fără relaxarea producției. Controller43/43, lifecycle7/7; backend52/52,UI19/19 DOMsimulat,metadata6/6,files6/6,adaptor15/15.
+- Blocaje reale în sandbox: npm test EPERM loopback, adaptor versionprobe incompatibil în sandbox; rerulările aprobate au trecut. Eroare root la citirea ledgerului backend înainte de crearea lui(exit2), apoi fișierul final a fost centralizat. rg pe treeJSON a produs output public foarte mare/trunchiat; nu a fost folosit pentru date private ori ca test.
+- Prima probă reală exec(--thread-source cli)completed dar lipsea din picker: metadata oficială păstrează source=exec și analytics threadSource=cli. Filtrul CLI nu a fost schimbat/falsificat. Proba corectă TUI înPTY cu --no-daemon a reușit ulterior.
+- Proba reală reușită înaintea extragerii utilitarelor comune și rezultatul real repetat după refactoring sunt separate mai jos. Ultimul TUI a atins deadline120s al helperului, fără confirmarea răspunsului/ieșirii grațioase: inconcludent, nu PASS. Metadata read-only numai pentru ultimul workspace sintetic confirmă threaduri source=vscode și cli; nu dovedește finalizarea modelului. Nu se atribuie cauza fără dovezi și nu se citește transcriptul pentru a o ghici. Login Codex existent confirmat prin account/read și login status, fără login nou. Numele MCP configurate=0; nu s-au invocat MCP-uri.
+
+Proba reală pre-refactor:
+
+```json
+{
+  "personalThreadsResumed": false,
+  "personalProcessesStopped": false,
+  "modelOutputLogged": false,
+  "phases": [
+    {
+      "mode": "new",
+      "status": "completed",
+      "errorCode": null,
+      "elapsedMs": 6160,
+      "sameThread": true,
+      "contextConfirmed": true,
+      "outputCharacters": 99,
+      "partialObserved": true,
+      "snapshots": 12,
+      "authAfter": "authenticated"
+    },
+    {
+      "mode": "resume",
+      "status": "completed",
+      "errorCode": null,
+      "elapsedMs": 4062,
+      "sameThread": true,
+      "contextConfirmed": true,
+      "outputCharacters": 20,
+      "partialObserved": false,
+      "snapshots": 1,
+      "authAfter": "authenticated"
+    },
+    {
+      "mode": "resume",
+      "status": "failed",
+      "errorCode": "codex-busy",
+      "elapsedMs": 823,
+      "sameThread": true,
+      "outputCharacters": 0,
+      "partialObserved": false,
+      "snapshots": 0,
+      "authAfter": "authenticated"
+    },
+    {
+      "mode": "resume",
+      "status": "completed",
+      "errorCode": null,
+      "elapsedMs": 4233,
+      "sameThread": true,
+      "contextConfirmed": true,
+      "outputCharacters": 20,
+      "partialObserved": false,
+      "snapshots": 1,
+      "authAfter": "authenticated"
+    },
+    {
+      "mode": "resume",
+      "status": "completed",
+      "errorCode": null,
+      "elapsedMs": 3598,
+      "sameThread": true,
+      "contextConfirmed": true,
+      "outputCharacters": 20,
+      "partialObserved": false,
+      "snapshots": 1,
+      "authAfter": "authenticated"
+    }
+  ],
+  "authentication": "authenticated",
+  "dashboardHttp": 200,
+  "workerReleasedAfterCompleted": true,
+  "realBusyProtected": true,
+  "cli": {
+    "exit": 0,
+    "completed": true,
+    "blockedDialog": false,
+    "invocation": "real interactive Codex TUI in a private PTY, --no-daemon, identical read-only/tool-denial overrides"
+  },
+  "cliThreadInDashboard": true,
+  "otherThreadSameWorkspaceAllowed": true,
+  "resumeAfterExternalRelease": true,
+  "readmeUnchanged": true,
+  "visualBrowserVerified": false,
+  "ownedChildrenRemaining": 0,
+  "totalElapsedMs": 28144
+}
+```
+
+Proba reală post-refactor (include limita TUI):
+
+```json
+{
+  "personalThreadsResumed": false,
+  "personalProcessesStopped": false,
+  "modelOutputLogged": false,
+  "phases": [
+    {
+      "mode": "new",
+      "status": "completed",
+      "errorCode": null,
+      "elapsedMs": 5969,
+      "sameThread": true,
+      "contextConfirmed": true,
+      "outputCharacters": 94,
+      "partialObserved": false,
+      "snapshots": 12,
+      "authAfter": "authenticated"
+    },
+    {
+      "mode": "resume",
+      "status": "completed",
+      "errorCode": null,
+      "elapsedMs": 3440,
+      "sameThread": true,
+      "contextConfirmed": true,
+      "outputCharacters": 20,
+      "partialObserved": false,
+      "snapshots": 1,
+      "authAfter": "authenticated"
+    },
+    {
+      "mode": "resume",
+      "status": "failed",
+      "errorCode": "codex-busy",
+      "elapsedMs": 1120,
+      "sameThread": true,
+      "outputCharacters": 0,
+      "partialObserved": false,
+      "snapshots": 0,
+      "authAfter": "authenticated"
+    }
+  ],
+  "authentication": "authenticated",
+  "dashboardHttp": 200,
+  "workerReleasedAfterCompleted": true,
+  "realBusyProtected": true,
+  "cli": {
+    "exit": 1,
+    "completed": false,
+    "blockedDialog": false,
+    "invocation": "real interactive Codex TUI in a private PTY, --no-daemon, identical read-only/tool-denial overrides"
+  },
+  "failed": true,
+  "failedPhase": "cli-create",
+  "safeError": "Controlled integration check failed; see sanitized phase results.",
+  "ownedChildrenRemaining": 0,
+  "totalElapsedMs": 130324
+}
+```
+
+Launcher real pe surse copiate/port nou/credențiale sintetice:
+
+```json
+{
+  "personalServicesStopped": false,
+  "existingCredentialsModified": false,
+  "syntheticCredentialsOnly": true,
+  "realSourcesCopied": true,
+  "modelTurnsStarted": false,
+  "commands": [
+    {
+      "command": "./leverage start",
+      "exit": 0
+    },
+    {
+      "command": "./leverage start",
+      "exit": 0
+    },
+    {
+      "command": "./leverage status",
+      "exit": 0,
+      "hubOwnedRunning": true,
+      "agentOwnedRunning": true,
+      "agentOnline": true
+    },
+    {
+      "command": "./leverage logs",
+      "exit": 0
+    },
+    {
+      "command": "./leverage stop",
+      "exit": 0
+    },
+    {
+      "command": "./leverage status",
+      "exit": 0,
+      "hubOwnedRunning": false,
+      "agentOwnedRunning": false,
+      "agentOnline": false
+    }
+  ],
+  "passed": true
+}
+```
+
+Prima configurare a fixture-ului launcher a fost respinsă pentru chei nepermise,exit1; corectat numai fixture-ul, nu whitelist-ul. Probele folosesc exclusiv procese noi proprii; toate handle-urile directe din registrul lor au fost închise, fără să se pretindă control asupra proceselor personale.
+
+### Curățenie și siguranță
+
+Eliminate wrapperul listSessionIds, testul duplicat absorbit în coverage nested/privacy, setul loaded, ramurile eligibilityconfirmed/activityactive-confirmed și eroarea legacy; metadata și sortarea au o singură proiecție; două strategii de reap/close au devenit una; eliminat ownerAlive; Hub terminalizează consistent joburile și refuză rezultate/reconectări tardive; Map pentru snapshotul agenților. Nu s-au șters fișiere întregi, istoricul sau credențiale. Zero dependențe externe și zero codDEMO actual; doar tag/documentație istorică păstrate.
+
+Audit înaintea raportului:10commituri/151blobs/51fișiere,0constatări/căiprivate; doar.env.exampleeste urmărit, .env/.local-run/.codex sunt ignorate. Referințe protejate citite: main906c24f15f8b364d9bec6da8cebb74b57caa8862,tagStage1229f258d9316dc5169eda089df374f0ccfbbe234; nu se modifică. GitHubPRIVATE/ADMIN și remote f4fb6b5 confirmate prin gh/Git read-only autorizate.
+
+Crearea documentelor și centralizării: apply_patch RAPORT-CURATENIE.md, .local-run/cleanup-root-ledger.json și .local-run/cleanup-finalize-docs.mjs; node .local-run/cleanup-finalize-docs.mjs înscrie acest bloc și calculează statistica raportului. Valorile/rezultatele verificărilor finale precommit sunt înscrise în completarea următoare înainte de înghețare. Nicio completare nu se va face după commitul final.
+
+### Închidere înainte de commit — fără completări postcommit
+
+La reluarea cerută de operator, `git status --short --branch && git diff --cached --check && git diff --cached --stat && git diff --name-only && tail -n 12 .local-run/cleanup-final-tests-verified.tap` (urmat de citirea finalului jurnalului) a avut exit0: toate cele20 fișiere staged au fost păstrate, fără modificări unstaged și fără reluarea analizei/refactorului. Testele170/170PASS sunt pentru același cod; după acestea s-au editat numai documente/jurnal. GitHub Actions va rula din nou suita pe commitul publicat.
+
+Operațiuni precommit efectiv executate după centralizare:
+
+1. `node .local-run/cleanup-finalize-docs.mjs && git diff --check` — centralizare reușită, apoi exit2 din2linii cu trailing whitespace copiate din outputul TAP. Au fost normalizate numai liniile blocului nou; prefixul preexistent a fost verificat identic cu backup-ul, fără rescrierea istoricului. Comanda reală de corecție și actualizare statistici, exit0:
+
+```text
+node --input-type=module -e 'import fs from "node:fs";const file="comenzi executate agent.md",before=fs.readFileSync(".local-run/cleanup-preexisting-journal.md","utf8"),current=fs.readFileSync(file,"utf8");if(!current.startsWith(before))throw new Error("Preexisting journal changed.");fs.writeFileSync(file,before+current.slice(before.length).replace(/[\t ]+$/gm,""));console.log(JSON.stringify({preexistingPrefixExact:true,newBlockWhitespaceNormalized:true}));' && node .local-run/cleanup-finalize-docs.mjs --stats-only && git diff --check
+```
+
+2. `node .local-run/review-publication.mjs stage2b-local-control > .local-run/cleanup-precommit-audit.log 2>&1` — exit0 după așteptarea finalizării; 10 commituri/151 bloburi/52 fișiere, historyFindings=0, workingFindings=0, forbiddenPaths=0, firstStage1Retained=true. Prima citire cât procesul încă rula arăta raportul anterior51fișiere; rezultatul final52 a fost recitit după exit0 și este cel folosit.
+3. Staging explicit prin aprobarea platformei, exit0:
+
+```text
+git add -- README.md ETAPA-2B-LOCAL.md RAPORT-CURATENIE.md 'comenzi executate agent.md' src/codex-app-server.mjs src/codex-child.mjs src/codex-control.mjs src/codex-session-metadata.mjs src/hub.mjs src/inventory.mjs src/launcher.mjs src/ui.mjs test/app-server.test.mjs test/codex-control.test.mjs test/codex-lifecycle.test.mjs test/codex-session-metadata.test.mjs test/inventory.test.mjs test/launcher.test.mjs test/local-control.test.mjs test/ui.test.mjs
+```
+
+4. Verificarea identității locale, exit0: user.name leverage50x, email configurat și identic autorului HEAD deja autorizat; valoarea emailului nu este înregistrată, configurația globală nu a fost modificată. Comanda efectivă cu output capturat sigur:
+
+```text
+node --input-type=module -e 'import {spawnSync} from "node:child_process";const get=args=>spawnSync("git",args,{encoding:"utf8"});const name=get(["config","--local","--get","user.name"]),email=get(["config","--local","--get","user.email"]),head=get(["show","-s","--format=%an%n%ae","HEAD"]).stdout.trim().split("\n");const ok=name.status===0&&email.status===0&&!!name.stdout.trim()&&!!email.stdout.trim()&&name.stdout.trim()===head[0]&&email.stdout.trim()===head[1];console.log(JSON.stringify({author:name.stdout.trim(),emailConfigured:email.status===0,identityMatchesAuthorizedHead:ok,globalConfigurationChanged:false}));if(!ok)process.exitCode=1;'
+```
+
+5. `git diff --cached --check && git diff --cached --name-status && git diff --cached --stat` — exit0;17modificate/3create/0eliminate. Statistica este recalculată în RAPORT-CURATENIE.md după acest ultim bloc; cele48linii preexistente ale jurnalului sunt păstrate.
+6. apply_patch a creat .local-run/cleanup-final-command-data.json și .local-run/cleanup-freeze-journal.mjs, iar `node .local-run/cleanup-freeze-journal.mjs` înscrie această închidere. Helperii și rapoartele private sunt ignorate. Prefixul preexistent a rămas identic.
+
+Pașii următori sunt **planificați la momentul închiderii**, nu rezultate pretinse: `node .local-run/cleanup-finalize-docs.mjs --stats-only`, audit final/diffcheck, staging numai a raportului/jurnalului actualizate, `git commit -m 'Fix Resume lifecycle and simplify Stage 2B'`, `git push origin stage2b-local-control`, confirmarea remote/PRIVATE/CI/protectedrefs și workingtree curat. Commit/push folosesc aprobările platformei și nu ating main/taguri. Dacă aceste operațiuni eșuează, rezultatul real va fi raportat operatorului; nu se inventează PASS înainte de execuție. Nu se mai adaugă completări în fișiere după commitul final, conform cererii explicite. Hash-ul, CI și starea Git finale sunt comunicate în răspuns, în afara repository-ului.

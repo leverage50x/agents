@@ -63,7 +63,7 @@ function readJson(req) {
   });
 }
 
-function inventory(body) {
+function inventory(body, local) {
   const mcp = body.mcp === undefined ? { status: 'unavailable', servers: [] } : body.mcp;
   requireValue(isObject(mcp) && ['configured-only', 'no-config', 'unavailable'].includes(mcp.status) &&
     Array.isArray(mcp.servers) && mcp.servers.length <= 100 &&
@@ -86,7 +86,8 @@ function inventory(body) {
           ? { lastActivity: new Date(x.lastActivity).toISOString() } : {}),
         ...(typeof x.project === 'string' && /^[\p{L}\p{N}_. -]{1,100}$/u.test(x.project) ? { project: x.project } : {}),
         ...(title ? { title } : {}),
-        activity: 'discovered', source: x.source === 'app-server' ? 'app-server' : 'files'
+        activity: 'discovered', source: x.source === 'app-server' ? 'app-server' : 'files',
+        eligibility: local && x.eligibility === 'busy' ? 'busy' : 'discovered'
       };
     }),
     sessionInventory: { status: meta.status, truncated: meta.truncated,
@@ -107,10 +108,13 @@ export function createHub({ token, credentialStore = createCredentialStore(), no
   const online = device => device && now() - device.lastSeen < 15000;
   const localAgent = identity => localEnabled && identity?.id === localDeviceId;
   const safeAuth = value => ['authenticated', 'not-authenticated', 'unavailable'].includes(value) ? value : 'unavailable';
+  const failJob = (job, errorCode) => {
+    job.status = 'failed'; job.errorCode = errorCode; job.finishedAt = new Date(now()).toISOString();
+  };
   const expireDisconnected = () => {
     for (const job of readonlyJobs.values()) {
       if (['queued', 'running'].includes(job.status) && !online(devices.get(job.deviceId))) {
-        job.status = 'failed'; job.errorCode = 'agent-disconnected'; job.finishedAt = new Date(now()).toISOString();
+        failJob(job, 'agent-disconnected');
       }
     }
   };
@@ -140,13 +144,14 @@ export function createHub({ token, credentialStore = createCredentialStore(), no
     if (req.method === 'GET' && u.pathname === '/api/state') {
       expireDisconnected();
       const agents = credentialStore.list();
+      const credentialsById = new Map(agents.map(credential => [credential.id, credential]));
       return send(res, 200, {
         agents,
         localControl: { enabled: localEnabled, deviceId: localEnabled ? localDeviceId : null,
           workspaces: localEnabled ? [{ id: 'project', label: path.basename(authorizedWorkspace) }] : [] },
         readonlyJobs: [...readonlyJobs.values()].slice(-40).reverse(),
         devices: [...devices.values()].map(d => {
-          const credential = agents.find(x => x.id === d.id);
+          const credential = credentialsById.get(d.id);
           const revokedAt = credential?.revokedAt || null;
           return { ...d, revokedAt, online: !revokedAt && Boolean(credential && online(d)) };
         })
@@ -169,7 +174,7 @@ export function createHub({ token, credentialStore = createCredentialStore(), no
       if (!credentialStore.revoke(b.deviceId)) return send(res, 404, { error: 'Unknown agent.' });
       for (const job of readonlyJobs.values()) {
         if (job.deviceId === b.deviceId && ['queued', 'running'].includes(job.status)) {
-          job.status = 'failed'; job.errorCode = 'agent-revoked'; job.finishedAt = new Date(now()).toISOString();
+          failJob(job, 'agent-revoked');
         }
       }
       return send(res, 200, { ok: true });
@@ -183,15 +188,13 @@ export function createHub({ token, credentialStore = createCredentialStore(), no
         !/[\x00-\x1f\x7f]/.test(b.name), 'Invalid device name.');
       requireValue(typeof b.platform === 'string' && b.platform.length <= 30, 'Invalid platform.');
       requireValue(b.workspaceReady === undefined || typeof b.workspaceReady === 'boolean', 'Invalid workspace readiness.');
-      const discovered = inventory(b);
       const local = localAgent(agent) && b.localControl === true && b.workspaceBinding === workspaceBinding;
-      const sessions = discovered.sessions.map((session, index) => ({ ...session,
-        eligibility: local && ['confirmed', 'busy'].includes(b.sessions?.[index]?.eligibility)
-          ? b.sessions[index].eligibility : 'discovered' }));
+      const discovered = inventory(b, local);
+      expireDisconnected();
       devices.set(b.deviceId, {
         id: agent.id, name: agent.name, platform: b.platform, sandbox: 'no-execution',
         workspaceReady: b.workspaceReady === true, executionMode: local ? 'local-read-only' : 'inventory-only',
-        ...discovered, sessions, localControl: local, codexAuth: local ? safeAuth(b.codexAuth) : 'unavailable', lastSeen: now()
+        ...discovered, localControl: local, codexAuth: local ? safeAuth(b.codexAuth) : 'unavailable', lastSeen: now()
       });
       return send(res, 200, { ok: true });
     }
@@ -234,7 +237,7 @@ export function createHub({ token, credentialStore = createCredentialStore(), no
         const device = devices.get(agent.id);
         if (!device.localControl || device.codexAuth !== 'authenticated' || now() - Date.parse(job.createdAt) > 120000 ||
             (job.mode === 'resume' && !device.sessions.some(s => s.id === job.threadId && s.eligibility !== 'busy'))) {
-          job.status = 'failed'; job.errorCode = 'selection-no-longer-available'; job.finishedAt = new Date(now()).toISOString();
+          failJob(job, 'selection-no-longer-available');
           return send(res, 200, { job: null });
         }
       }
@@ -245,6 +248,9 @@ export function createHub({ token, credentialStore = createCredentialStore(), no
       const b = await readJson(req);
       if (!credentialStore.authenticate(bearer)) return send(res, 401, { error: 'Unauthorized' });
       if (!localAgent(agent) || b.deviceId !== agent.id) return send(res, 403, { error: 'Local agent identity required.' });
+      // An expired heartbeat cannot be revived by a late response, even if the
+      // dashboard has not polled or the request body crossed the TTL boundary.
+      expireDisconnected();
       const job = readonlyJobs.get(b.jobId);
       if (!job || job.deviceId !== agent.id || job.status !== 'running') return send(res, 409, { error: 'No matching running job.' });
       requireValue(['running', 'completed', 'failed', 'interrupted'].includes(b.status), 'Invalid READ-ONLY job state.');

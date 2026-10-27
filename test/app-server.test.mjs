@@ -122,6 +122,18 @@ test('repeated pagination cursors stop without an unbounded scan', async t => {
   assert.equal(f.requests().filter(request => request.method === 'thread/list').length, 2);
 });
 
+test('older duplicate pages cannot replace newer UUID metadata or its sanitized title', async t => {
+  const f = syntheticServer(t, { pages: [
+    { data: [row(1, { name: 'Newer metadata', updatedAt: 1700000200 })], nextCursor: 'second' },
+    { data: [row(1, { id: id(1).toUpperCase(), name: 'Older metadata', updatedAt: 1700000100 }),
+      row(2, { updatedAt: 1700000150 })], nextCursor: null }
+  ] });
+  const result = await listAppServerSessions({ home: f.home, spawnImpl: f.spawnImpl });
+  assert.deepEqual(result.sessions.map(session => session.id), [id(1), id(2)]);
+  assert.equal(result.sessions[0].title, 'Newer metadata');
+  assert.equal(result.sessions[0].lastActivity, new Date(1700000200000).toISOString());
+});
+
 test('Cwd + Active filters auxiliary rows before pagination limits and uses only official name for titles', async t => {
   const { workspace } = fixture(t);
   const pages = [

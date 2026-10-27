@@ -442,7 +442,7 @@ test('synthetic New then Resume retains the app-created thread and read-only pol
   const created = await f.control.run(newInput);
   assert.equal(created.status, 'completed');
   const inventory = await f.control.listSessions();
-  assert.equal(inventory.sessions.find(session => session.id === created.threadId).eligibility, 'confirmed');
+  assert.equal(inventory.sessions.find(session => session.id === created.threadId).eligibility, 'discovered', 'The finished worker released ownership.');
   const resumed = await f.control.run({ ...newInput, mode: 'resume', threadId: created.threadId,
     prompt: 'Continue the synthetic analysis in this explicitly selected thread.' });
   assert.equal(resumed.status, 'completed');
@@ -520,7 +520,7 @@ test('other Codex processes in the same workspace do not block native ownership 
   });
   const created = await f.control.run(newInput);
   assert.equal(created.status, 'completed');
-  assert.equal((await f.control.listSessions()).sessions[0].eligibility, 'confirmed');
+  assert.equal((await f.control.listSessions()).sessions[0].eligibility, 'discovered');
   const resumed = await f.control.run({ ...newInput, mode: 'resume', threadId: created.threadId });
   assert.equal(resumed.status, 'completed');
   assert.equal(f.requests.filter(request => request.method === 'thread/resume').length, 1);
@@ -643,6 +643,29 @@ test('unsupported versions, malformed metadata, approval denial and policy misma
   assert.deepEqual(policy.control.recoveryState(), { recoverable: false, errorCode: 'codex-policy-mismatch' });
 });
 
+test('fatal metadata cannot be bypassed by a new worker and stops an already running worker', async t => {
+  const behavior = { badJson: 'thread/list' };
+  const f = fakeCodex(t, behavior);
+  assert.equal((await f.control.listSessions()).status, 'unavailable');
+  const calls = f.calls.length;
+  behavior.badJson = null;
+  assert.equal((await f.control.run(newInput)).errorCode, 'codex-protocol-error');
+  assert.equal(f.calls.length, calls, 'fatal metadata must not create an execution worker');
+  assert.equal(f.requests.some(request => request.method === 'turn/start'), false);
+
+  const runningBehavior = { turnHang: true };
+  const g = fakeCodex(t, runningBehavior);
+  const running = g.control.run(newInput);
+  await new Promise(resolve => setTimeout(resolve, 10));
+  runningBehavior.badJson = 'account/read';
+  assert.equal((await g.control.accountStatus()).status, 'unavailable');
+  const result = await running;
+  assert.equal(result.status, 'failed');
+  assert.equal(result.errorCode, 'codex-protocol-error');
+  assert.equal(g.requests.filter(request => request.method === 'turn/start').length, 1);
+  assert.equal((await g.control.run(newInput)).errorCode, 'codex-protocol-error');
+});
+
 test('long-lived metadata traffic can exceed 32 MiB across separate minutes without poisoning the controller', async t => {
   let time = 1000;
   const f = fakeCodex(t, { now: () => time });
@@ -691,7 +714,7 @@ test('message-size bounds remain enforced and a faulty clock fails closed', asyn
   assert.deepEqual(clock.control.recoveryState(), { recoverable: false, errorCode: 'codex-clock-error' });
 });
 
-test('an active failed turn ends before its controller can advertise idle recovery', async t => {
+test('a failed disposable worker never poisons metadata or replays its turn', async t => {
   const f = fakeCodex(t, { turnHang: true });
   const running = f.control.run(newInput);
   await new Promise(resolve => setTimeout(resolve, 10));
@@ -702,6 +725,7 @@ test('an active failed turn ends before its controller can advertise idle recove
   const result = await running;
   assert.equal(result.status, 'failed');
   assert.equal(result.errorCode, 'codex-unavailable');
-  assert.deepEqual(f.control.recoveryState(), { recoverable: true, errorCode: 'codex-unavailable' });
+  assert.deepEqual(f.control.recoveryState(), { recoverable: false, errorCode: null });
+  assert.equal((await f.control.accountStatus()).status, 'authenticated');
   assert.equal(f.requests.filter(request => request.method === 'turn/start').length, 1, 'A failed turn is never replayed.');
 });

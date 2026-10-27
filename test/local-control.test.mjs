@@ -37,6 +37,32 @@ function setup(t, { now = Date.now, enabled = true } = {}) {
   return { ...f, other, server, operator, agent, otherAgent, heartbeat, propose, claim, update };
 }
 
+test('reconnecting heartbeat cannot revive a turn that expired without a dashboard poll', async t => {
+  let time = 1000;
+  const f = setup(t, { now: () => time });
+  await f.heartbeat();
+  const proposed = await f.propose();
+  await f.claim();
+  time += 15000;
+  await f.heartbeat();
+  assert.equal((await f.update({ jobId: proposed.body.job.id, status: 'completed', output: 'Late synthetic response.' })).status, 409);
+  const state = (await f.operator()).body;
+  assert.equal(state.devices[0].online, true);
+  assert.equal(state.readonlyJobs[0].status, 'failed');
+  assert.equal(state.readonlyJobs[0].errorCode, 'agent-disconnected');
+  assert.equal(state.readonlyJobs[0].output, '');
+});
+
+test('inventory does not certify idle ownership from obsolete agent metadata', async t => {
+  const f = setup(t);
+  await f.heartbeat({ sessions: [{ ...session(threadId, 'confirmed'), activity: 'active-confirmed' }] });
+  const row = (await f.operator()).body.devices[0].sessions[0];
+  assert.equal(row.activity, 'discovered');
+  assert.equal(row.eligibility, 'discovered');
+  await f.heartbeat({ sessions: [session(threadId, 'busy')] });
+  assert.equal((await f.operator()).body.devices[0].sessions[0].eligibility, 'busy');
+});
+
 test('local Hub requires explicit selectors, read-only approval and server-owned execution policy', async t => {
   const f = setup(t);
   assert.equal((await f.propose()).status, 400, 'a configured agent must first report its capability');
@@ -219,6 +245,49 @@ test('Offline expires queued and running local jobs without replay, preserves pa
   }
 });
 
+test('late progress and results expire disconnected jobs without relying on a dashboard poll', async t => {
+  for (const status of ['running', 'completed', 'failed', 'interrupted']) {
+    let time = Date.now();
+    const f = setup(t, { now: () => time });
+    await f.heartbeat();
+    const jobId = (await f.propose()).body.job.id;
+    await f.claim();
+    const output = 'Synthetic safe partial before losing heartbeat.';
+    const events = [{ type: 'progress', message: 'Synthetic progress before losing heartbeat.' }];
+    await f.update({ jobId, status: 'running', output, events });
+    time += 15000;
+    assert.equal((await f.update({ jobId, status, output: 'Late response must not overwrite the partial.' })).status, 409);
+    await f.heartbeat(); // Reconnecting first prevents GET /api/state from hiding a missing expiry check.
+    const job = (await f.operator()).body.readonlyJobs.find(job => job.id === jobId);
+    assert.equal(job.status, 'failed');
+    assert.equal(job.errorCode, 'agent-disconnected');
+    assert.equal(job.finishedAt, new Date(time).toISOString());
+    assert.equal(job.output, output);
+    assert.deepEqual(job.events, events);
+    assert.equal((await f.claim()).body.job, null, 'late responses never requeue a disconnected instruction');
+  }
+});
+
+test('an update whose body crosses the heartbeat deadline is rejected after the complete body is read', async t => {
+  let time = Date.now();
+  const f = setup(t, { now: () => time });
+  await f.heartbeat();
+  const jobId = (await f.propose()).body.job.id;
+  await f.claim();
+  const body = Buffer.from(JSON.stringify({ deviceId: f.device.deviceId, jobId, status: 'completed', output: 'Late synthetic result.' }));
+  const chunks = (function* () {
+    yield body.subarray(0, 20);
+    time += 15000;
+    yield body.subarray(20);
+  })();
+  assert.equal((await f.agent({ method: 'POST', endpoint: '/api/agent/local/update', chunks })).status, 409);
+  await f.heartbeat();
+  const job = (await f.operator()).body.readonlyJobs.find(job => job.id === jobId);
+  assert.equal(job.status, 'failed');
+  assert.equal(job.errorCode, 'agent-disconnected');
+  assert.equal(job.output, '');
+});
+
 test('agent runs an explicitly queued synthetic controller turn in the background while heartbeats continue', async t => {
   let time = Date.now();
   const f = setup(t, { now: () => time });
@@ -341,7 +410,12 @@ test('claim revalidates authentication, local capability, Resume availability an
     await f.heartbeat();
     const queued = await f.propose({ mode: 'resume', threadId });
     assert.equal(queued.status, 201);
-    if (patch.expired) time += 120001;
+    if (patch.expired) {
+      // Approval age expires while the agent remains Online; an actual gap
+      // is covered separately and must retain agent-disconnected instead.
+      for (let beat = 0; beat < 24; beat++) { time += 5000; await f.heartbeat(); }
+      time++;
+    }
     const { expired, ...heartbeatPatch } = patch;
     await f.heartbeat(heartbeatPatch);
     const claim = await f.claim();

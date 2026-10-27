@@ -71,11 +71,6 @@ function procIdentity(pid) {
   } catch { return null; }
 }
 
-function ownerAlive(owner) {
-  const current = procIdentity(owner?.pid);
-  return Boolean(current && current.uid === owner.uid && current.startTime === owner.startTime);
-}
-
 // Executable/cwd/cmdline metadata can disappear while a process is still
 // releasing its resources. Only generation disappearance or a zombie proves
 // exit; incomplete ownership metadata must never authorize another signal.
@@ -273,7 +268,9 @@ export function createLauncher({ root = DEFAULT_ROOT, env = process.env, log = c
         if (!Number.isSafeInteger(current.pid) || current.uid !== process.getuid() || !/^\d+$/.test(current.startTime)) {
           throw safeError('Unsafe launcher lock; no processes were changed.');
         }
-        if (ownerAlive(current)) throw safeError('Another launcher operation is already running.');
+        if (generationState(current) !== 'exited') {
+          throw safeError('Another launcher operation is already running or its exit cannot be verified.');
+        }
         if (fs.lstatSync(lockFile).ino === stat.ino) fs.unlinkSync(lockFile);
       }
     }

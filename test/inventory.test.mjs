@@ -1,10 +1,9 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {parseMcpNames, listMcp, listSessionIds, listSessionInventory} from '../src/inventory.mjs';
+import {parseMcpNames, listMcp, listSessionInventory} from '../src/inventory.mjs';
 import fs from 'node:fs';
 import {fixture} from '../test-support/fixtures.mjs';
-import {mkdtempSync,mkdirSync,writeFileSync,rmSync} from 'node:fs';
-import path from 'node:path';import os from 'node:os';
+import path from 'node:path';
 test('MCP inventory extracts names but not secrets, commands or env',()=>{
   const names=parseMcpNames('[mcp_servers.burp]\ncommand="java"\npassword="secret"\n[mcp_servers."dev docs"]\nurl="https://docs.example.org/mcp"\n');
   assert.deepEqual(names,['burp','dev docs']);
@@ -31,10 +30,10 @@ test('session scan distinguishes missing and invalid roots and ignores symlinks'
   assert.throws(() => listSessionInventory(f.home, 41), /limit/);
 });
 
-test('sessions deduplicate UUIDs, sort metadata and never read transcript contents', t => {
+test('nested sessions deduplicate UUIDs, sort metadata and never read transcript contents', t => {
   const f = fixture(t);
-  const sessions = path.join(f.home, 'sessions');
-  fs.mkdirSync(sessions);
+  const sessions = path.join(f.home, 'sessions', '2026', '10', '14');
+  fs.mkdirSync(sessions, { recursive: true });
   const id = '01a0f2f7-6fa5-7f72-999c-8522c8196a4f';
   const older = path.join(sessions, 'old-' + id + '.jsonl');
   const newer = path.join(sessions, 'new-' + id.toUpperCase() + '.jsonl');
@@ -49,7 +48,7 @@ test('sessions deduplicate UUIDs, sort metadata and never read transcript conten
   assert.deepEqual(result.sessions, [{ id, modified: new Date(2000000).toISOString() }]);
   assert.equal(result.status, 'available');
   assert.equal(result.truncated, false);
-  assert.deepEqual(listSessionIds(f.home, 0), []);
+  assert.deepEqual(listSessionInventory(f.home, 0).sessions, []);
 });
 
 test('session scan considers more than 500 files and reports bounded scans', t => {
@@ -64,7 +63,7 @@ test('session scan considers more than 500 files and reports bounded scans', t =
     fs.utimesSync(file, 1000 + i, 1000 + i);
     newest = id;
   }
-  assert.equal(listSessionIds(f.home, 1)[0].id, newest);
+  assert.equal(listSessionInventory(f.home, 1).sessions[0].id, newest);
   assert.equal(listSessionInventory(f.home).sessions.length, 40);
   assert.equal(listSessionInventory(f.home).truncated, true);
   assert.equal(listSessionInventory(f.home, 40, { maxEntries: 2 }).truncated, true);
@@ -84,16 +83,4 @@ test('scan reports unreadable subdirectories without claiming a complete invento
   t.mock.restoreAll();
   t.mock.method(fs, 'opendirSync', () => { throw Object.assign(new Error('Synthetic root permission error'), { code: 'EACCES' }); });
   assert.equal(listSessionInventory(f.home).status, 'unavailable');
-});
-test('sessions inventory reads filenames only',()=>{
-  const root=mkdtempSync(path.join(os.tmpdir(),'leverage50xagents-'));
-  try{
-    mkdirSync(path.join(root,'sessions','2026','10','14'),{recursive:true});
-    writeFileSync(path.join(root,'config.toml'),'[mcp_servers.burp]\nsecret="NEVER_EXPOSE"');
-    const id='01a0f2f7-6fa5-7f72-999c-8522c8196a4f';
-    writeFileSync(path.join(root,'sessions','2026','10','14',`rollout-test-${id}.jsonl`),'secret payload');
-    assert.deepEqual(listMcp(root).servers,['burp']);
-    assert.equal(listSessionIds(root)[0].id,id);
-    assert.equal(JSON.stringify(listSessionIds(root)).includes('secret payload'),false);
-  }finally{rmSync(root,{recursive:true,force:true});}
 });

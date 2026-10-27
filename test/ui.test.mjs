@@ -336,7 +336,7 @@ test('local progress, final answers, authentication labels and session eligibili
   assert.ok(b.element('local-jobs').innerHTML.includes('&lt;script&gt;controller-unavailable&lt;/script&gt;'));
   assert.equal(b.element('local-jobs').innerHTML.includes('<script>'), false);
   assert.ok(b.element('sessions').innerHTML.includes('Discovered — resume not yet verified'));
-  b.state(localState([{ ...localDevice, codexAuth: 'not-authenticated', sessions: [{ ...localDevice.sessions[0], eligibility: 'confirmed' }] }]));
+  b.state(localState([{ ...localDevice, codexAuth: 'not-authenticated' }]));
   await b.poll();
   assert.ok(b.element('devices').innerHTML.includes('Not authenticated'));
   assert.ok(b.element('sessions').innerHTML.includes('Not authenticated — Resume unavailable'));
@@ -372,14 +372,14 @@ test('session inventory shows metadata title and relative activity with project,
 
 test('Resume choices show metadata title and relative time without selecting any session after polling', async () => {
   const reported = { ...localDevice, sessions: [{ ...localDevice.sessions[0], title: 'Review <README>', project: 'Personal project',
-    eligibility: 'confirmed', lastActivity: '2026-10-26T09:15:00Z' }] };
+    eligibility: 'discovered', lastActivity: '2026-10-26T09:15:00Z' }] };
   const b = browser(localState([reported]));
   await b.login();
   selectLocal(b, { mode: 'resume' });
   let options = b.element('local-thread').innerHTML;
   assert.ok(options.includes('Review &lt;README&gt; · 58m ago'));
   assert.ok(options.includes('Full session ID: ' + localThread));
-  assert.ok(options.includes('Loaded by this app — Resume will be rechecked'));
+  assert.ok(options.includes('Discovered — resume not yet verified'));
   assert.equal(b.element('local-thread').value, '');
   await b.poll();
   assert.equal(b.element('local-thread').value, '');
@@ -389,7 +389,7 @@ test('Resume choices show metadata title and relative time without selecting any
   assert.equal(b.element('local-thread').value, '');
   change(b, 'local-thread', localThread);
   assert.ok(b.element('local-selection-summary').textContent.includes('Review <README> · 1h ago'));
-  assert.ok(b.element('local-selection-summary').textContent.includes('Resume will be rechecked'));
+  assert.ok(b.element('local-selection-summary').textContent.includes('Discovered — resume not yet verified'));
   change(b, 'local-mode', 'new');
   await b.poll();
   assert.equal(b.element('local-thread').value, '');
@@ -446,12 +446,12 @@ test('Cwd + Active explains non-archived metadata and filename fallback never cl
   assert.equal(b.element('inventory-filter').textContent, 'Read-only inventory');
 });
 
-test('local errors explain busy, unverified, unavailable, unsupported and authentication states distinctly', async () => {
+test('local errors explain native ownership, cleanup, availability, policy and authentication distinctly', async () => {
   const b = browser(localState());
   await b.login();
   const messages = {
-    'codex-busy': 'The selected session has an active owner, or this app already has a running turn.',
-    'session-activity-unverified': 'Session activity could not be verified.',
+    'codex-busy': 'The selected session is still loaded by another Codex client, or this app already has a running turn.',
+    'codex-cleanup-unconfirmed': 'The app could not confirm that its Codex worker exited. Further turns are blocked;',
     'session-unavailable': 'The session is no longer available in the selected workspace.',
     'codex-version-unsupported': 'The installed Codex CLI version is unsupported.',
     'codex-not-authenticated': 'Codex authentication could not be confirmed.',

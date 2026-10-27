@@ -1,10 +1,10 @@
 import path from 'node:path';
 import fs from 'node:fs';
 import { spawn } from 'node:child_process';
+import { watchCodexChild, closeCodexChild } from './codex-child.mjs';
 import { codexHome, listSessionInventory } from './inventory.mjs';
-import { RESUME_SOURCE_KINDS, matchesResumePickerThread, sanitizeSessionTitle } from './codex-session-metadata.mjs';
+import { RESUME_SOURCE_KINDS, matchesResumePickerThread, resumeSessionMetadata, compareSessionActivity } from './codex-session-metadata.mjs';
 
-const UUID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const RPC_METHODS = new Set(['initialize', 'initialized', 'thread/list']);
 // The DB-only parameter is a privacy requirement, not an optional optimization.
 // Older servers may ignore unknown parameters. Only this schema-verified build
@@ -45,31 +45,10 @@ function optionsFor({ home = codexHome(), workspace, limit = 40, command = 'code
 
 function childProcess(options, args) {
   try {
-    return options.spawnImpl(options.command, args, {
+    return watchCodexChild(options.spawnImpl(options.command, args, {
       cwd: options.home, env: options.env, stdio: ['pipe', 'pipe', 'pipe'], shell: false,
-    });
+    }));
   } catch { throw new InventoryError(); }
-}
-
-/** Always close/reap the short-lived child, including errors and timeouts. */
-async function stopChild(child) {
-  if (child.exitCode !== null || child.signalCode !== null) return;
-  await new Promise(resolve => {
-    let done = false;
-    const finish = () => {
-      if (done) return;
-      done = true;
-      clearTimeout(hardKill);
-      clearTimeout(deadline);
-      child.removeListener('close', finish);
-      resolve();
-    };
-    const hardKill = setTimeout(() => child.kill('SIGKILL'), 250);
-    const deadline = setTimeout(finish, 1000);
-    child.once('close', finish);
-    child.stdin?.end();
-    child.kill('SIGTERM');
-  });
 }
 
 async function checkVersion(options) {
@@ -100,29 +79,8 @@ async function checkVersion(options) {
   } finally {
     clearTimeout(timer);
     output = '';
-    await stopChild(child);
+    if (!await closeCodexChild(child)) throw new InventoryError();
   }
-}
-
-function projectName(cwd) {
-  if (typeof cwd !== 'string' || cwd.length > 4096 || !path.isAbsolute(cwd)) return;
-  const name = path.basename(cwd);
-  if (/^[A-Za-z0-9][A-Za-z0-9._ -]{0,79}$/.test(name)) return name;
-}
-
-function sessionMetadata(thread, workspace) {
-  if (!matchesResumePickerThread(thread, workspace)) return;
-  if (!thread || typeof thread !== 'object' || !UUID.test(thread.id) ||
-      !Number.isSafeInteger(thread.updatedAt) || thread.updatedAt < 0) return;
-  const timestamp = new Date(thread.updatedAt * 1000);
-  if (!Number.isFinite(timestamp.getTime())) return;
-  const modified = timestamp.toISOString();
-  const project = projectName(thread.cwd);
-  // A fresh App Server cannot establish whether another Codex process is live.
-  // Keep only an explicitly named, sanitized title; never use a preview.
-  const title = sanitizeSessionTitle(thread.name);
-  return { id: thread.id.toLowerCase(), modified, lastActivity: modified,
-    ...(project ? { project } : {}), ...(title ? { title } : {}), activity: 'discovered', source: 'app-server' };
 }
 
 /**
@@ -212,9 +170,14 @@ export async function listAppServerSessions(input = {}) {
         throw new InventoryError();
       }
       for (const thread of result.data) {
-        if (!matchesResumePickerThread(thread, options.workspace)) continue;
-        const metadata = sessionMetadata(thread, options.workspace);
-        if (!metadata) { partial = true; continue; }
+        const metadata = resumeSessionMetadata(thread, options.workspace);
+        if (!metadata) {
+          // Excluded rows do not make inventory partial; invalid eligible rows do.
+          if (matchesResumePickerThread(thread, options.workspace)) partial = true;
+          continue;
+        }
+        const previous = found.get(metadata.id);
+        if (previous && previous.modified >= metadata.modified) continue;
         if (found.size < options.limit || found.has(metadata.id)) found.set(metadata.id, metadata);
         else truncated = true;
       }
@@ -224,7 +187,7 @@ export async function listAppServerSessions(input = {}) {
       if (found.size >= options.limit || cursors.has(cursor) || page === 7) { truncated = true; break; }
       cursors.add(cursor);
     }
-    const sessions = [...found.values()].sort((a, b) => b.modified.localeCompare(a.modified) || a.id.localeCompare(b.id));
+    const sessions = [...found.values()].sort(compareSessionActivity);
     return { status: partial ? 'partial' : 'available', truncated, sessions, source: 'app-server' };
   } catch { throw failure || new InventoryError(); }
   finally {
@@ -232,7 +195,7 @@ export async function listAppServerSessions(input = {}) {
     clearTimeout(timer);
     buffer = '';
     pending.clear();
-    await stopChild(child);
+    if (!await closeCodexChild(child)) throw new InventoryError();
   }
 }
 

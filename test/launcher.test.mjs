@@ -237,12 +237,14 @@ test('failed agent restart preserves an already managed Hub', async t => {
   const f = await fixture(t);
   const initial = await f.launcher.start();
   process.kill(initial.agentPid, 'SIGTERM');
-  for (let attempt = 0; attempt < 50; attempt++) {
-    if (!(await f.launcher.status()).agent.ownedRunning) break;
+  for (let attempt = 0; attempt < 250; attempt++) {
+    const state = (await f.launcher.status()).agent;
+    if (!state.ownedRunning && !state.online) break;
     await delay(20);
   }
-  // Wait for the synthetic Hub's one-second heartbeat TTL before restarting.
-  await delay(1100);
+  const inactive = (await f.launcher.status()).agent;
+  assert.equal(inactive.ownedRunning, false);
+  assert.equal(inactive.online, false, 'wait for the observable heartbeat expiry, including any final in-flight heartbeat');
   fs.writeFileSync(path.join(f.root, 'src/agent.mjs'), 'process.exit(2);\n');
   await assert.rejects(f.launcher.start(), /owned agent exited/);
   const report = await f.launcher.status();
@@ -264,6 +266,40 @@ test('stale or reused PID records cannot cause an unrelated process to be signal
   await f.launcher.stop();
   assert.equal(process.kill(process.pid, 0), true);
   assert.equal(JSON.parse(fs.readFileSync(path.join(directory, 'state.json'), 'utf8')).agent, null);
+});
+
+test('live or unverifiable launcher lock owners cannot be replaced when process metadata is unavailable', async t => {
+  for (const unreadable of ['exe', 'stat']) await t.test(unreadable, async t => {
+    const f = await fixture(t);
+    const directory = path.join(f.root, '.local-run/launcher');
+    fs.mkdirSync(directory, { mode: 0o700 });
+    const file = path.join(directory, 'lock.json');
+    const pid = 4000000;
+    const fields = Array(20).fill('0');
+    fields[0] = 'S'; fields[19] = '123456';
+    const contents = JSON.stringify({ pid, uid: process.getuid(), startTime: fields[19] });
+    privateFile(file, contents);
+    const read = fs.readFileSync; const stat = fs.statSync; const readlink = fs.readlinkSync;
+    t.mock.method(fs, 'readFileSync', (name, ...args) => {
+      if (name === '/proc/' + pid + '/stat') {
+        if (unreadable === 'stat') throw Object.assign(new Error('Synthetic unreadable generation.'), { code: 'EACCES' });
+        return pid + ' (synthetic-launcher) ' + fields.join(' ');
+      }
+      return read(name, ...args);
+    });
+    t.mock.method(fs, 'statSync', (name, ...args) => name === '/proc/' + pid ? { uid: process.getuid() } : stat(name, ...args));
+    t.mock.method(fs, 'readlinkSync', (name, ...args) => {
+      if (name === '/proc/' + pid + '/exe') throw Object.assign(new Error('Synthetic unreadable executable.'), { code: 'EACCES' });
+      return readlink(name, ...args);
+    });
+    try {
+      await assert.rejects(f.launcher.stop(), /Another launcher operation/);
+      assert.equal(fs.readFileSync(file, 'utf8'), contents, 'an unverifiable live lock must remain intact');
+    } finally {
+      // Only this synthetic lock is removed so the fixture can stop its own children.
+      if (fs.existsSync(file)) fs.unlinkSync(file);
+    }
+  });
 });
 
 test('process start-time mismatch prevents signalling even an identical command in the same workspace', async t => {

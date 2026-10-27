@@ -5,7 +5,8 @@ import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { StringDecoder } from 'node:string_decoder';
 import { performance } from 'node:perf_hooks';
-import { RESUME_SOURCE_KINDS, matchesResumePickerThread, sanitizeSessionTitle } from './codex-session-metadata.mjs';
+import { watchCodexChild, closeCodexChild } from './codex-child.mjs';
+import { RESUME_SOURCE_KINDS, resumeSessionMetadata, compareSessionActivity } from './codex-session-metadata.mjs';
 
 // Verified 2026-10-25 with CLI 0.163.0 and an isolated loopback-only synthetic
 // Responses provider: the policy exposes only request_user_input, which this
@@ -138,27 +139,17 @@ function toml(value) {
   return JSON.stringify(value);
 }
 
-async function stop(child) {
-  if (!child || child.exitCode !== null || child.signalCode !== null) return;
-  await new Promise(resolve => {
-    let done = false;
-    const finish = () => { if (done) return; done = true; clearTimeout(kill); clearTimeout(deadline); resolve(); };
-    const kill = setTimeout(() => child.kill('SIGKILL'), 300);
-    const deadline = setTimeout(finish, 1500);
-    child.once('close', finish); child.stdin?.end(); child.kill('SIGTERM');
-  });
-}
-
 /** Local-only, one explicitly configured workspace, never a remote executor. */
-export function createCodexControl({ workspace, home, command = 'codex', spawnImpl = spawn,
+function createControlSession({ workspace, home, command = 'codex', spawnImpl = spawn,
   rpcTimeoutMs = 30000, turnTimeoutMs = 600000, idleTimeoutMs = Math.min(180000, turnTimeoutMs),
-  now = () => performance.now() } = {}) {
+  now = () => performance.now() } = {}, binding) {
   let canonical;
   let identity;
   try {
     if (typeof workspace !== 'string' || !path.isAbsolute(workspace)) throw new Error();
     canonical = fs.realpathSync(workspace); identity = fs.statSync(canonical);
     if (!identity.isDirectory()) throw new Error();
+    if (binding && (binding.canonical !== canonical || binding.dev !== identity.dev || binding.ino !== identity.ino)) throw new Error();
   } catch { throw new Error('Invalid local Codex workspace.'); }
   if ((command !== 'codex' && !(path.isAbsolute(command) && path.basename(command) === 'codex' && !/^\/mnt\/[a-z]\//i.test(command))) ||
       (home !== undefined && (typeof home !== 'string' || !path.isAbsolute(home))) ||
@@ -182,7 +173,6 @@ export function createCodexControl({ workspace, home, command = 'codex', spawnIm
   let killDeadline;
   const decoder = new StringDecoder('utf8');
   const pending = new Map();
-  const loaded = new Set();
   const assertWorkspace = () => {
     try {
       const current = fs.statSync(canonical);
@@ -324,7 +314,9 @@ export function createCodexControl({ workspace, home, command = 'codex', spawnIm
     }
   };
   const spawnChild = args => {
-    try { return spawnImpl(command, args, { cwd: canonical, env, stdio: ['pipe', 'pipe', 'pipe'], shell: false }); }
+    try {
+      return watchCodexChild(spawnImpl(command, args, { cwd: canonical, env, stdio: ['pipe', 'pipe', 'pipe'], shell: false }));
+    }
     catch { throw new ControlError(); }
   };
   const version = async () => {
@@ -338,7 +330,10 @@ export function createCodexControl({ workspace, home, command = 'codex', spawnIm
         probe.once('close', code => code === 0 ? resolve() : bad());
       });
       if (output.trim() !== 'codex-cli 0.163.0') throw new ControlError('codex-version-unsupported');
-    } finally { clearTimeout(timer); output = ''; await stop(probe); }
+    } finally {
+      clearTimeout(timer); output = '';
+      if (!await closeCodexChild(probe)) throw new ControlError('codex-cleanup-unconfirmed');
+    }
   };
   const ensure = () => startup ||= (async () => {
     if (closed) throw new ControlError(); assertWorkspace(); await version();
@@ -411,17 +406,12 @@ export function createCodexControl({ workspace, home, command = 'codex', spawnIm
           throw new ControlError('codex-protocol-error');
         }
         for (const thread of result.data) {
-          if (!matchesResumePickerThread(thread, canonical) || typeof thread.id !== 'string' || !UUID.test(thread.id) ||
-              !Number.isSafeInteger(thread.updatedAt)) continue;
-          const timestamp = new Date(thread.updatedAt * 1000); if (!Number.isFinite(timestamp.getTime())) continue;
-          const id = thread.id.toLowerCase();
-          const modified = timestamp.toISOString();
+          const metadata = resumeSessionMetadata(thread, canonical);
+          if (!metadata) continue;
+          const { id, modified } = metadata;
           if (found.has(id) && found.get(id).modified >= modified) continue;
           const busy = active?.threadId === id || thread.status?.type === 'active' || processLocks.has(canonical + ':' + id);
-          const title = sanitizeSessionTitle(thread.name);
-          found.set(id, { id, modified, lastActivity: modified, ...(title ? { title } : {}),
-            project: path.basename(canonical), source: 'app-server', activity: active?.threadId === id ? 'confirmed' : 'discovered',
-            eligibility: busy ? 'busy' : (loaded.has(id) ? 'confirmed' : 'discovered') });
+          found.set(id, { ...metadata, eligibility: busy ? 'busy' : 'discovered' });
         }
         cursor = result.nextCursor;
         result = null;
@@ -430,7 +420,7 @@ export function createCodexControl({ workspace, home, command = 'codex', spawnIm
         if (found.size >= 40 || cursors.has(cursor) || page === 7) { truncated = true; break; }
         cursors.add(cursor);
       }
-      const sessions = [...found.values()].sort((a, b) => b.modified.localeCompare(a.modified) || a.id.localeCompare(b.id)).slice(0, 40);
+      const sessions = [...found.values()].sort(compareSessionActivity).slice(0, 40);
       return { status: 'available', source: 'app-server', truncated, sessions };
     } catch (error) {
       fail(error instanceof ControlError ? error.code : 'codex-unavailable');
@@ -474,7 +464,7 @@ export function createCodexControl({ workspace, home, command = 'codex', spawnIm
       if (thread.status?.type === 'active') throw new ControlError('codex-busy');
       state.threadId = thread.id;
       if (input.mode === 'new') releases.push(lease(canonical, state.threadId));
-      loaded.add(state.threadId); started = null;
+      started = null;
       const completion = new Promise(resolve => { state.finish = resolve; });
       emit('progress', 'Codex is generating a response with read-only restrictions.');
       const turn = await request('turn/start', { threadId: state.threadId, cwd: canonical,
@@ -506,7 +496,11 @@ export function createCodexControl({ workspace, home, command = 'codex', spawnIm
       return { status: closed ? 'interrupted' : 'failed', output: snapshotOutput(state), ...(state?.threadId ? { threadId: state.threadId } : {}),
         errorCode: error instanceof ControlError ? error.code : 'codex-unavailable' };
     } finally {
-      clearTimeout(timer); clearTimeout(state?.idleTimer); if (active === state) active = null;
+      clearTimeout(timer); clearTimeout(state?.idleTimer);
+      // The native writer lock outlives a turn: it belongs to the loaded
+      // thread. Reap only this worker before relinquishing application leases.
+      await close();
+      if (active === state) active = null;
       for (const release of releases.reverse()) release();
     }
   };
@@ -514,7 +508,93 @@ export function createCodexControl({ workspace, home, command = 'codex', spawnIm
     recoverable: !closed && !active && ['codex-unavailable', 'codex-rpc-timeout', 'codex-idle-timeout', 'codex-turn-timeout'].includes(broken?.code),
     errorCode: closed ? 'codex-closed' : broken?.code || null,
   });
-  return { accountStatus, listSessions, run, recoveryState, async close() {
-    closed = true; fail('codex-closed'); buffer = ''; loaded.clear(); await stop(child); clearTimeout(killDeadline);
-  } };
+  let shutdown;
+  const close = () => shutdown ||= (async () => {
+    closed = true; fail('codex-closed'); buffer = '';
+    const reaped = await closeCodexChild(child); clearTimeout(killDeadline);
+    if (!reaped) throw new ControlError('codex-cleanup-unconfirmed');
+  })();
+  return { accountStatus, listSessions, run, recoveryState, close, assertWorkspace,
+    binding: { canonical, dev: identity.dev, ino: identity.ino }, failure: () => broken?.code };
+}
+
+/** Metadata never loads a thread. Each confirmed turn owns a disposable worker. */
+export function createCodexControl(options = {}) {
+  options = Object.freeze({ ...options });
+  const metadata = createControlSession(options);
+  let worker;
+  let running;
+  let closed = false;
+  let fatal;
+  let shutdown;
+  const unavailableInventory = () => ({ status: 'unavailable', source: 'app-server', truncated: false, sessions: [] });
+  const poll = async method => {
+    if (closed || fatal) return method === 'accountStatus' ? { status: 'unavailable' } : unavailableInventory();
+    const result = await metadata[method]();
+    const state = metadata.recoveryState();
+    if (state.errorCode && !state.recoverable) {
+      fatal ||= state.errorCode;
+      await worker?.close().catch(() => { fatal = 'codex-cleanup-unconfirmed'; });
+      return method === 'accountStatus' ? { status: 'unavailable' } : unavailableInventory();
+    }
+    return result;
+  };
+  const run = (input, onEvent) => {
+    const state = metadata.recoveryState();
+    if (state.errorCode && !state.recoverable && state.errorCode !== 'codex-closed') fatal ||= state.errorCode;
+    if (closed || fatal || running) return Promise.resolve({ status: 'failed', output: '',
+      errorCode: running ? 'codex-busy' : fatal || 'codex-unavailable' });
+    if (state.recoverable) return Promise.resolve({ status: 'failed', output: '', errorCode: 'codex-unavailable' });
+    try {
+      metadata.assertWorkspace();
+      worker = createControlSession(options, metadata.binding);
+    } catch {
+      fatal = 'workspace-changed';
+      void metadata.close().catch(() => {});
+      return Promise.resolve({ status: 'failed', output: '', errorCode: fatal });
+    }
+    const current = worker;
+    running = (async () => {
+      try {
+        const result = await current.run(input, onEvent);
+        // A new worker must not erase a policy/protocol failure. Transport
+        // deadlines are recoverable, with explicit confirmation and no replay.
+        const failure = current.failure();
+        if (failure && !['codex-closed', 'codex-unavailable', 'codex-rpc-timeout', 'codex-idle-timeout', 'codex-turn-timeout'].includes(failure)) fatal = failure;
+        if (['codex-policy-mismatch', 'codex-protocol-error', 'method-blocked', 'workspace-changed',
+          'approval-denied', 'codex-output-limit', 'codex-clock-error', 'codex-version-unsupported', 'unexpected-turn'].includes(result.errorCode)) {
+          fatal ||= result.errorCode;
+        }
+        if (fatal) await metadata.close();
+        return fatal ? { ...result, status: 'failed', errorCode: fatal } : result;
+      } catch (error) {
+        fatal = error instanceof ControlError ? error.code : 'codex-cleanup-unconfirmed';
+        await metadata.close().catch(() => {});
+        return { status: 'failed', output: '', errorCode: fatal };
+      } finally {
+        await current.close().catch(() => { fatal = 'codex-cleanup-unconfirmed'; });
+        if (worker === current) worker = undefined;
+      }
+    })();
+    const pendingRun = running;
+    // Keep admission closed through native worker cleanup, including close().
+    void pendingRun.finally(() => { if (running === pendingRun) running = undefined; }).catch(() => {});
+    return pendingRun;
+  };
+  return {
+    accountStatus: () => poll('accountStatus'),
+    listSessions: () => poll('listSessions'),
+    run,
+    recoveryState: () => closed ? { recoverable: false, errorCode: 'codex-closed' }
+      : fatal ? { recoverable: false, errorCode: fatal } : metadata.recoveryState(),
+    close: () => shutdown ||= (async () => {
+      closed = true;
+      const results = await Promise.allSettled([metadata.close(), worker?.close()]);
+      await running?.catch(() => {});
+      if (results.some(result => result.status === 'rejected')) {
+        fatal = 'codex-cleanup-unconfirmed';
+        throw new ControlError(fatal);
+      }
+    })(),
+  };
 }

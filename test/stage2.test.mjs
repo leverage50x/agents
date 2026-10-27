@@ -56,6 +56,8 @@ test('two authenticated agents with identical names remain distinct, reconnect a
   assert.equal(state.devices.length, 2);
   assert.equal(state.devices.every(d => d.online && d.name === 'Laptop'), true);
   assert.equal(state.devices.every(d => d.sessions[0].activity === 'discovered'), true);
+  assert.equal(state.devices.every(d => d.executionMode === 'inventory-only' && d.sandbox === 'no-execution'), true);
+  assert.equal(Object.hasOwn(state, 'jobs'), false);
   assert.equal(state.devices.every(d => !d.sessions[0].lastActivity && !d.sessions[0].project), true);
   for (const secret of [a.token, b.token, f.operator, 'SYNTHETIC_TRANSCRIPT_NEVER_COLLECT']) {
     assert.equal(JSON.stringify(state).includes(secret), false);
@@ -77,19 +79,17 @@ test('credential roles and bound identities reject admin access, spoofing and re
   const first = f.device(a, 1), second = f.device(b, 2);
   await Promise.all([first.agent.tick(), second.agent.tick()]);
   assert.equal((await f.call('/api/state', { token: 'invalid-credential' })).status, 401);
-  for (const endpoint of ['/api/state', '/api/admin/agents', '/api/admin/agents/revoke', '/api/task', '/api/task/approve', '/api/task/reject']) {
+  for (const endpoint of ['/api/state', '/api/admin/agents', '/api/admin/agents/revoke', '/api/local/task']) {
     const r = await f.call(endpoint, { token: a.token, method: endpoint === '/api/state' ? 'GET' : 'POST', body: endpoint === '/api/state' ? undefined : {} });
     assert.equal(r.status, 403, endpoint);
   }
   assert.equal((await f.call('/api/agent/heartbeat', { method: 'POST', body: {} })).status, 403);
-  assert.equal((await f.call('/api/agent/task?deviceId=' + a.deviceId)).status, 403);
+  assert.equal((await f.call('/api/agent/local/task?deviceId=' + a.deviceId)).status, 403);
   assert.equal((await f.call('/api/agent/heartbeat', { token: a.token, method: 'POST', body: {
     deviceId: b.deviceId, name: 'Laptop', platform: 'linux'
   } })).status, 403);
-  assert.equal((await f.call('/api/agent/task?deviceId=' + b.deviceId, { token: a.token })).status, 403);
-  assert.equal((await f.call('/api/agent/result', { token: a.token, method: 'POST', body: { deviceId: b.deviceId } })).status, 403);
-  const created = await f.call('/api/task', { method: 'POST', body: { deviceId: a.deviceId, prompt: 'DEMO remains gated' } });
-  assert.equal(created.status, 201);
+  assert.equal((await f.call('/api/agent/local/task?deviceId=' + b.deviceId, { token: a.token })).status, 403);
+  assert.equal((await f.call('/api/agent/local/update', { token: a.token, method: 'POST', body: { deviceId: b.deviceId } })).status, 403);
   assert.equal((await f.call('/api/admin/agents/revoke', { method: 'POST', body: { deviceId: a.deviceId } })).status, 200);
   await assert.rejects(first.agent.tick(), /HTTP 401/);
   await second.agent.tick();
@@ -97,7 +97,8 @@ test('credential roles and bound identities reject admin access, spoofing and re
   assert.equal(state.devices.find(d => d.id === a.deviceId).online, false);
   assert.ok(state.devices.find(d => d.id === a.deviceId).revokedAt);
   assert.equal(state.devices.find(d => d.id === b.deviceId).online, true);
-  assert.equal(state.jobs.find(j => j.id === created.body.job.id).status, 'rejected');
+  assert.equal(Object.hasOwn(state, 'jobs'), false);
+  assert.deepEqual(state.readonlyJobs, []);
   const replacement = await f.call('/api/admin/agents', { method: 'POST', body: { name: 'Laptop' } });
   assert.equal(replacement.status, 201);
   assert.notEqual(replacement.body.deviceId, a.deviceId);

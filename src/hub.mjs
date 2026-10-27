@@ -11,7 +11,6 @@ const directory = path.dirname(fileURLToPath(import.meta.url));
 const UUID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const isObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const isDevice = value => typeof value === 'string' && UUID.test(value);
-const isThread = value => value == null || value === '' || (typeof value === 'string' && UUID.test(value));
 
 class HttpError extends Error {
   constructor(status, message) { super(message); this.status = status; }
@@ -100,7 +99,6 @@ export function createHub({ token, credentialStore = createCredentialStore(), no
   validateToken(token);
   if (credentialStore.hasToken(token)) throw new Error('Operator and agent credentials must be separate.');
   const devices = new Map();
-  const jobs = new Map();
   const readonlyJobs = new Map();
   const localDeviceId = localControl?.deviceId;
   const localEnabled = Boolean(isDevice(localDeviceId) && workspaceReady(localControl?.workspace));
@@ -151,8 +149,7 @@ export function createHub({ token, credentialStore = createCredentialStore(), no
           const credential = agents.find(x => x.id === d.id);
           const revokedAt = credential?.revokedAt || null;
           return { ...d, revokedAt, online: !revokedAt && Boolean(credential && online(d)) };
-        }),
-        jobs: [...jobs.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 40)
+        })
       });
     }
     if (req.method === 'POST' && u.pathname === '/api/admin/agents') {
@@ -170,11 +167,6 @@ export function createHub({ token, credentialStore = createCredentialStore(), no
       const b = await readJson(req);
       requireValue(isDevice(b.deviceId), 'Invalid device.');
       if (!credentialStore.revoke(b.deviceId)) return send(res, 404, { error: 'Unknown agent.' });
-      for (const job of jobs.values()) {
-        if (job.deviceId === b.deviceId && ['pending_approval', 'queued', 'running'].includes(job.status)) {
-          job.status = 'rejected'; job.finishedAt = new Date(now()).toISOString();
-        }
-      }
       for (const job of readonlyJobs.values()) {
         if (job.deviceId === b.deviceId && ['queued', 'running'].includes(job.status)) {
           job.status = 'failed'; job.errorCode = 'agent-revoked'; job.finishedAt = new Date(now()).toISOString();
@@ -198,7 +190,7 @@ export function createHub({ token, credentialStore = createCredentialStore(), no
           ? b.sessions[index].eligibility : 'discovered' }));
       devices.set(b.deviceId, {
         id: agent.id, name: agent.name, platform: b.platform, sandbox: 'no-execution',
-        workspaceReady: b.workspaceReady === true, executionMode: 'demo-only',
+        workspaceReady: b.workspaceReady === true, executionMode: local ? 'local-read-only' : 'inventory-only',
         ...discovered, sessions, localControl: local, codexAuth: local ? safeAuth(b.codexAuth) : 'unavailable', lastSeen: now()
       });
       return send(res, 200, { ok: true });
@@ -269,58 +261,6 @@ export function createHub({ token, credentialStore = createCredentialStore(), no
       if (job.status !== 'running') job.finishedAt = new Date(now()).toISOString();
       return send(res, 200, { ok: true });
     }
-    if (req.method === 'POST' && u.pathname === '/api/task') {
-      const b = await readJson(req);
-      const registered = credentialStore.list().find(x => x.id === b.deviceId);
-      requireValue(isDevice(b.deviceId) && registered && !registered.revokedAt &&
-        online(devices.get(b.deviceId)), 'Device offline or unknown.');
-      requireValue(typeof b.prompt === 'string' && b.prompt.trim().length > 0 && b.prompt.length <= 2000,
-        'Prompt required (max 2000 chars).');
-      requireValue(isThread(b.threadId), 'Invalid Codex thread ID.');
-      const job = {
-        id: randomUUID(), deviceId: b.deviceId, threadId: b.threadId || null, prompt: b.prompt,
-        status: 'pending_approval', output: '', createdAt: new Date(now()).toISOString()
-      };
-      jobs.set(job.id, job);
-      return send(res, 201, { job });
-    }
-    if (req.method === 'POST' && ['/api/task/approve', '/api/task/reject'].includes(u.pathname)) {
-      const b = await readJson(req);
-      const job = jobs.get(b.jobId);
-      if (!job || job.status !== 'pending_approval') {
-        return send(res, 409, { error: 'Job is missing or no longer pending approval.' });
-      }
-      if (u.pathname.endsWith('/approve')) {
-        job.status = 'queued';
-        job.approvedAt = new Date(now()).toISOString();
-      } else {
-        job.status = 'rejected';
-        job.finishedAt = new Date(now()).toISOString();
-      }
-      return send(res, 200, { ok: true, status: job.status });
-    }
-    if (req.method === 'GET' && u.pathname === '/api/agent/task') {
-      const deviceId = u.searchParams.get('deviceId');
-      if (deviceId !== agent.id) return send(res, 403, { error: 'Agent identity mismatch.' });
-      requireValue(isDevice(deviceId) && online(devices.get(deviceId)), 'Device offline or unknown.');
-      const job = [...jobs.values()].find(j => j.deviceId === deviceId && j.status === 'queued');
-      if (job) { job.status = 'running'; job.startedAt = new Date(now()).toISOString(); }
-      return send(res, 200, { job: job || null });
-    }
-    if (req.method === 'POST' && u.pathname === '/api/agent/result') {
-      const b = await readJson(req);
-      if (!credentialStore.authenticate(bearer)) return send(res, 401, { error: 'Unauthorized' });
-      if (b.deviceId !== agent.id) return send(res, 403, { error: 'Agent identity mismatch.' });
-      const job = jobs.get(b.jobId);
-      requireValue(job && job.deviceId === b.deviceId && job.status === 'running', 'Job mismatch.');
-      requireValue(['completed', 'failed'].includes(b.status) && typeof b.output === 'string' &&
-        b.output.length <= 12000 && isThread(b.threadId), 'Invalid demo result.');
-      job.status = b.status;
-      job.output = b.output;
-      job.resultThreadId = b.threadId || job.threadId;
-      job.finishedAt = new Date(now()).toISOString();
-      return send(res, 200, { ok: true });
-    }
     return send(res, 404, { error: 'Not found' });
   }
 
@@ -345,7 +285,7 @@ export function startHub(env = process.env) {
     localControl: env.LEVERAGE_ENABLE_LIVE_CODEX === '1' ? undefined : {
       deviceId: env.LEVERAGE_LOCAL_DEVICE_ID, workspace: env.LEVERAGE_LOCAL_WORKSPACE } });
   server.listen(port, host, () => {
-    console.log('Leverage50xAgents hub listening on loopback port ' + port + ' (DEMO ONLY).');
+    console.log('Leverage50xAgents hub listening on loopback port ' + port + '.');
   });
   return server;
 }

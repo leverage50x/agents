@@ -6,7 +6,7 @@ import { createAgent } from '../src/agent.mjs';
 import { createHub } from '../src/hub.mjs';
 import { fixture, dispatch } from '../test-support/fixtures.mjs';
 
-test('agent uses synthetic inventory and transports only approved demo jobs without redirects', async t => {
+test('inventory-only agent reports metadata without polling or accepting executable work', async t => {
   const f = fixture(t);
   const server = createHub({ token: f.token, credentialStore: f.store });
   const call = input => dispatch(server, f.token, input);
@@ -29,31 +29,31 @@ test('agent uses synthetic inventory and transports only approved demo jobs with
   assert.equal(state.devices[0].workspaceReady, true);
   assert.deepEqual(state.devices[0].mcp.servers, ['synthetic']);
   assert.equal(state.devices[0].sessionInventory.status, 'missing');
-  const jobId = (await call({ method: 'POST', endpoint: '/api/task', body: { deviceId: agent.deviceId, prompt: 'Simulate only' } })).body.job.id;
   await agent.tick();
-  assert.equal((await call()).body.jobs[0].status, 'pending_approval');
-  await call({ method: 'POST', endpoint: '/api/task/approve', body: { jobId } });
-  await agent.tick();
-  const job = (await call()).body.jobs[0];
-  assert.equal(job.status, 'completed');
-  assert.match(job.output, /DEMO ONLY/);
+  assert.equal(Object.hasOwn((await call()).body, 'jobs'), false);
+  assert.equal(state.devices[0].executionMode, 'inventory-only');
+  assert.deepEqual(requests.map(r => r.endpoint), ['/api/agent/heartbeat', '/api/agent/heartbeat']);
   assert.deepEqual(fs.readdirSync(f.workspace), []);
 });
 
-test('agent reports an invalid workspace and returns a fail-closed live result', async t => {
+test('legacy live activation cannot construct a controller or request executable work', async t => {
   const f = fixture(t);
   const calls = [];
-  const env = { ...f.env, LEVERAGE_WORKSPACE: path.join(f.root, 'missing'), LEVERAGE_ENABLE_LIVE_CODEX: '1' };
-  const agent = createAgent({ env, fetchImpl: async (url, options) => {
-    const data = options.body && JSON.parse(options.body);
-    calls.push({ url: new URL(url).pathname, data });
-    return { ok: true, json: async () => new URL(url).pathname === '/api/agent/task'
-      ? { job: { id: 'synthetic-job', prompt: 'Do not execute' } } : { ok: true } };
-  } });
+  const env = { ...f.env, LEVERAGE_LOCAL_READONLY: '1',
+    LEVERAGE_WORKSPACE: path.join(f.root, 'missing'), LEVERAGE_ENABLE_LIVE_CODEX: '1' };
+  const agent = createAgent({ env, controlFactory: () => assert.fail('Legacy live flag must not construct a controller.'),
+    fetchImpl: async (url, options) => {
+      const data = options.body && JSON.parse(options.body);
+      calls.push({ url: new URL(url).pathname, data });
+      return { ok: true, status: 200, json: async () => ({ job: { id: 'synthetic-unrequested-work', prompt: 'Never execute' } }) };
+    } });
   await agent.tick();
   assert.equal(calls[0].data.workspaceReady, false);
-  assert.equal(calls[2].data.status, 'failed');
-  assert.match(calls[2].data.output, /LIVE CODEX BLOCKED/);
+  assert.equal(calls[0].data.localControl, false);
+  assert.equal(calls[0].data.executionMode, 'inventory-only');
+  assert.equal(calls[0].data.codexAuth, 'unavailable');
+  assert.deepEqual(calls.map(c => c.url), ['/api/agent/heartbeat']);
+  assert.deepEqual(fs.readdirSync(f.workspace), []);
 });
 
 test('optional titles cannot push an otherwise valid inventory heartbeat beyond the existing body limit', async t => {

@@ -6052,4 +6052,1196 @@ Sintaxa si diff --check PASS; DOM:31 ID-uri HTML unice si30 referinte statice JS
 
 CWD: [WORKSPACE]. `node .local-run/filter-centralize.mjs` — exit 0, a păstrat jurnalul local preexistent și a centralizat comenzile celor trei subagenți. `node .local-run/review-publication.mjs stage2b-local-control > .local-run/filter-publication-audit.log` — exit 0. Sumarul JSON citit prin `node --input-type=module` confirmă 7 commituri și 51 de fișiere verificate, fără constatări în istoric, fișiere curente sau căi private. `git diff --check` — exit 0. `git diff --numstat -- 'comenzi executate agent.md'` — exit 0, 980 de linii adăugate, zero ștergeri în acel punct. Nu se publică helpers, cache-ul sursei/schema, fișiere .env ori .local-run.
 
+
+<!-- filter-cli-final-publication -->
+
+### Publicare și verificare CI — filtru Cwd + Active
+
+CWD: [WORKSPACE]. Comenzile efectiv executate după centralizare:
+
+```text
+node .local-run/review-publication.mjs stage2b-local-control > .local-run/filter-publication-audit.log
+```
+
+Exit: 0. Fără output.
+
+```text
+node --input-type=module -e 'import fs from "node:fs";const r=JSON.parse(fs.readFileSync(".local-run/publication-audit.json","utf8"));console.log(JSON.stringify({commits:r.history.commitsScanned,files:r.workingTree.filesReviewed,historyFindings:r.history.findings,workingFindings:r.workingTree.findings,forbiddenPaths:r.history.forbiddenPaths}));'
+```
+
+Exit: 0. {"commits":7,"files":51,"historyFindings":[],"workingFindings":[],"forbiddenPaths":[]}
+
+```text
+git diff --check
+```
+
+Exit: 0. Fără output.
+
+```text
+git diff --numstat -- 'comenzi executate agent.md'
+```
+
+Exit: 0. 980	0	comenzi executate agent.md
+
+```text
+git ls-remote --heads origin stage2b-local-control
+```
+
+Exit: 0. d546c7bc4aa92458c38bc8bcd59cfdc791892adc	refs/heads/stage2b-local-control
+
+```text
+git add -- src/agent.mjs src/codex-app-server.mjs src/codex-control.mjs src/codex-session-metadata.mjs src/hub.mjs src/ui.css src/ui.html src/ui.mjs test/agent.test.mjs test/api.test.mjs test/app-server.test.mjs test/codex-control.test.mjs test/codex-session-metadata.test.mjs test/stage2.test.mjs test/ui.test.mjs ETAPA-2B-LOCAL.md 'comenzi executate agent.md'
+```
+
+Exit: 0. Fără output.
+
+```text
+git diff --cached --check
+```
+
+Exit: 0. Fără output.
+
+```text
+git diff --cached --name-status
+```
+
+Exit: 0. M	ETAPA-2B-LOCAL.md
+M	comenzi executate agent.md
+M	src/agent.mjs
+M	src/codex-app-server.mjs
+M	src/codex-control.mjs
+A	src/codex-session-metadata.mjs
+M	src/hub.mjs
+M	src/ui.css
+M	src/ui.html
+M	src/ui.mjs
+M	test/agent.test.mjs
+M	test/api.test.mjs
+M	test/app-server.test.mjs
+M	test/codex-control.test.mjs
+A	test/codex-session-metadata.test.mjs
+M	test/stage2.test.mjs
+M	test/ui.test.mjs
+
+```text
+git diff --cached --stat
+```
+
+Exit: 0. ETAPA-2B-LOCAL.md                    |   8 +-
+ comenzi executate agent.md           | 984 +++++++++++++++++++++++++++++++++++
+ src/agent.mjs                        |  13 +-
+ src/codex-app-server.mjs             |  34 +-
+ src/codex-control.mjs                |  49 +-
+ src/codex-session-metadata.mjs       |  27 +
+ src/hub.mjs                          |  19 +-
+ src/ui.css                           |   1 +
+ src/ui.html                          |   2 +-
+ src/ui.mjs                           |  55 +-
+ test/agent.test.mjs                  |  28 +
+ test/api.test.mjs                    |  30 ++
+ test/app-server.test.mjs             |  38 +-
+ test/codex-control.test.mjs          | 116 ++++-
+ test/codex-session-metadata.test.mjs |  40 ++
+ test/stage2.test.mjs                 |  23 +
+ test/ui.test.mjs                     |  81 ++-
+ 17 files changed, 1475 insertions(+), 73 deletions(-)
+
+```text
+git diff --quiet
+```
+
+Exit: 0. Fără output.
+
+```text
+git branch --show-current
+```
+
+Exit: 0. stage2b-local-control
+
+```text
+git commit -m 'Align session inventory with Codex resume filters'
+```
+
+Exit: 0. [stage2b-local-control 19220bc] Align session inventory with Codex resume filters
+ 17 files changed, 1475 insertions(+), 73 deletions(-)
+ create mode 100644 src/codex-session-metadata.mjs
+ create mode 100644 test/codex-session-metadata.test.mjs
+
+```text
+git push origin stage2b-local-control
+```
+
+Exit: în curs la prima întoarcere; finalizarea este înregistrată separat. Fără output.
+
+```text
+tools.write_stdin(session_id=10072, chars='')
+```
+
+Exit: 0. To https://github.com/leverage50x/agents.git
+   d546c7b..19220bc  stage2b-local-control -> stage2b-local-control
+
+```text
+git log -1 --format='%H%n%an%n%s'
+```
+
+Exit: 0. 19220bc8e311b8af8fe9f425d43b96562b30c9ac
+leverage50x
+Align session inventory with Codex resume filters
+
+```text
+git status --short --branch
+```
+
+Exit: 0. ## stage2b-local-control...origin/stage2b-local-control
+
+```text
+git rev-list --left-right --count HEAD...origin/stage2b-local-control
+```
+
+Exit: 0. 0	0
+
+```text
+gh run list --repo leverage50x/agents --branch stage2b-local-control --commit 19220bc8e311b8af8fe9f425d43b96562b30c9ac --limit 5 --json databaseId,headSha,status,conclusion,url
+```
+
+Exit: 0. [{"conclusion":"","databaseId":40308093931,"headSha":"19220bc8e311b8af8fe9f425d43b96562b30c9ac","status":"in_progress","url":"https://github.com/leverage50x/agents/actions/runs/40308093931"}]
+
+```text
+gh api repos/leverage50x/agents/commits/19220bc8e311b8af8fe9f425d43b96562b30c9ac --jq '{sha: .sha, files: [.files[].filename]}'
+```
+
+Exit: 0. {"files":["ETAPA-2B-LOCAL.md","comenzi executate agent.md","src/agent.mjs","src/codex-app-server.mjs","src/codex-control.mjs","src/codex-session-metadata.mjs","src/hub.mjs","src/ui.css","src/ui.html","src/ui.mjs","test/agent.test.mjs","test/api.test.mjs","test/app-server.test.mjs","test/codex-control.test.mjs","test/codex-session-metadata.test.mjs","test/stage2.test.mjs","test/ui.test.mjs"],"sha":"19220bc8e311b8af8fe9f425d43b96562b30c9ac"}
+
+```text
+git ls-remote origin refs/heads/main refs/heads/stage2b-local-control 'refs/tags/v0.1.1-stage1-demo^{}'
+```
+
+Exit: 0. 906c24f15f8b364d9bec6da8cebb74b57caa8862	refs/heads/main
+19220bc8e311b8af8fe9f425d43b96562b30c9ac	refs/heads/stage2b-local-control
+906c24f15f8b364d9bec6da8cebb74b57caa8862	refs/tags/v0.1.1-stage1-demo^{}
+
+```text
+gh run view 40308093931 --repo leverage50x/agents --json headSha,status,conclusion,url,jobs,name
+```
+
+Exit: în curs la prima întoarcere; finalizarea este înregistrată separat. Fără output.
+
+```text
+tools.write_stdin(session_id=44057, chars='')
+```
+
+Exit: 0. {"conclusion":"success","headSha":"19220bc8e311b8af8fe9f425d43b96562b30c9ac","jobs":[{"completedAt":"2026-10-26T10:31:55Z","conclusion":"success","databaseId":121522124968,"name":"test","startedAt":"2026-10-26T10:31:37Z","status":"completed","steps":[{"conclusion":"success","name":"Set up job","number":1,"status":"completed"},{"conclusion":"success","name":"Check out source","number":2,"status":"completed"},{"conclusion":"success","name":"Set up Node.js 22","number":3,"status":"completed"},{"conclusion":"success","name":"Install from lockfile","number":4,"status":"completed"},{"conclusion":"success","name":"Run tests","number":5,"status":"completed"},{"conclusion":"success","name":"Post Set up Node.js 22","number":9,"status":"completed"},{"conclusion":"success","name":"Post Check out source","number":10,"status":"completed"},{"conclusion":"success","name":"Complete job","number":11,"status":"completed"}],"url":"https://github.com/leverage50x/agents/actions/runs/40308093931/job/121522124968"}],"name":"Node.js CI","status":"completed","url":"https://github.com/leverage50x/agents/actions/runs/40308093931"}
+
+Commit creat și publicat: **19220bc8e311b8af8fe9f425d43b96562b30c9ac**, autor **leverage50x**, 17 fișiere. GitHub API a confirmat SHA-ul și lista fișierelor. Branch-ul local și origin/stage2b-local-control sunt identice, 0 înainte / 0 în urmă. Repository-ul rămâne PRIVATE. Main și tagul Stage 1 sunt intacte la906c24f15f8b364d9bec6da8cebb74b57caa8862.
+
+GitHub Actions **success** pentru acest SHA: https://github.com/leverage50x/agents/actions/runs/40308093931 . Jobul și pașii Node.js22, npmci, npmtest au trecut. Local:143/143PASS,0fail/skip. Nu a fost necesar un commit de remediere CI.
+
+Această completare înregistrează rezultatul push-ului și al CI după commit și rămâne locală intenționat. Nu se pretinde verificare vizuală. Aplicația servește lista filtrată și rămâne READ-ONLY; niciun turn nou de model și nicio conversație personală nu au fost reluate în această rundă.
+
+
+### Control final după publicare
+
+CWD: [WORKSPACE]. node .local-run/filter-finalize.mjs execută și centralizează:
+
+- `node .local-run/review-publication.mjs stage2b-local-control` — exit 0
+- `git diff --check` — exit 0
+- `git diff --cached --check` — exit 0
+- `git status --short --branch` — exit 0
+- `git rev-list --left-right --count HEAD...origin/stage2b-local-control` — exit 0
+- `node .local-run/filter-live-check.mjs` — exit 0
+- `node .local-run/round-main-status.mjs --after` — exit 0
+
+```json
+{
+  "commit": "19220bc8e311b8af8fe9f425d43b96562b30c9ac",
+  "status": "## stage2b-local-control...origin/stage2b-local-control\n M \"comenzi executate agent.md\"",
+  "sync": "0\t0",
+  "audit": {
+    "commits": 8,
+    "files": 51,
+    "historyFindings": 0,
+    "workingFindings": 0,
+    "forbiddenPaths": 0
+  },
+  "live": {
+    "agentOnline": true,
+    "authentication": "authenticated",
+    "inventory": "available",
+    "filteredSessions": 2,
+    "nativeFilteredSessions": 2,
+    "sessionIdsMatchNative": true,
+    "optionalTitlesMatchNative": true,
+    "titlesAvailable": 1,
+    "activeReadonlyJobs": 0,
+    "http": {
+      "dashboard": 200,
+      "script": 200,
+      "updatedUi": true
+    },
+    "transcriptMethodsUsed": false,
+    "newOrResumeTurnsStarted": false,
+    "visualBrowserVerified": false
+  },
+  "credentialFilesUnchanged": true,
+  "tests": {
+    "passed": 143,
+    "failed": 0,
+    "skipped": 0
+  },
+  "ci": "success"
+}
+```
+
+Doar jurnalul rămâne modificat local cu dovezile postcommit. Cache-ul sursei/schema și helpers/rapoartele sunt ignorate în .local-run. Nu s-au publicat titluri reale, ID-uri personale, transcripturi, fișiere .env, autentificări sau credențiale. Oprirea aplicației: ./leverage stop.
+
+git diff --check după înscrierea rezultatelor: exit0. Helperul final a terminat cu exit0.
+
+Închiderea rundei: `node --check .local-run/filter-finalize.mjs` — exit0; `node .local-run/filter-finalize.mjs` — exit0, confirmat prin `tools.write_stdin(session_id=79675, chars='')`. Controlul final: audit fără constatări în 8 commituri/51 fișiere, inventar HTTP și nativ cu aceleași 2 ID-uri, autentificare confirmată, credențiale neschimbate, CI success. Ultima completare prin apply_patch înregistrează rezultatul; numai jurnalul rămâne local modificat intenționat.
+
+
+<!-- remove-demo-2026-10-27 -->
+
+## 2026-10-27 — eliminarea funcționalității DEMO din aplicația curentă
+
+CWD: [WORKSPACE]. Cererea operatorului autorizează explicit eliminarea panourilor, API-urilor, runnerului și testelor exclusive DEMO, păstrarea controlului real READ-ONLY și commit/push pe stage2b-local-control. Această cerere înlocuiește instrucțiunea anterioară din AGENTS.md de a păstra DEMO; restul restricțiilor rămân în vigoare.
+
+HEAD inițial:19220bc8e311b8af8fe9f425d43b96562b30c9ac. Singura modificare preexistentă era jurnalul:246linii adăugate,zeroștergeri. A fost păstrată integral. Backupprivat ignorat creat prin helper: .local-run/investigation-backup-GvVOce,700/600. Nu s-au folosit reset,restore,clean,forcepush,sudo,modificări globale ori pe alt dispozitiv.
+
+### Comenzile agentului principal
+
+Sarcinile delegate au rulat concurent; ordinea este păstrată per agent. Căile personale sunt anonimizate, iar outputul surselor mari nu este duplicat integral. Niciun token, auth file, mediu brut, titlu personal, transcript sau răspuns al modelului nu este înregistrat.
+
+```text
+git status --short --branch
+```
+
+Exit: 0. ## stage2b-local-control...origin/stage2b-local-control
+ M "comenzi executate agent.md"
+
+```text
+git log -1 --format='%H %s'
+```
+
+Exit: 0. 19220bc8e311b8af8fe9f425d43b96562b30c9ac Align session inventory with Codex resume filters
+
+```text
+cat AGENTS.md
+```
+
+Exit: 0. Output citit și revizuit; când a fost trunchiat nu se presupun rezultate suplimentare.
+
+```text
+rg -n -i 'demo|codex-runner|runCodexJob|/api/task|/api/agent/task|/api/agent/result|pending_approval|executionMode' src test test-support README.md *.md package.json
+```
+
+Exit: 0. Output citit și revizuit; când a fost trunchiat nu se presupun rezultate suplimentare.
+
+```text
+rg --files .github src test test-support | sort
+```
+
+Exit: 0. .github/workflows/ci.yml
+src/agent.mjs
+src/codex-app-server.mjs
+src/codex-control.mjs
+src/codex-runner.mjs
+src/codex-session-metadata.mjs
+src/credentials.mjs
+src/hub.mjs
+src/inventory.mjs
+src/launcher.mjs
+src/local-config.mjs
+src/manage.mjs
+src/ui.css
+src/ui.html
+src/ui.mjs
+test-support/fixtures.mjs
+test/agent-recovery.test.mjs
+test/agent.test.mjs
+test/api.test.mjs
+test/app-server.test.mjs
+test/codex-agent-restart.test.mjs
+test/codex-control.test.mjs
+test/codex-session-metadata.test.mjs
+test/credentials.test.mjs
+test/hub.test.mjs
+test/inventory.test.mjs
+test/launcher.test.mjs
+test/local-control.test.mjs
+test/local.integration.test.mjs
+test/runner.test.mjs
+test/stage2.cli.test.mjs
+test/stage2.test.mjs
+test/ui.test.mjs
+
+```text
+cat src/agent.mjs
+```
+
+Exit: 0. Output citit și revizuit; când a fost trunchiat nu se presupun rezultate suplimentare.
+
+```text
+sed -n '90,355p' src/hub.mjs
+```
+
+Exit: 0. Output citit și revizuit; când a fost trunchiat nu se presupun rezultate suplimentare.
+
+```text
+cat test/local.integration.test.mjs
+```
+
+Exit: 0. Output citit și revizuit; când a fost trunchiat nu se presupun rezultate suplimentare.
+
+```text
+cat test/runner.test.mjs
+```
+
+Exit: 0. Output citit și revizuit; când a fost trunchiat nu se presupun rezultate suplimentare.
+
+```text
+cat test/agent-recovery.test.mjs
+```
+
+Exit: 0. Output citit și revizuit; când a fost trunchiat nu se presupun rezultate suplimentare.
+
+```text
+rg -n '/api/agent/task|state.jobs|jobs:|demo-only|/api/task|runCodexJob|codex-runner' test test-support src/launcher.mjs src/local-config.mjs
+```
+
+Exit: 0. Output citit și revizuit; când a fost trunchiat nu se presupun rezultate suplimentare.
+
+```text
+node .local-run/preserve-investigation.mjs
+```
+
+Exit: 0. {"backup":".local-run/investigation-backup-GvVOce","permissions":"directory700/files600","ignoredRuntimeDirectoriesCopied":false,"unknownChangesRemoved":false}
+
+```text
+rg -n 'codex-runner|runCodexJob|/api/agent/task|demo-only|state.jobs' src/agent.mjs test/agent.test.mjs test/agent-recovery.test.mjs test/local-control.test.mjs test/local.integration.test.mjs
+```
+
+Exit: 1. Fără output.
+
+```text
+node --check src/agent.mjs
+```
+
+Exit: 0. Fără output.
+
+```text
+node --check test/local.integration.test.mjs
+```
+
+Exit: 0. Fără output.
+
+```text
+rg -n -i 'demo|codex-runner|runCodexJob' src .env.example package.json package-lock.json CODEX-AUTONOMIE.md codex-project.example.toml
+```
+
+Exit: 0. package.json:6:  "description": "Local-only, demo-safe multi-device AI agent dashboard with human approval workflow",
+.env.example:9:# Agent on your own device (demo only):
+src/hub.mjs:288:    console.log('Leverage50xAgents hub listening on loopback port ' + port + ' (DEMO ONLY).');
+
+```text
+sed -n '1,90p' test/agent.test.mjs
+```
+
+Exit: 0. Output citit și revizuit; când a fost trunchiat nu se presupun rezultate suplimentare.
+
+```text
+git diff --stat
+```
+
+Exit: 0. comenzi executate agent.md      | 246 ++++++++++++++++++++++++++++++++++++++++
+ src/agent.mjs                   |  14 +--
+ src/codex-runner.mjs            |  19 ----
+ src/hub.mjs                     |  64 +----------
+ src/ui.css                      |   4 +-
+ src/ui.html                     |   4 +-
+ src/ui.mjs                      |  60 +---------
+ test/agent-recovery.test.mjs    |   1 -
+ test/agent.test.mjs             |  30 ++---
+ test/local-control.test.mjs     |   2 +-
+ test/local.integration.test.mjs |  67 ++++++++---
+ test/runner.test.mjs            |  36 ------
+ test/ui.test.mjs                | 114 ++++++++++---------
+ 13 files changed, 387 insertions(+), 274 deletions(-)
+
+```text
+rg -n -i 'demo' README.md ETAPA-2B-LOCAL.md INSTRUCTIUNI-RO.md ETAPA-2-LAPTOP2.md AGENTS.md
+```
+
+Exit: 0. Output citit și revizuit; când a fost trunchiat nu se presupun rezultate suplimentare.
+
+```text
+sed -n '1,110p' VERIFICARE.md
+```
+
+Exit: 0. Output citit și revizuit; când a fost trunchiat nu se presupun rezultate suplimentare.
+
+```text
+sed -n '1,55p' ETAPA-2A-ARHITECTURA.md
+```
+
+Exit: 0. Output citit și revizuit; când a fost trunchiat nu se presupun rezultate suplimentare.
+
+```text
+rg -n -i 'demo|codex-runner|runCodexJob|/api/task|/api/agent/task|/api/agent/result|pending_approval' src test --glob '!ui.test.mjs' --glob '!api.test.mjs' --glob '!stage2.test.mjs' --glob '!hub.test.mjs' --glob '!stage2.cli.test.mjs'
+```
+
+Exit: 0. test/local.integration.test.mjs:49:  assert.doesNotMatch(html, /DEMO|Propose demo instruction|DEMO tasks and approvals/i);
+test/local.integration.test.mjs:81:  for (const endpoint of ['/api/task', '/api/task/approve', '/api/task/reject']) {
+src/hub.mjs:288:    console.log('Leverage50xAgents hub listening on loopback port ' + port + ' (DEMO ONLY).');
+
+```text
+node --test test/agent.test.mjs test/agent-recovery.test.mjs test/codex-agent-restart.test.mjs > .local-run/remove-demo-agent-tests.tap 2>&1
+```
+
+Exit: 0. Fără output.
+
+```text
+rg -n '# tests|# pass|# fail|# skipped|# duration_ms|not ok' .local-run/remove-demo-agent-tests.tap
+```
+
+Exit: 0. 87:# tests 14
+89:# pass 14
+90:# fail 0
+92:# skipped 0
+94:# duration_ms 211.798814
+
+```text
+git diff -- src/agent.mjs src/ui.mjs src/ui.css src/ui.html
+```
+
+Exit: 0. Output citit și revizuit; când a fost trunchiat nu se presupun rezultate suplimentare.
+
+```text
+sed -n '1,45p' src/hub.mjs
+```
+
+Exit: 0. Output citit și revizuit; când a fost trunchiat nu se presupun rezultate suplimentare.
+
+```text
+rg -n -i 'demo|pending_approval|runCodexJob|codex-runner' src
+```
+
+Exit: 1. Fără output.
+
+```text
+rg -n '\bjobs\b|/api/task|/api/agent/task|/api/agent/result' test/local-control.test.mjs test/codex-agent-restart.test.mjs test/local.integration.test.mjs test/agent-recovery.test.mjs
+```
+
+Exit: 0. test/local.integration.test.mjs:60:  assert.equal(Object.hasOwn(state, 'jobs'), false);
+test/local.integration.test.mjs:81:  for (const endpoint of ['/api/task', '/api/task/approve', '/api/task/reject']) {
+test/codex-agent-restart.test.mjs:31:        accounts: 0, inventories: 0, closes: 0, jobs: [],
+test/codex-agent-restart.test.mjs:47:          controller.jobs.push(job.id);
+test/codex-agent-restart.test.mjs:116:  assert.ok(f.controllers.every(controller => controller.jobs.length === 0));
+test/codex-agent-restart.test.mjs:127:  assert.ok(f.controllers.every(controller => controller.jobs.length === 0));
+test/codex-agent-restart.test.mjs:215:  assert.equal(f.controllers[1].jobs.length, 0, 'recovery does not replay the failed instruction');
+test/codex-agent-restart.test.mjs:220:  assert.deepEqual(f.controllers[1].jobs, [newJob]);
+test/local-control.test.mjs:51:  assert.equal((await f.operator()).body.readonlyJobs.length, 0, 'invalid requests create no jobs');
+test/local-control.test.mjs:97:test('local jobs serialize queued and running turns and accept only bounded matching progress/results', async t => {
+test/local-control.test.mjs:168:test('Offline expires queued and running local jobs without replay, preserves partial output and permits explicit recovery', async t => {
+test/local-control.test.mjs:289:    assert.equal(Object.hasOwn(state, 'jobs'), false, 'state exposes only the real read-only queue');
+
+```text
+npm test > .local-run/remove-demo-full-tests.tap 2>&1
+```
+
+Exit: în curs la prima întoarcere; finalizarea este separată. Fără output.
+
+```text
+node .local-run/round-main-status.mjs --before
+```
+
+Exit: 0. {"url":"http://127.0.0.1:8765","agentOnline":true,"authentication":"authenticated","inventory":"available","discovered":2,"activeReadonlyJobs":0,"hubPid":260403,"agentPid":260412}
+
+```text
+tools.write_stdin(session_id=85713, chars='')
+```
+
+Exit: 1. Fără output.
+
+```text
+rg -n -A 20 -B 3 'not ok|failureType:|error:|# tests|# pass|# fail|# skipped|# duration_ms' .local-run/remove-demo-full-tests.tap
+```
+
+Exit: 0. 694-  type: 'test'
+695-  ...
+696-# Subtest: loopback HTTP hub and agent require real-turn confirmation and preserve New/Resume without legacy routes
+697:not ok 116 - loopback HTTP hub and agent require real-turn confirmation and preserve New/Resume without legacy routes
+698-  ---
+699-  duration_ms: 57.045513
+700-  type: 'test'
+701-  location: '[WORKSPACE]/test/local.integration.test.mjs:10:1'
+702:  failureType: 'testCodeFailure'
+703:  error: |-
+704-    Expected values to be strictly equal:
+705-    + actual - expected
+706-
+707-    + undefined
+708-    - '11111111-1111-4111-8111-111111111111'
+709-
+710-  code: 'ERR_ASSERTION'
+711-  name: 'AssertionError'
+712-  expected: '11111111-1111-4111-8111-111111111111'
+713-  operator: 'strictEqual'
+714-  stack: |-
+715-    TestContext.<anonymous> (file://[WORKSPACE]/test/local.integration.test.mjs:77:12)
+716-    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+717-    async Test.run (node:internal/test_runner/test:1054:7)
+718-    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+719-  ...
+720-# Subtest: real loopback CLI hub and two synthetic agent processes reconnect and enforce revocation
+721-ok 117 - real loopback CLI hub and two synthetic agent processes reconnect and enforce revocation
+722-  ---
+723-  duration_ms: 340.83318
+--
+868-  type: 'test'
+869-  ...
+870-1..141
+871:# tests 141
+872-# suites 0
+873:# pass 140
+874:# fail 1
+875-# cancelled 0
+876:# skipped 0
+877-# todo 0
+878:# duration_ms 5363.457218
+
+```text
+git diff -- src/hub.mjs
+```
+
+Exit: 0. Output citit și revizuit; când a fost trunchiat nu se presupun rezultate suplimentare.
+
+```text
+rg -n -i 'demo|codex-runner|runCodexJob|pending_approval' src .env.example package.json
+```
+
+Exit: 1. Fără output.
+
+```text
+git diff --stat
+```
+
+Exit: 0. .env.example                    |   2 +-
+ AGENTS.md                       |   2 +-
+ ETAPA-2-LAPTOP2.md              |  47 +++-----
+ ETAPA-2A-ARHITECTURA.md         |   2 +
+ ETAPA-2B-LOCAL.md               |   6 +-
+ INSTRUCTIUNI-RO.md              |  48 ++++----
+ README.md                       |  34 ++++--
+ VERIFICARE.md                   |   2 +
+ comenzi executate agent.md      | 246 ++++++++++++++++++++++++++++++++++++++++
+ package.json                    |   2 +-
+ src/agent.mjs                   |  14 +--
+ src/codex-runner.mjs            |  19 ----
+ src/hub.mjs                     |  66 +----------
+ src/ui.css                      |   4 +-
+ src/ui.html                     |   4 +-
+ src/ui.mjs                      |  60 +---------
+ test/agent-recovery.test.mjs    |   1 -
+ test/agent.test.mjs             |  36 +++---
+ test/api.test.mjs               | 123 ++++++++++++++------
+ test/hub.test.mjs               |  43 ++++---
+ test/local-control.test.mjs     |   2 +-
+ test/local.integration.test.mjs |  67 ++++++++---
+ test/runner.test.mjs            |  36 ------
+ test/stage2.cli.test.mjs        |   9 +-
+ test/stage2.test.mjs            |  15 +--
+ test/ui.test.mjs                | 114 ++++++++++---------
+ 26 files changed, 589 insertions(+), 415 deletions(-)
+
+```text
+sed -n '238,263p' src/hub.mjs
+```
+
+Exit: 0. Output citit și revizuit; când a fost trunchiat nu se presupun rezultate suplimentare.
+
+```text
+npm test > .local-run/remove-demo-full-tests-final.tap 2>&1
+```
+
+Exit: în curs la prima întoarcere; finalizarea este separată. Fără output.
+
+```text
+tools.write_stdin(session_id=97035, chars='')
+```
+
+Exit: 0. Fără output.
+
+```text
+rg -n -A 16 -B 2 'not ok|failureType:|error:|# tests|# pass|# fail|# skipped|# duration_ms' .local-run/remove-demo-full-tests-final.tap
+```
+
+Exit: 0. 851-  ...
+852-1..141
+853:# tests 141
+854-# suites 0
+855:# pass 141
+856:# fail 0
+857-# cancelled 0
+858:# skipped 0
+859-# todo 0
+860:# duration_ms 5368.360249
+
+```text
+git diff -- README.md AGENTS.md ETAPA-2B-LOCAL.md INSTRUCTIUNI-RO.md ETAPA-2-LAPTOP2.md package.json
+```
+
+Exit: 0. Output citit și revizuit; când a fost trunchiat nu se presupun rezultate suplimentare.
+
+```text
+git diff --check
+```
+
+Exit: 0. Fără output.
+
+```text
+rg -n 'codex-runner|runCodexJob|/api/task|/api/agent/task|/api/agent/result|pending_approval|demo-only' src test test-support
+```
+
+Exit: 0. test/ui.test.mjs:223:  assert.equal(b.calls.filter(call => call.method === 'POST' && call.endpoint === '/api/task').length, 0);
+test/api.test.mjs:120:  for (const endpoint of ['/api/task', '/api/task/approve', '/api/task/reject']) {
+test/api.test.mjs:123:  assert.equal((await agentCall({ endpoint: '/api/agent/task?deviceId=' + device.deviceId })).status, 404);
+test/api.test.mjs:124:  assert.equal((await agentCall({ method: 'POST', endpoint: '/api/agent/result', body: { deviceId: device.deviceId } })).status, 404);
+test/local.integration.test.mjs:81:  for (const endpoint of ['/api/task', '/api/task/approve', '/api/task/reject']) {
+test/stage2.cli.test.mjs:172:  assert.equal((await call('/api/agent/task?deviceId=' + second.deviceId, { token: second.token })).status, 404);
+test/hub.test.mjs:49:    for (const endpoint of ['/api/task', '/api/task/approve', '/api/task/reject']) {
+test/hub.test.mjs:52:    assert.equal((await call('GET', `/api/agent/task?deviceId=${deviceId}`, undefined, f.agentToken)).status, 404);
+test/hub.test.mjs:53:    assert.equal((await call('POST', '/api/agent/result', { deviceId }, f.agentToken)).status, 404);
+
+```text
+node .local-run/round-main-status.mjs --before
+```
+
+Exit: 0. {"url":"http://127.0.0.1:8765","agentOnline":true,"authentication":"authenticated","inventory":"available","discovered":2,"activeReadonlyJobs":0,"hubPid":260403,"agentPid":260412}
+
+```text
+./leverage stop
+```
+
+Exit: 0. Launcher-owned processes are stopped. Credentials were preserved.
+
+```text
+./leverage start
+```
+
+Exit: în curs la prima întoarcere; finalizarea este separată. Fără output.
+
+```text
+tools.write_stdin(session_id=91481, chars='')
+```
+
+Exit: 0. Hub and local read-only agent are ready at http://127.0.0.1:8765.
+
+```text
+node .local-run/remove-demo-live-check.mjs
+```
+
+Exit: 0. {"agentOnline":true,"authentication":"authenticated","inventory":"available","sessions":2,"executionMode":"local-read-only","noDemoState":true,"retired":{"/api/task":404,"/api/task/approve":404,"/api/task/reject":404,"/api/agent/task":404,"/api/agent/result":404},"unconfirmedRealTurnStatus":400,"queueUnchanged":true,"assets":{"/":{"http":200,"noDemo":true},"/app.js":{"http":200,"noDemo":true},"/app.css":{"http":200,"noDemo":true}},"newOrResumeTurnsStarted":false,"visualBrowserVerified":false}
+
+```text
+node .local-run/round-main-status.mjs --after
+```
+
+Exit: 0. {"url":"http://127.0.0.1:8765","agentOnline":true,"authentication":"authenticated","inventory":"available","discovered":2,"activeReadonlyJobs":0,"hubPid":271924,"agentPid":271933,"credentialFilesUnchanged":true,"samePids":false}
+
+```text
+git status --short --branch
+```
+
+Exit: 0. ## stage2b-local-control...origin/stage2b-local-control
+ M .env.example
+ M AGENTS.md
+ M ETAPA-2-LAPTOP2.md
+ M ETAPA-2A-ARHITECTURA.md
+ M ETAPA-2B-LOCAL.md
+ M INSTRUCTIUNI-RO.md
+ M README.md
+ M VERIFICARE.md
+ M "comenzi executate agent.md"
+ M package.json
+ M src/agent.mjs
+ D src/codex-runner.mjs
+ M src/hub.mjs
+ M src/ui.css
+ M src/ui.html
+ M src/ui.mjs
+ M test/agent-recovery.test.mjs
+ M test/agent.test.mjs
+ M test/api.test.mjs
+ M test/hub.test.mjs
+ M test/local-control.test.mjs
+ M test/local.integration.test.mjs
+ D test/runner.test.mjs
+ M test/stage2.cli.test.mjs
+ M test/stage2.test.mjs
+ M test/ui.test.mjs
+
+```text
+git diff --check
+```
+
+Exit: 0. Fără output.
+
+```text
+rg -n -i 'demo|codex-runner|runCodexJob|pending_approval' src .env.example package.json
+```
+
+Exit: 1. Fără output.
+
+```text
+rg -n -i 'demo' README.md AGENTS.md ETAPA-2B-LOCAL.md INSTRUCTIUNI-RO.md ETAPA-2-LAPTOP2.md
+```
+
+Exit: 0. AGENTS.md:4:Stage 1 is published as v0.1.1-stage1-demo and Stage 2A is on stage2-device-discovery. The current operator request explicitly authorizes Stage 2B local READ-ONLY control and a Linux/WSL launcher on stage2b-local-control, including local tests, one real README analysis, commits and publication of that branch. Do not modify or merge into main, rewrite history or move existing tags. Do not connect laptop 2 or enable execution on another device. File-writing execution and technical approvals for writes remain unauthorized.
+README.md:3:Dashboard central pentru dispozitive personale, heartbeat și inventar al sesiunilor Codex. Stage 1 este păstrat în tagul `v0.1.1-stage1-demo`, 2A pe `stage2-device-discovery`, iar controlul local și launcher-ul pe `stage2b-local-control`, fără merge în main.
+
+```text
+git remote get-url origin
+```
+
+Exit: 0. https://github.com/leverage50x/agents.git
+
+```text
+git diff --numstat -- 'comenzi executate agent.md'
+```
+
+Exit: 0. 246	0	comenzi executate agent.md
+
+```text
+gh repo view leverage50x/agents --json nameWithOwner,isPrivate,url
+```
+
+Exit: 0. {"isPrivate":true,"nameWithOwner":"leverage50x/agents","url":"https://github.com/leverage50x/agents"}
+
+### Schimbări și verificări executate
+
+- UI: eliminate cele două panouri DEMO, șapte controale/ID-uri asociate, handlers/cereri API/state.jobs și CSS nefolosit. Dashboard-ul păstrează un singur formular Codex READ-ONLY, dispozitive, sesiuni filtrate Cwd+Active, titluri/timp relativ/ID în detalii, New/Resume, checkbox+dialog de confirmare și progres/rezultate. MockDOM refuză acum orice ID HTML inexistent; contract verificat cu24ID-uri valide.
+- Backend: eliminate map-ul jobs, state.jobs și cinci rute exclusive de simulare:POST/api/task,POST/api/task/approve,POST/api/task/reject,GET/api/agent/task,POST/api/agent/result. Rutele retrase răspund404 cu credentialele rolului potrivit;401 pentru auth invalid și403 pentru rol greșit sunt păstrate. Rutele locale reale /api/local/task,/api/agent/local/task,/api/agent/local/update și readonlyJobs sunt neschimbate.
+- Agent: eliminate importul runnerului și polling-ul/raportarea pentru coada veche. Au fost șterse explicit src/codex-runner.mjs și test/runner.test.mjs deoarece nu mai au consumatori actuali. Protecția LEVERAGE_ENABLE_LIVE_CODEX=1 a fost păstrată și verificată în testul agentului: fără controller, fără claim de lucru, inventory-only. Hub calculează executionMode autoritar local-read-only/inventory-only; nu acordă drepturi din claim-uri client. Sandbox,bodylimits,revocare,binding,UUID și gate-urile reale rămân.
+- Documentație: README,INSTRUCTIUNI,ETAPA2B,ghidul laptopului2 și descrierea package.json actualizate pentru funcțiile curente. AGENTS modificat numai la contractul funcțional; restricțiile rămân. .env.example are numai comentariul de inventar actualizat. IstoriculPROMPT,INVESTIGATIE,Stage1/2A și referințele tagului v0.1.1-stage1-demo sunt păstrate; ETAPA2A-ARHITECTURA și VERIFICARE primesc doar antete istorice explicite, fără rescrierea rezultatelor. Nicio dependență sau versiune nu a fost schimbată.
+- Teste: UI18/18PASS; agent/recovery14/14PASS; Hub/API/CLI/two-agents18/18PASS cu procese/date sintetice. Prima suită completă140/141 a arătat o aserțiune greșită în noul test HTTP: aștepta resultThreadId, dar contractul existent real folosește threadId. Corectată numai aserțiunea, nu API-ul. Suita completă finală141/141PASS,0fail/skip,5368.36ms. Cele patru teste exclusive runnerDEMO sunt eliminate; protecțiile și verificările de transport au fost păstrate/adaptate.
+- Testul de integrare are Hub HTTP și agent reale pe loopback, dar controller Codex SINTETIC: verifică refuzul cererii fără confirmare, New și Resume pe același thread, rezultate/progres,413,păstrarea workspace-ului și404 pentru rutele vechi. Nu este raportat drept două turnuri reale de model.
+- Verificare REALĂ după stop/start propriu:agentOnline,Codexauthenticated,inventaravailable2sesiuni,executionModelocal-read-only; fișierele de credențiale neschimbate. /,/app.js,/app.css toate200 și fără DEMO. Cinci rute retrase404. POSTreal fără confirmare400,coada neschimbată,zero turnuri noi. Nu s-a deschis browserul și nu se pretinde inspecție vizuală. Aplicația rămâne http://127.0.0.1:8765; oprire ./leverage stop.
+- `rg` asupra src/.env.example/package.json pentru DEMO/runner/pending_approval nu mai găsește nimic(exit1 normal). Referințele rămase în teste sunt negative404/absență; în documentele istorice/audit/taguri sunt intenționate. Singurele mențiuni curente în README/AGENTS sunt numele tagului istoric.
+- Toate editările sunt prin apply_patch ori helpers expliciți în .local-run ignorat. Nu au fost citite transcripturi sau fișiere Codex de autentificare și nu au fost pornite turnuri native, MCP,PowerShell,executabileWindows sau dispozitive externe.
+
+### Rapoarte delegate — comenzi literale și rezultate
+
+
+# Eliminare definitivă DEMO — ledger subagent Hub
+
+CWD pentru toate comenzile: `[WORKSPACE]`, workspace-ul curent Leverage50xAgents. Comenzile de lectură independente au fost grupate în batchuri. Nu sunt înregistrate secrete, credențiale reale, conținut ENV/auth sau transcripturi.
+
+## Contract confirmat înainte de modificări
+
+Hub nu mai păstrează map-ul jobs și nu mai expune state.jobs sau vechile rute de dispatch/aprobare/respingere/preluare/rezultat. readonlyJobs, localControl și toate rutele locale READ-ONLY își păstrează numele și verificările. Rolurile sunt verificate ca înainte: rutele retrase returnează 404 cu rolul adecvat, cross-role rămâne 403, credentialele invalide 401. executionMode este calculat de Hub din identitatea locală configurată și workspace binding: local-read-only pentru agentul local validat, inventory-only pentru ceilalți. Claim-uri precum live sau unrestricted nu acordă capabilități; sandbox rămâne no-execution.
+
+## Comenzi efectiv executate
+
+1. Exit: `0`.
+
+```bash
+sed -n '1,360p' src/hub.mjs
+```
+
+Lectură inițială Hub și rute; afișarea din batch a fost parțial trunchiată, completată prin lecturile țintite de mai jos.
+
+2. Exit: `0`.
+
+```bash
+sed -n '1,300p' test/api.test.mjs
+```
+
+Lectură inițială teste API.
+
+3. Exit: `0`.
+
+```bash
+sed -n '1,260p' test/stage2.test.mjs
+```
+
+Lectură inițială teste Stage 2 și roluri.
+
+4. Exit: `0`.
+
+```bash
+cat test/hub.test.mjs
+```
+
+Lectură test CLI Hub existent.
+
+5. Exit: `0`.
+
+```bash
+cat test/stage2.cli.test.mjs
+```
+
+Lectură integrare HTTP cu două procese agent sintetice.
+
+6. Exit: `0`.
+
+```bash
+cat test/api.test.mjs
+```
+
+Recitire țintită completă după trunchierea batchului.
+
+7. Exit: `0`.
+
+```bash
+sed -n '1,155p' test/stage2.test.mjs
+```
+
+Citire țintită teste roluri/revocare și inventar.
+
+8. Exit: `0`.
+
+```bash
+sed -n '350,430p' src/hub.mjs
+```
+
+Citire capăt fișier/startup.
+
+9. Exit: `0`.
+
+```bash
+cat test-support/fixtures.mjs
+```
+
+Citire helper sintetic partajat; nu a fost modificat de subagent.
+
+10. Exit: `0`.
+
+```bash
+sed -n '315,355p' src/hub.mjs
+```
+
+Citire return server/startup înainte de eliminarea blocului retras.
+
+11. Exit: `0`.
+
+```bash
+node --test test/api.test.mjs
+```
+
+10/10 PASS, 0 fail, 0 skip, 151.02 ms; teste API în memorie.
+
+12. Exit: `0`.
+
+```bash
+rg -n 'DEMO|demo-only|pending_approval|isThread|const jobs|/api/agent/task|/api/agent/result' src/hub.mjs test/api.test.mjs test/hub.test.mjs test/stage2.test.mjs test/stage2.cli.test.mjs
+```
+
+Doar referințe în teste la rutele retrase pentru aserțiuni 404. Nicio potrivire de cod DEMO în src/hub.mjs.
+
+13. Exit: `1`.
+
+```bash
+rg -n '/api/agent/task|/api/agent/result|runCodexJob' src/agent.mjs
+```
+
+Nicio potrivire: root eliminase poll-urile vechi din agent. Exit 1 este rezultatul normal pentru rg fără potriviri, nu eroare de test. Agentul nu a fost modificat de subagent.
+
+14. Exit: `0`.
+
+```bash
+node --test test/api.test.mjs test/hub.test.mjs test/stage2.test.mjs test/stage2.cli.test.mjs
+```
+
+18/18 PASS, 0 fail, 0 skip, 405.12 ms. Execuție cu require_escalated pentru socketuri HTTP exclusiv 127.0.0.1 și procese Node sintetice; fără Codex nativ/turnuri/model/MCP. Toate procesele testelor au fost oprite prin cleanup.
+
+15. Exit: `0`.
+
+```bash
+git diff --check -- src/hub.mjs test/api.test.mjs test/hub.test.mjs test/stage2.test.mjs test/stage2.cli.test.mjs
+```
+
+Fără erori whitespace.
+
+16. Exit: `0`.
+
+```bash
+git diff -- src/hub.mjs
+```
+
+Revizuire diff: doar eliminarea map/rutelor/state.jobs și buclei de revocare retrase, executionMode calculat server-side și mesaj startup neutru; rutele și controalele READ-ONLY păstrate.
+
+## Editări efectuate prin apply_patch
+
+Fiecare patch a returnat succes. Ordinea: (1) eliminarea helperului isThread folosit exclusiv în dispatch-ul retras, map jobs, state.jobs, bucla de revocare retrasă și toate cele cinci rute vechi; (2) mesaj Hub startup neutru și conversia testelor API către enroll/body-limit, endpointuri retrase 404, execuție locală confirmată și offline/revocare; (3) adaptarea testelor CLI Hub și Stage 2 la inventory-only și rutele locale reale, plus verificarea server-side a executionMode; (4) deadline de pornire CLI Hub de 5 s în test pentru a nu presupune că un proces Node pornește în exact o secundă.
+
+Fișiere modificate exclusiv de subagent: src/hub.mjs, test/api.test.mjs, test/hub.test.mjs, test/stage2.test.mjs, test/stage2.cli.test.mjs. Acest ledger ignorat centralizează comenzile, fără a modifica jurnalul central. Nu am efectuat operațiuni Git de scriere, nu am modificat main/taguri, auth/config/secrete, alte dispozitive sau procesele aplicației reale. Nu am rulat Codex real, PowerShell sau executabile Windows. Root deține modificările agent/UI și verificarea finală a aplicației.
+
+
+
+# Eliminare DEMO din UI — raport subagent stage2_dashboard
+
+CWD pentru toate comenzile: [WORKSPACE]. Eliminarea a fost autorizata explicit de cererea curenta. Comenzile batch-urilor independente sunt listate in ordinea lansarii; finalizarile pot fi concurente. Raport ignorat pentru centralizare; jurnalul central nu a fost editat.
+
+## 1
+
+```bash
+cat src/ui.html
+```
+
+Exit: 0.
+
+Citire READ-ONLY UI/teste inaintea eliminarii DEMO autorizate explicit.
+
+## 2
+
+```bash
+cat src/ui.css
+```
+
+Exit: 0.
+
+Citire READ-ONLY UI/teste inaintea eliminarii DEMO autorizate explicit.
+
+## 3
+
+```bash
+cat src/ui.mjs
+```
+
+Exit: 0.
+
+Citire READ-ONLY UI/teste inaintea eliminarii DEMO autorizate explicit.
+
+## 4
+
+```bash
+cat test/ui.test.mjs
+```
+
+Exit: 0.
+
+Citire READ-ONLY UI/teste inaintea eliminarii DEMO autorizate explicit.
+
+## 5
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/ui.html')
+s = p.read_text()
+old = 'Private device inventory · confirmed local read-only Codex turns · separate DEMO tasks'
+assert s.count(old) == 1
+s = s.replace(old, 'Private device inventory · local read-only Codex turns', 1)
+old = '<h2>Real local Codex <span class="flow-badge">REAL · READ-ONLY</span></h2>'
+assert s.count(old) == 1
+s = s.replace(old, '<h2>Codex · <span class="flow-badge">READ-ONLY</span></h2>', 1)
+start = s.index('<section class="panel panel-spaced demo-control">')
+end = s.index('</section></div></main>', start) + len('</section>')
+s = s[:start] + s[end:]
+p.write_text(s)
+p = Path('src/ui.css')
+s = p.read_text()
+for old in [
+    '.row{display:flex;gap:10px;align-items:center}.row>button{flex-shrink:0}',
+    '#message{margin-top:10px;min-height:20px}',
+    '.demo-control,.demo-jobs{border:1px dashed #a97b42;background:#211f27}',
+    '.demo-control .flow-badge{background:#493624;color:#ffcf97;border-color:#a97b42}'
+]:
+    assert s.count(old) == 1, 'Expected one legacy CSS marker.'
+    s = s.replace(old, '', 1)
+assert s.count('.local-control h2,.demo-control h2') == 1
+s = s.replace('.local-control h2,.demo-control h2', '.local-control h2', 1)
+p.write_text(s)
+PY
+```
+
+Exit: 0.
+
+Eliminare tintita a panourilor legacy DEMO si CSS-ului lor; header Codex READ-ONLY, fara modificarea fluxului local.
+
+## 6
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('test/ui.test.mjs')
+s = p.read_text()
+s = s.replace(', jobs: []', '')
+p.write_text(s)
+PY
+```
+
+Exit: 0.
+
+Fixture-urile UI nu mai includ state.jobs legacy; readonlyJobs si fluxul local pastrate.
+
+## 7
+
+```bash
+node --test test/ui.test.mjs
+```
+
+Exit: 0.
+
+18/18 teste UI PASS, zero fail/skip, 113.96735 ms. DOM/fetch simulate; fara verificare vizuala.
+
+## 8
+
+```bash
+node --check src/ui.mjs
+```
+
+Exit: 0.
+
+Fara output; verificare reusita.
+
+## 9
+
+```bash
+git diff --check -- src/ui.html src/ui.mjs src/ui.css test/ui.test.mjs
+```
+
+Exit: 0.
+
+Fara output; verificare reusita.
+
+## 10
+
+```bash
+rg -n 'DEMO|demo|renderThreads|state\.jobs|/api/task|\$\('\''(form|device|thread|prompt|submit|message|jobs)'\''' src/ui.html src/ui.mjs src/ui.css
+```
+
+Exit: 1.
+
+Nicio potrivire legacy in asseturile UI.
+
+## 11
+
+```bash
+git check-ignore .local-run/remove-demo-ui-ledger.md
+```
+
+Exit: 0.
+
+.local-run/remove-demo-ui-ledger.md
+
+
+## 12
+
+```bash
+test -e .local-run/remove-demo-ui-ledger.md
+```
+
+Exit: 1.
+
+Ledgerul nu exista; poate fi creat fara suprascriere.
+
+## 13
+
+```bash
+node --input-type=module <<'NODE'
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const html = fs.readFileSync('src/ui.html', 'utf8');
+const source = fs.readFileSync('src/ui.mjs', 'utf8');
+const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]);
+assert.equal(new Set(ids).size, ids.length);
+const references = [...new Set([...source.matchAll(/\$\('([^']+)'\)/g)].map(match => match[1]))];
+for (const id of references) assert.ok(ids.includes(id), 'Missing HTML ID: ' + id);
+const forms = [...html.matchAll(/<form id="([^"]+)"/g)].map(match => match[1]);
+assert.deepEqual(forms, ['local-form']);
+console.log(JSON.stringify({ uniqueDOMIds: ids.length, staticReferencesVerified: references.length, forms }));
+NODE
+```
+
+Exit: 0.
+
+{"uniqueDOMIds":24,"staticReferencesVerified":24,"forms":["local-form"]}
+
+
+## 14
+
+```bash
+git diff --stat -- src/ui.html src/ui.mjs src/ui.css test/ui.test.mjs
+```
+
+Exit: 0.
+
+ src/ui.css       |   4 +-
+ src/ui.html      |   4 +-
+ src/ui.mjs       |  60 +----------------------------
+ test/ui.test.mjs | 114 ++++++++++++++++++++++++++++++-------------------------
+ 4 files changed, 67 insertions(+), 115 deletions(-)
+
+
+## 15
+
+```bash
+git diff -- src/ui.html src/ui.mjs src/ui.css test/ui.test.mjs
+```
+
+Exit: 0.
+
+Review READ-ONLY patch: numai UI/teste; flux local pastrat, legacy assets/routes/state eliminate.
+
+## Modificari efective
+
+- src/ui.html: eliminate panourile Propose demo instruction si DEMO tasks/approvals, cele7 ID-uri legacy form/device/thread/prompt/submit/message/jobs si referintele DEMO din header. Titlul controlului este Codex · READ-ONLY.
+- src/ui.mjs: eliminate state.jobs, renderThreads, selectia/randarea si toate handler-ele/request-urile legacy /api/task. Pstrate readonlyJobs, device inventory, Cwd+Active, metadate title/timp relativ/detaliiID, selectia explicita New/Resume, autentificarea, checkbox-ul+dialogul de confirmare, rezultate/progres, escaping si fail-closed.
+- src/ui.css: eliminate clasele demo-control/demo-jobs, stilul #message si row nefolosit. Clasele generice .jobs/.job raman deoarece sunt folosite de rezultatele READ-ONLY.
+- test/ui.test.mjs: testele legacy inlocuite cu absentaID/routes/DEMO, disconnect/reconnect pentru fluxul READ-ONLY si blocarea dispozitivelor revocate. Mock-ul DOM refuza acum orice ID absent din HTML real. Fixture-urile nu mai includ state.jobs.
+- Doua patch-uri apply_patch reusite au modificat JS/teste; cele doua scripturi Python literale au modificat doar HTML/CSS si fixture-urile UI. Acest raport ignorat este singurul fisier suplimentar.
+
+## Verificare si limite
+
+18/18 teste UI PASS. node --check si git diff --check PASS. Cautarea legacy returneaza exit1 deoarece nu exista potriviri in asseturile UI. Contractul DOM verificat:24 ID-uri HTML unice,24 referinte statice JS valide, un singur formular local-form. Review-ul diff-ului nu a identificat blocaje: permisiunile, API-ul READ-ONLY si aprobarile explicite sunt pastrate. Testele de backend/HTTP care se refereau istoric la textul DEMO trebuie adaptate de owner-ul lor, nu au fost editate de acest subagent.
+
+Nu s-au rulat turnuri Codex/model, servicii sau browser real, Windows/PowerShell, acces la credentiale sau mutatii Git/istoric. Nu pretindem verificare vizuala. Full suite/backend/Git raman la agentul principal.
+
+
+
+# Documentație curentă fără flux DEMO — ledger subagent
+
+CWD pentru toate comenzile: `[WORKSPACE]`. Scope de editare: README.md, ETAPA-2B-LOCAL.md, INSTRUCTIUNI-RO.md, ETAPA-2-LAPTOP2.md, AGENTS.md și numai description din package.json. Fără teste, procese, acces la alt laptop, login, rețea, configurație globală sau Git mutations. Numai acest ledger nou este scris în `.local-run`; jurnalul central nu este modificat de subagent.
+
+## Comenzi efectiv executate
+
+1. `cat README.md` — exit 0.
+2. `cat ETAPA-2B-LOCAL.md` — exit 0.
+3. `cat INSTRUCTIUNI-RO.md` — exit 0.
+4. `cat ETAPA-2-LAPTOP2.md` — exit 0.
+5. `cat AGENTS.md` — exit 0; politica permanentă păstrată; solicitarea curentă de eliminare a fluxului vechi prevalează asupra propoziției depășite care cerea păstrarea lui.
+6. `cat package.json` — exit 0.
+7. `rg -n 'discoverCodexSessions|LOCAL_READONLY|local/task|/api/agent/task|demo' src/agent.mjs` — exit 0; citire numai pentru corelarea ghidului cu agentul, care era în curs de modificare de celălalt agent.
+8. `rg -l -i 'demo|simulat' PROMPT-CODEX-RO.md ETAPA-2A-ARHITECTURA.md VERIFICARE.md INVESTIGATIE-GIT-CODEX.md` — exit 0; toate cele patru documente istorice conțin referințe intenționate. Nu au fost editate de acest subagent.
+9. `apply_patch` — actualizate README.md, ETAPA-2B-LOCAL.md, o singură propoziție de contract din AGENTS.md și numai description din package.json.
+10. `apply_patch` — rescris ghidul curent INSTRUCTIUNI-RO.md și actualizat ETAPA-2-LAPTOP2.md pentru inventar ulterior, fără control pe laptopul 2.
+11. `apply_patch` — corectat un typo și clarificat indisponibilitatea inventarului App Server pe versiuni neverificate în ghidul laptopului 2.
+12. `rg -n -i 'demo|simulat|pending_approval|npm run hub|npm run agent' README.md ETAPA-2B-LOCAL.md INSTRUCTIUNI-RO.md ETAPA-2-LAPTOP2.md AGENTS.md package.json` — exit 0; numai numele tagului istoric Stage 1 în README/AGENTS și distincția legitimă dintre turnuri reale și simulated protocol tests în AGENTS. Nicio instrucțiune pentru formularul/fluxul vechi.
+13. `sed -n '1,12p' PROMPT-CODEX-RO.md` — exit 0; header explicit istoric.
+14. `sed -n '1,12p' ETAPA-2A-ARHITECTURA.md` — exit 0; header explicit istoric și trimitere către ghidul curent.
+15. `sed -n '1,12p' VERIFICARE.md` — exit 0; snapshot istoric datat, cu trimitere către ghidul curent/jurnal.
+16. `sed -n '1,12p' INVESTIGATIE-GIT-CODEX.md` — exit 0; investigație explicit datată 25 octombrie, fără modificare a auditului.
+17. `git --no-optional-locks diff --check -- README.md ETAPA-2B-LOCAL.md INSTRUCTIUNI-RO.md ETAPA-2-LAPTOP2.md AGENTS.md package.json` — exit 0, fără output; verificare de formatare, nu test runtime.
+18. `apply_patch` — creat acest ledger ignorat; fără modificarea jurnalului central.
+19. `chmod 600 .local-run/remove-demo-docs-ledger.md` — exit 0; numai noul ledger făcut privat.
+20. `apply_patch` — completat ledgerul cu operațiunea efectivă de permisiuni.
+
+## Rezultat și limite
+
+- Documentația curentă prezintă inventar, New/Resume real local READ-ONLY, selecție și confirmare explicite, launcher și autentificare separată. Scrierea, shell/MCP și execuția pe alte dispozitive rămân blocate.
+- README clarifică înrolarea inițială și oprirea Hub-ului manual înaintea launcherului, eliminând conflictul cu un port ocupat de propria instanță manuală. Titlurile oficiale, filtrul CLI și metadatele sigure sunt descrise conform implementării curente.
+- Ghidul laptopului 2 pregătește numai inventarierea privată ulterioară. Nu autorizează și nu execută accesul fizic/rețeaua/transferurile; `LEVERAGE_LOCAL_READONLY=0` este explicit în comenzile propuse pentru acel agent.
+- AGENTS păstrează integral celelalte restricții și politica de autonomie; package.json păstrează versiunea, scripturile, dependențele și celelalte câmpuri.
+- Referințele istorice DEMO și rezultatele vechi rămân în PROMPT-CODEX-RO.md, ETAPA-2A-ARHITECTURA.md, VERIFICARE.md, INVESTIGATIE-GIT-CODEX.md și în jurnal. Niciun conținut de audit nu a fost șters de subagent. Numele tagului Stage 1 rămâne exact.
+- Paragraful cu numerele 9/2 din ghidul 2B este explicit datat, fără a pretinde că numărul actual este fix. Rezultatul real New și limitarea istorică Resume sunt păstrate fără inventarea unui succes ulterior.
+- Nu au fost rulate teste sau comenzi din blocurile documentației. Verificarea runtime și publicarea aparțin agentului principal.
+
+
+### Audit înainte de commit — eliminare DEMO
+
+CWD: [WORKSPACE]. `node .local-run/remove-demo-centralize.mjs` — exit0; comenzile root și ale celor trei subagenți au fost centralizate, cu jurnalul vechi păstrat. Au fost pregătite numai cele 26 de fișiere intenționate prin `git add --` cu listă explicită, inclusiv ștergerile autorizate ale runnerului și testului său. Auditul `node .local-run/review-publication.mjs stage2b-local-control > .local-run/remove-demo-publication-audit.log` — exit0:8commituri,49fișierecurente,0constatări în istoric/workingtree/căiprivate. `.env.example` conține placeholder-uri, iar modificarea lui este doar un comentariu.
+
+`git diff --check` a raportat inițial exit2 pentru două spații terminale din outputul TAP copiat în jurnal. Corectate punctual prin apply_patch, fără schimbarea comenzilor sau a rezultatului testului. Verificarea repetată a trecut(exit0). Lista staged a fost revizuită: niciun .env/.local-run/secret; documentele istorice au numai antete explicative și nu sunt rescrise rezultatele. Autentificarea, sandboxul și aprobările pentru instrucțiuni reale rămân neschimbate.
+
 <!-- publish-next -->

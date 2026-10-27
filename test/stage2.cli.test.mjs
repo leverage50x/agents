@@ -138,15 +138,17 @@ test('real loopback CLI hub and two synthetic agent processes reconnect and enfo
     assert.equal(device.sessions[0].activity, 'discovered');
     assert.equal(device.sessions[0].source, 'files');
     assert.equal(device.sessions[0].lastActivity, undefined);
-    assert.equal(device.executionMode, 'demo-only');
+    assert.equal(device.executionMode, 'inventory-only');
     assert.equal(device.sandbox, 'no-execution');
     assert.deepEqual(device.mcp.servers, ['synthetic_' + index]);
   }
   assert.equal(JSON.stringify(state).includes('SYNTHETIC_TRANSCRIPT_MUST_NOT_LEAVE_FIXTURE'), false);
   assert.equal(JSON.stringify(state).includes('SYNTHETIC_CONFIG_MUST_NOT_LEAVE_FIXTURE'), false);
+  assert.equal(Object.hasOwn(state, 'jobs'), false);
+  assert.deepEqual(state.readonlyJobs, []);
   const page = await fetch(url, { signal: AbortSignal.timeout(1000), redirect: 'error' });
   assert.equal(page.status, 200);
-  assert.match(await page.text(), /Read-only/);
+  assert.match(await page.text(), /Read-only/i);
   assert.equal((await call('/api/state', { token: first.token })).status, 403);
 
   const heartbeatBeforeRestart = state.devices.find(device => device.id === first.deviceId).lastSeen;
@@ -167,5 +169,6 @@ test('real loopback CLI hub and two synthetic agent processes reconnect and enfo
   assert.equal(state.devices.find(device => device.id === first.deviceId).online, false);
   assert.ok(state.agents.find(agent => agent.id === first.deviceId).revokedAt);
   assert.equal(state.devices.find(device => device.id === second.deviceId).online, true);
-  assert.equal((await call('/api/agent/task?deviceId=' + second.deviceId, { token: second.token })).status, 200);
+  assert.equal((await call('/api/agent/task?deviceId=' + second.deviceId, { token: second.token })).status, 404);
+  assert.equal((await call('/api/agent/local/task?deviceId=' + second.deviceId, { token: second.token })).status, 403);
 });

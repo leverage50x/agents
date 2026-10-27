@@ -4,6 +4,9 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 const source = fs.readFileSync(new URL('../src/ui.mjs', import.meta.url), 'utf8');
+const markup = fs.readFileSync(new URL('../src/ui.html', import.meta.url), 'utf8');
+const styles = fs.readFileSync(new URL('../src/ui.css', import.meta.url), 'utf8');
+const knownIds = new Set([...markup.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]));
 function browser(initial, { now = Date.parse('2026-10-26T10:13:00Z') } = {}) {
   const elements = new Map();
   const calls = [];
@@ -18,13 +21,14 @@ function browser(initial, { now = Date.parse('2026-10-26T10:13:00Z') } = {}) {
     return { add: x => values.add(x), remove: x => values.delete(x), contains: x => values.has(x) };
   };
   const element = id => {
+    assert.ok(knownIds.has(id), 'UI referenced an absent HTML element: ' + id);
     if (!elements.has(id)) {
       elements.set(id, {
         value: '', checked: false, disabled: false, textContent: '', className: '', classList: classes(), handlers: {},
         addEventListener(name, callback) { this.handlers[name] = callback; },
         set innerHTML(value) {
           this.html = value;
-          if (['device', 'thread', 'inventory-device', 'local-device', 'local-thread', 'local-workspace'].includes(id)) this.value = /<option value="([^"]*)"/.exec(value)?.[1] || '';
+          if (['inventory-device', 'local-device', 'local-thread', 'local-workspace'].includes(id)) this.value = /<option value="([^"]*)"/.exec(value)?.[1] || '';
         },
         get innerHTML() { return this.html || ''; }
       });
@@ -32,7 +36,7 @@ function browser(initial, { now = Date.parse('2026-10-26T10:13:00Z') } = {}) {
     return elements.get(id);
   };
   vm.runInNewContext(source, {
-    document: { getElementById: element, querySelectorAll: () => [] }, AbortSignal, Date: BrowserDate,
+    document: { getElementById: element }, AbortSignal, Date: BrowserDate,
     confirm: message => { confirmations.push(message); return approve; },
     setInterval: callback => { polling = callback; },
     fetch: async (endpoint, options) => {
@@ -54,51 +58,79 @@ const device = {
   workspaceReady: true, mcp: { status: 'configured-only', servers: ['<b>server</b>'] },
   sessions: [], sessionInventory: { status: 'available', truncated: true }
 };
+const localThread = '11111111-1111-4111-8111-111111111111';
+const localDevice = { ...device, name: 'Local laptop', localControl: true, codexAuth: 'authenticated',
+  sessions: [{ id: localThread, activity: 'discovered', source: 'app-server', eligibility: 'discovered' }] };
+const localState = (devices = [localDevice]) => ({ devices, readonlyJobs: [],
+  localControl: { enabled: true, deviceId: localDevice.id, workspaces: [{ id: 'project', label: 'Personal project' }] } });
+function change(b, id, value) {
+  b.element(id).value = value;
+  b.element(id).handlers[id === 'local-prompt' ? 'input' : 'change']();
+}
+function selectLocal(b, { mode = 'new', thread = '' } = {}) {
+  change(b, 'local-device', localDevice.id);
+  change(b, 'local-mode', mode);
+  change(b, 'local-workspace', 'project');
+  if (thread) change(b, 'local-thread', thread);
+  change(b, 'local-prompt', 'Inspect the project without changing files.');
+}
+function confirmLocal(b) {
+  b.element('local-confirm').checked = true;
+  b.element('local-confirm').handlers.change();
+}
+const submitLocal = b => b.element('local-form').handlers.submit({ preventDefault() {} });
+const localRequests = b => b.calls.filter(call => call.endpoint === '/api/local/task');
 
-test('UI blocks submission until connected and after a network failure', async () => {
-  const b = browser({ devices: [device], jobs: [] });
-  assert.equal(b.element('submit').disabled, true);
-  await b.element('form').handlers.submit({ preventDefault() {} });
+test('UI blocks read-only submission until connected and after a network failure', async () => {
+  const b = browser(localState());
+  assert.equal(b.element('local-submit').disabled, true);
+  await submitLocal(b);
   assert.equal(b.calls.length, 0);
   await b.login();
-  assert.equal(b.element('submit').disabled, false);
+  selectLocal(b);
+  confirmLocal(b);
+  assert.equal(b.element('local-submit').disabled, false);
   assert.equal(b.element('token').value, '');
   b.fail(true);
   await b.poll();
-  assert.equal(b.element('submit').disabled, true);
+  assert.equal(b.element('local-submit').disabled, true);
   const before = b.calls.length;
-  await b.element('form').handlers.submit({ preventDefault() {} });
+  await submitLocal(b);
   assert.equal(b.calls.length, before);
   b.fail(false);
   await b.poll();
-  assert.equal(b.element('submit').disabled, false);
+  assert.equal(b.element('local-submit').disabled, false);
+  assert.equal(localRequests(b).length, 0);
 });
 
 test('UI escapes inventory and marks incomplete scans; offline devices disable submission', async () => {
-  const b = browser({ devices: [device], jobs: [] });
+  const b = browser({ devices: [device] });
   await b.login();
   assert.equal(b.element('devices').innerHTML.includes('<script>'), false);
   assert.ok(b.element('devices').innerHTML.includes('&lt;script&gt;'));
   assert.ok(b.element('devices').innerHTML.includes('&lt;b&gt;server&lt;/b&gt;'));
   assert.ok(b.element('devices').innerHTML.includes('scan incomplete'));
-  b.state({ devices: [{ ...device, online: false }], jobs: [] });
+  b.state({ devices: [{ ...device, online: false }] });
   await b.poll();
-  assert.equal(b.element('submit').disabled, true);
+  assert.equal(b.element('local-submit').disabled, true);
 });
 
-test('UI sends no approval when the explicit confirmation is declined', async () => {
-  const job = { id: 'synthetic-job', deviceId: device.id, prompt: 'Demo', status: 'pending_approval', createdAt: 'synthetic', output: '' };
-  const b = browser({ devices: [device], jobs: [job] });
+test('UI contains only read-only controls and never references removed legacy IDs or routes', async () => {
+  for (const id of ['form', 'device', 'thread', 'prompt', 'submit', 'message', 'jobs']) assert.equal(knownIds.has(id), false);
+  assert.doesNotMatch(markup + source + styles, /demo|simulat/i);
+  assert.doesNotMatch(source, /\/api\/task(?:\/|['"?]|$)/);
+  assert.doesNotMatch(source, /state\.jobs|renderThreads/);
+  const b = browser(localState());
   await b.login();
-  const button = { dataset: { id: job.id }, classList: { contains: name => name === 'approve-job' } };
-  await b.element('jobs').handlers.click({ target: { closest: () => button } });
-  assert.equal(b.calls.filter(x => x.method === 'POST').length, 0);
+  await b.poll();
+  assert.ok(b.calls.every(call => call.endpoint === '/api/state'));
+  assert.ok(b.element('local-jobs').innerHTML.includes('No local read-only turns submitted.'));
 });
 
 test('UI scopes read-only sessions by persistent ID even when devices have identical names', async () => {
   const first = { ...device, name: 'Laptop', sessions: [{ id: 'thread-one', activity: 'discovered', source: 'app-server', project: 'project-one', modified: '2026-10-21T10:00:00Z', lastActivity: '2026-10-21T09:59:00Z' }] };
   const second = { ...device, id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', name: 'Laptop', sessions: [{ id: 'thread-two', activity: 'discovered', source: 'files', modified: '2026-10-20T08:00:00Z' }] };
-  const b = browser({ devices: [first, second], jobs: [] });
+  const b = browser({ devices: [first, second] });
   await b.login();
   assert.ok(b.element('inventory-device').innerHTML.includes(first.id));
   assert.ok(b.element('inventory-device').innerHTML.includes(second.id));
@@ -121,9 +153,9 @@ test('UI scopes read-only sessions by persistent ID even when devices have ident
 
 test('UI escapes scoped session fields and preserves offline inventory without enabling tasks', async () => {
   const session = { id: '<img src=x onerror=alert(1)>', project: '<script>project</script>', source: 'files', modified: 'not-a-time' };
-  const b = browser({ devices: [{ ...device, online: false, sessions: [session] }], jobs: [] });
+  const b = browser({ devices: [{ ...device, online: false, sessions: [session] }] });
   await b.login();
-  assert.equal(b.element('submit').disabled, true);
+  assert.equal(b.element('local-submit').disabled, true);
   assert.equal(b.element('inventory-device').disabled, false);
   assert.ok(b.element('inventory-status').textContent.includes('Offline — last reported inventory'));
   assert.ok(b.element('inventory-status').textContent.includes('2023-11-14T22:13:20.000Z'));
@@ -138,40 +170,18 @@ test('UI escapes scoped session fields and preserves offline inventory without e
   assert.ok(b.element('inventory-status').textContent.includes('Hub disconnected — last reported inventory'));
 });
 
-test('UI excludes revoked devices from DEMO tasks while retaining their read-only inventory', async () => {
-  const revoked = { ...device, revokedAt: '2026-10-22T08:00:00Z', sessions: [{ id: 'old-thread', activity: 'discovered' }] };
-  const b = browser({ devices: [revoked], jobs: [] });
+test('UI blocks read-only turns for revoked devices while retaining their inventory', async () => {
+  const revoked = { ...localDevice, revokedAt: '2026-10-22T08:00:00Z', sessions: [{ id: 'old-thread', activity: 'discovered' }] };
+  const b = browser(localState([revoked]));
   await b.login();
-  assert.equal(b.element('device').innerHTML, '');
-  assert.equal(b.element('submit').disabled, true);
+  selectLocal(b);
+  confirmLocal(b);
+  assert.equal(b.element('local-submit').disabled, true);
   assert.ok(b.element('inventory-status').textContent.includes('Revoked'));
   assert.ok(b.element('sessions').innerHTML.includes('old-thread'));
-  await b.element('form').handlers.submit({ preventDefault() {} });
+  await submitLocal(b);
   assert.equal(b.calls.filter(x => x.method === 'POST').length, 0);
 });
-
-const localThread = '11111111-1111-4111-8111-111111111111';
-const localDevice = { ...device, name: 'Local laptop', localControl: true, codexAuth: 'authenticated',
-  sessions: [{ id: localThread, activity: 'discovered', source: 'app-server', eligibility: 'discovered' }] };
-const localState = (devices = [localDevice]) => ({ devices, jobs: [], readonlyJobs: [],
-  localControl: { enabled: true, deviceId: localDevice.id, workspaces: [{ id: 'project', label: 'Personal project' }] } });
-function change(b, id, value) {
-  b.element(id).value = value;
-  b.element(id).handlers[id === 'local-prompt' ? 'input' : 'change']();
-}
-function selectLocal(b, { mode = 'new', thread = '' } = {}) {
-  change(b, 'local-device', localDevice.id);
-  change(b, 'local-mode', mode);
-  change(b, 'local-workspace', 'project');
-  if (thread) change(b, 'local-thread', thread);
-  change(b, 'local-prompt', 'Inspect the project without changing files.');
-}
-function confirmLocal(b) {
-  b.element('local-confirm').checked = true;
-  b.element('local-confirm').handlers.change();
-}
-const submitLocal = b => b.element('local-form').handlers.submit({ preventDefault() {} });
-const localRequests = b => b.calls.filter(call => call.endpoint === '/api/local/task');
 
 test('local control never auto-selects device, mode, workspace or session and requires both confirmations', async () => {
   const b = browser(localState());
@@ -355,7 +365,7 @@ test('session inventory shows metadata title and relative activity with project,
   b.state(localState([{ ...reported, online: false }]));
   await b.poll();
   assert.ok(b.element('sessions').innerHTML.includes('Device offline or revoked — Resume unavailable'));
-  b.state({ devices: [{ ...reported, localControl: false }], jobs: [] });
+  b.state({ devices: [{ ...reported, localControl: false }] });
   await b.poll();
   assert.ok(b.element('sessions').innerHTML.includes('Inventory only — local Resume unavailable'));
 });

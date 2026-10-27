@@ -7,7 +7,6 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { codexHome, listMcp } from './inventory.mjs';
 import { discoverCodexSessions } from './codex-app-server.mjs';
 import { createCodexControl } from './codex-control.mjs';
-import { runCodexJob } from './codex-runner.mjs';
 import { localHubUrl, validateToken, workspaceReady } from './local-config.mjs';
 
 // Count serialized UTF-8 bytes, including JSON escapes, without splitting a
@@ -191,7 +190,8 @@ export function createAgent({ env = process.env, fetchImpl = fetch, controlFacto
     const heartbeat = {
       deviceId, name, platform: process.platform, mcp: listMcp(home), sessions, sessionInventory,
       localControl: Boolean(control), workspaceBinding, codexAuth: account,
-      sandbox: 'no-execution', workspaceReady: workspaceReady(env.LEVERAGE_WORKSPACE), executionMode: 'demo-only'
+      sandbox: 'no-execution', workspaceReady: workspaceReady(env.LEVERAGE_WORKSPACE),
+      executionMode: control ? 'local-read-only' : 'inventory-only'
     };
     // Titles are optional presentation metadata. Preserve the existing body
     // limit and the core inventory/authentication if they exhaust its budget.
@@ -199,16 +199,6 @@ export function createAgent({ env = process.env, fetchImpl = fetch, controlFacto
       heartbeat.sessions = sessions.map(({ title, ...metadata }) => metadata);
     }
     await request('POST', '/api/agent/heartbeat', heartbeat, signal);
-    const response = await request('GET', '/api/agent/task?deviceId=' + deviceId, undefined, signal);
-    if (response.job) {
-      let result;
-      try {
-        result = { ...await runCodexJob(response.job, env), status: 'completed' };
-      } catch (error) {
-        result = { status: 'failed', output: error.message };
-      }
-      await request('POST', '/api/agent/result', { deviceId, jobId: response.job.id, ...result }, signal);
-    }
     if (control && !activeRun && !closing) {
       const next = await request('GET', '/api/agent/local/task?deviceId=' + deviceId, undefined, signal);
       if (next.job) {

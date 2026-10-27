@@ -1,36 +1,21 @@
-# Etapa 2A — conectarea laptopului 2
+# Laptopul 2 — ghid de pregătire pentru inventar privat
 
-Comenzile sunt pentru Bash în Linux/WSL, în contul proprietarului. Nu sunt comenzi executate pe laptopul 2 de agentul de dezvoltare. Sunt necesare Node.js >=22, npm, Git și OpenSSH client. Verifică `node --version`, `npm --version`, `git --version`, `ssh -V`. Pentru inventarul App Server verificat este necesar Codex CLI **0.163.0**; alte versiuni folosesc fallback pe nume de fișiere. Nu instala sau actualiza Codex doar pentru acest ghid fără verificarea propriului mediu.
+Livrarea curentă pe `stage2b-local-control` permite control real READ-ONLY numai pe agentul principal. Acest ghid pregătește o conectare ulterioară a laptopului 2 pentru inventar; comenzile pe alt dispozitiv și transferul credențialelor necesită autorizarea explicită a operatorului. Ele nu sunt executate ca parte a livrării curente.
+
+Comenzile sunt pentru Bash în Linux/WSL, în contul proprietarului. Nu sunt comenzi executate pe laptopul 2 de agentul de dezvoltare. Sunt necesare Node.js >=22, npm, Git și OpenSSH client. Verifică `node --version`, `npm --version`, `git --version`, `ssh -V`. Pentru inventarul App Server verificat este necesar Codex CLI **0.163.0**; alte versiuni fac acest inventar indisponibil. Sursa explicită `files` oferă separat numai nume de fișiere, fără certificarea filtrului CLI. Nu instala sau actualiza Codex doar pentru acest ghid fără verificarea propriului mediu.
 
 Trebuie să existe deja acces SSH autentificat de la laptopul 2 la mediul Linux care rulează Hub-ul, prin LAN sau VPN. Verifică identitatea serverului SSH printr-un canal de încredere. Nu dezactiva verificarea cheii SSH, nu configura port-forwarding public/router și nu modifica firewall-ul ori serviciul SSH ca parte incidentală a acestor comenzi. În WSL, destinația SSH trebuie să ajungă în mediul care poate accesa Hub-ul pe 127.0.0.1. Ghidul nu presupune că acest acces există deja pe dispozitivele tale.
 
 ## 1. Laptopul principal: Hub și primul agent
 
-În checkout-ul proiectului, pe branch-ul `stage2-device-discovery`:
+În checkout-ul proiectului, pe branch-ul `stage2b-local-control`, cu credențialele locale existente:
 
 ```bash
-git switch stage2-device-discovery
-npm ci
-npm test
-node src/manage.mjs init
+./leverage start
+./leverage status
 ```
 
-`init` creează `.local-run/hub.env` cu token operator aleator, mod 600, într-un director privat 700. Refuză suprascrierea. Dacă există deja, folosește fișierul existent; nu îl șterge pentru a ascunde o eroare. Fișierul Stage 1 `.env` este păstrat și nu este reutilizat pentru agenți.
-
-Terminalul Hub:
-
-```bash
-node --env-file=.local-run/hub.env src/hub.mjs
-```
-
-Alt terminal pe laptopul principal, același director:
-
-```bash
-node --env-file=.local-run/hub.env src/manage.mjs enroll --name laptop-1 --out .local-run/laptop1.env
-LEVERAGE_WORKSPACE="$PWD" node --env-file=.local-run/laptop1.env src/agent.mjs
-```
-
-Păstrează terminalul agentului pornit. UUID-ul și tokenul agentului sunt în fișierul privat, nu derivă din hostname. Refolosește același fișier la restart; nu înrola din nou pentru o reconectare obișnuită.
+Launcher-ul pornește Hub-ul și agentul principal, fără autostart și fără generarea unor secrete noi. Dacă fișierele lipsesc, urmează întâi înrolarea inițială din [README.md](README.md). Credențialele operatorului și agentului sunt distincte, în fișiere mode600/director privat700. UUID-ul nu derivă din hostname; refolosește fișierul la restart, fără reînrolare. Fișierul Stage 1 `.env` rămâne păstrat și ignorat. Controlul local este descris în [ETAPA-2B-LOCAL.md](ETAPA-2B-LOCAL.md).
 
 Deschide manual **http://127.0.0.1:8765** în browserul laptopului principal. Introdu numai valoarea `LEVERAGE_OPERATOR_TOKEN` din fișierul local `.local-run/hub.env`, consultat privat în editor. Nu lipi fișierul sau tokenul în chat, capturi, jurnale ori Git. Dashboard-ul păstrează tokenul doar în memoria paginii.
 
@@ -39,7 +24,7 @@ Deschide manual **http://127.0.0.1:8765** în browserul laptopului principal. In
 În terminalul Linux/WSL de pe laptopul 2, cu acces GitHub la repository-ul PRIVATE:
 
 ```bash
-git clone --branch stage2-device-discovery --single-branch https://github.com/leverage50x/agents.git leverage50xagents
+git clone --branch stage2b-local-control --single-branch https://github.com/leverage50x/agents.git leverage50xagents
 cd leverage50xagents
 npm ci
 npm test
@@ -104,18 +89,18 @@ Terminalul B, pe laptopul 2:
 
 ```bash
 cd ~/leverage50xagents
-LEVERAGE_URL=http://127.0.0.1:18765 LEVERAGE_WORKSPACE="$PWD" node --env-file=.local-run/agent.env src/agent.mjs
+LEVERAGE_LOCAL_READONLY=0 LEVERAGE_URL=http://127.0.0.1:18765 LEVERAGE_WORKSPACE="$PWD" node --env-file=.local-run/agent.env src/agent.mjs
 ```
 
 Variabila LEVERAGE_URL din terminal are prioritate față de valoarea din env-file. Agentul folosește local CODEX_HOME sau ~/.codex. Pentru alt director Codex deținut de tine, setează LEVERAGE_CODEX_HOME la o cale absolută. Nu indica directoare ale angajatorului/clientului fără autorizare separată.
 
-Implicit agentul încearcă App Server read-only pe versiunea verificată și folosește fallback dacă este indisponibil/incompatibil. Pentru inventar exclusiv din numele fișierelor, fără proces App Server:
+Agentul de pe laptopul 2 raportează numai inventar. App Server pe versiunea verificată folosește filtrul de workspace și surse interactive; un inventar filtrat indisponibil nu este completat prin ghicirea transcripturilor. Pentru inventar explicit numai din numele fișierelor, fără proces App Server:
 
 ```bash
-LEVERAGE_URL=http://127.0.0.1:18765 LEVERAGE_SESSION_SOURCE=files LEVERAGE_WORKSPACE="$PWD" node --env-file=.local-run/agent.env src/agent.mjs
+LEVERAGE_LOCAL_READONLY=0 LEVERAGE_URL=http://127.0.0.1:18765 LEVERAGE_SESSION_SOURCE=files LEVERAGE_WORKSPACE="$PWD" node --env-file=.local-run/agent.env src/agent.mjs
 ```
 
-Cu `LEVERAGE_REPORT_PROJECT=0` poți omite și etichetele proiectelor. App Server nu primește tokenul de agent/operator din mediu. Nu sunt pornite turnuri Codex, shell sau MCP din dashboard.
+Cu `LEVERAGE_REPORT_PROJECT=0` poți omite și etichetele proiectelor. App Server nu primește tokenul de agent/operator din mediu. Laptopul 2 nu primește instrucțiuni de control; numai agentul principal configurat poate executa turnuri reale locale READ-ONLY după confirmarea operatorului. Shell, MCP și scrierea rămân blocate.
 
 ## 5. Verificarea manuală
 
@@ -123,7 +108,7 @@ Cu `LEVERAGE_REPORT_PROJECT=0` poți omite și etichetele proiectelor. App Serve
 
 `Discovered only — activity unconfirmed` este rezultatul corect pentru inventarul acestei etape. Un fișier nu dovedește că sesiunea rulează. Un App Server nou nu observă automat activitatea unui alt proces Codex; nu afișăm activitate confirmată pe baza sa. Pentru fallback, mtime este afișat separat de ultima activitate cunoscută. Numele MCP înseamnă doar configurare, nu conectivitate validată.
 
-Oprește agentul sau tunelul de pe laptopul 2 și urmărește trecerea în Offline după cel puțin 15 secunde plus intervalul de refresh al paginii. Repornește folosind același fișier și verifică același UUID. Nu folosi formularul DEMO ca test de execuție reală; rezultatul rămâne simulat.
+Oprește agentul sau tunelul de pe laptopul 2 și urmărește trecerea în Offline după cel puțin 15 secunde plus intervalul de refresh al paginii. Repornește folosind același fișier și verifică același UUID. Selecția laptopului 2 servește inventarului; nu îl prezintă ca disponibil pentru controlul local al laptopului principal.
 
 ## 6. Oprire și revocare
 
@@ -135,10 +120,10 @@ node --env-file=.local-run/hub.env src/manage.mjs revoke --device "$AGENT_UUID"
 node --env-file=.local-run/hub.env src/manage.mjs list
 ```
 
-Tokenul revocat primește 401 la următoarea cerere, iar dashboard-ul marchează dispozitivul Revoked/Offline. Revocarea persistă după restart. Procesele agent revocate continuă să reîncerce fără a loga credențiale; oprește-le cu Ctrl+C. Sarcinile DEMO neterminate ale dispozitivului sunt respinse. Pentru un nou acces după revocare, înrolează din nou, salvează într-un **fișier nou**, transferă-l privat și folosește noile UUID/token; nu reactivezi vechea credențială.
+Tokenul revocat primește 401 la următoarea cerere, iar dashboard-ul marchează dispozitivul Revoked/Offline. Revocarea persistă după restart. Procesele agent revocate continuă să reîncerce fără a loga credențiale; oprește-le cu Ctrl+C. Pentru un nou acces după revocare, înrolează din nou, salvează într-un **fișier nou**, transferă-l privat și folosește noile UUID/token; nu reactivezi vechea credențială.
 
 Revocarea aplicației nu revocă o cheie SSH. Dacă vrei să retragi și accesul SSH, gestionează separat cheia dedicată pe serviciul SSH existent. Acest lucru necesită autorizarea ta și nu este executat de aplicație.
 
 ## Ce nu a fost verificat fizic
 
-Dezvoltarea și CI folosesc două procese agent cu date sintetice pe un singur sistem. Protocolul Codex poate fi verificat cu un CODEX_HOME izolat. Accesul fizic la laptopul 2, ruta LAN/VPN, serverul SSH și inventarul lui real rămân de verificat de operator. Etapa 2B va trata controlul sesiunilor și aprobările tehnice ale execuției.
+Dezvoltarea și CI folosesc două procese agent cu date sintetice pe un singur sistem. Protocolul Codex poate fi verificat cu un CODEX_HOME izolat. Accesul fizic la laptopul 2, ruta LAN/VPN, serverul SSH și inventarul lui real rămân de verificat de operator, după autorizare. Etapa 2B curentă permite numai controlul real local READ-ONLY al agentului principal; controlul altui dispozitiv și aprobările de scriere rămân pentru o etapă separată.

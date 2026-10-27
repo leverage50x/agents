@@ -1,14 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { createHub, validToken, startHub } from '../src/hub.mjs';
 import { createAgent } from '../src/agent.mjs';
 import { loopbackHost, localHubUrl, validateToken, workspaceReady } from '../src/local-config.mjs';
 import { fixture, dispatch, register } from '../test-support/fixtures.mjs';
 
-function setup(t, options = {}) {
+function setup(t, { localReadOnly = false, ...options } = {}) {
   const f = fixture(t);
-  const server = createHub({ token: f.token, credentialStore: f.store, ...options });
-  return { ...f, call: input => dispatch(server, f.token, input), agentCall: input => dispatch(server, f.agentToken, input) };
+  const server = createHub({ token: f.token, credentialStore: f.store, ...options,
+    ...(localReadOnly ? { localControl: { deviceId: f.device.deviceId, workspace: f.workspace } } : {}) });
+  return { ...f, server, binding: createHash('sha256').update(f.workspace).digest('hex'),
+    call: input => dispatch(server, f.token, input), agentCall: input => dispatch(server, f.agentToken, input) };
 }
 
 test('local configuration rejects external destinations, credentials and weak tokens', t => {
@@ -33,32 +36,31 @@ test('local configuration rejects external destinations, credentials and weak to
   assert.equal(workspaceReady('relative'), false);
 });
 
-test('authentication requires a valid bearer token and rejects unauthenticated approval', async t => {
+test('authentication requires a valid bearer token and rejects unauthenticated local instructions', async t => {
   const f = setup(t);
   assert.ok(validToken('Bearer ' + f.token, f.token));
   assert.equal(validToken(f.token, f.token), false);
   assert.equal(validToken('Bearer wrong', f.token), false);
   assert.equal(validToken('Bearer ', ''), false);
   assert.equal((await f.call({ authorization: '' })).status, 401);
-  assert.equal((await f.call({ method: 'POST', endpoint: '/api/task/approve', body: {}, authorization: 'Bearer wrong' })).status, 401);
+  assert.equal((await f.call({ method: 'POST', endpoint: '/api/local/task', body: {}, authorization: 'Bearer wrong' })).status, 401);
   assert.equal((await f.call()).headers['Access-Control-Allow-Origin'], undefined);
 });
 
 test('API rejects malformed/non-object JSON and counts bytes, preserving chunked UTF-8', async t => {
-  const { call, agentCall, device } = setup(t);
+  const { call } = setup(t);
   for (const raw of ['null', '[]', '"value"', 'true', '1', '{', '']) {
-    const result = await call({ method: 'POST', endpoint: '/api/task', raw });
+    const result = await call({ method: 'POST', endpoint: '/api/admin/agents', raw });
     assert.equal(result.status, 400);
     assert.equal(JSON.stringify(result.body).includes('TypeError'), false);
   }
-  const large = await call({ method: 'POST', endpoint: '/api/task', raw: JSON.stringify({ prompt: 'ă'.repeat(10001) }) });
+  const large = await call({ method: 'POST', endpoint: '/api/admin/agents', raw: JSON.stringify({ name: 'ă'.repeat(10001) }) });
   assert.equal(large.status, 413);
-  await register(agentCall, device);
-  const bytes = Buffer.from(JSON.stringify({ deviceId: device.deviceId, prompt: 'ă demo' }));
+  const bytes = Buffer.from(JSON.stringify({ name: 'Dispozitiv ă' }));
   const at = bytes.indexOf(Buffer.from('ă')) + 1;
-  const valid = await call({ method: 'POST', endpoint: '/api/task', chunks: [bytes.subarray(0, at), bytes.subarray(at)] });
+  const valid = await call({ method: 'POST', endpoint: '/api/admin/agents', chunks: [bytes.subarray(0, at), bytes.subarray(at)] });
   assert.equal(valid.status, 201);
-  assert.equal(valid.body.job.prompt, 'ă demo');
+  assert.equal(valid.body.name, 'Dispozitiv ă');
 });
 
 test('invalid heartbeat data is rejected atomically and cannot claim live capabilities', async t => {
@@ -76,7 +78,7 @@ test('invalid heartbeat data is rejected atomically and cannot claim live capabi
   assert.equal((await post({ ...device, sessions: [session], executionMode: 'live', sandbox: 'unrestricted',
     sessionInventory: { status: 'partial', truncated: true } })).status, 200);
   const state = (await call()).body;
-  assert.equal(state.devices[0].executionMode, 'demo-only');
+  assert.equal(state.devices[0].executionMode, 'inventory-only');
   assert.equal(state.devices[0].sandbox, 'no-execution');
   assert.equal(state.devices[0].sessionInventory.truncated, true);
   assert.equal(JSON.stringify(state).includes('SYNTHETIC_DO_NOT_RETURN'), false);
@@ -112,39 +114,86 @@ test('session titles are optional sanitized App Server metadata without name or 
   assert.equal(Object.hasOwn(await post({ title: 'Safe official title', source: 'unknown' }), 'title'), false);
 });
 
-test('only explicitly approved jobs are claimed, with one terminal result', async t => {
+test('retired dispatch endpoints return 404 and cannot create or deliver jobs', async t => {
   const { call, agentCall, device } = setup(t);
   await register(agentCall, device);
-  for (const prompt of [null, {}, '', ' ', 'x'.repeat(2001)]) {
-    assert.equal((await call({ method: 'POST', endpoint: '/api/task', body: { deviceId: device.deviceId, prompt } })).status, 400);
+  for (const endpoint of ['/api/task', '/api/task/approve', '/api/task/reject']) {
+    assert.equal((await call({ method: 'POST', endpoint, body: { deviceId: device.deviceId } })).status, 404);
   }
-  const queued = await call({ method: 'POST', endpoint: '/api/task', body: { deviceId: device.deviceId, prompt: 'Synthetic demo' } });
-  const jobId = queued.body.job.id;
-  const claim = () => agentCall({ endpoint: '/api/agent/task?deviceId=' + device.deviceId });
-  assert.equal((await claim()).body.job, null);
-  assert.equal((await call({ method: 'POST', endpoint: '/api/task/approve', body: { jobId } })).status, 200);
-  assert.equal((await call({ method: 'POST', endpoint: '/api/task/approve', body: { jobId } })).status, 409);
-  assert.equal((await claim()).body.job.status, 'running');
-  assert.equal((await claim()).body.job, null);
-  const result = { jobId, deviceId: device.deviceId, status: 'completed', output: 'MOCK DEMO RESULT' };
-  assert.equal((await agentCall({ method: 'POST', endpoint: '/api/agent/result', body: { ...result, deviceId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' } })).status, 403);
-  assert.equal((await agentCall({ method: 'POST', endpoint: '/api/agent/result', body: { ...result, status: 'live' } })).status, 400);
-  assert.equal((await agentCall({ method: 'POST', endpoint: '/api/agent/result', body: result })).status, 200);
-  assert.equal((await agentCall({ method: 'POST', endpoint: '/api/agent/result', body: result })).status, 400);
+  assert.equal((await agentCall({ endpoint: '/api/agent/task?deviceId=' + device.deviceId })).status, 404);
+  assert.equal((await agentCall({ method: 'POST', endpoint: '/api/agent/result', body: { deviceId: device.deviceId } })).status, 404);
+  const state = (await call()).body;
+  assert.equal(Object.hasOwn(state, 'jobs'), false);
+  assert.deepEqual(state.readonlyJobs, []);
 });
 
-test('rejected jobs are terminal; expired devices cannot receive instructions', async t => {
+test('execution capability is calculated from the configured local identity and workspace binding', async t => {
+  const f = setup(t, { localReadOnly: true });
+  const report = patch => f.agentCall({ method: 'POST', endpoint: '/api/agent/heartbeat', body: {
+    ...f.device, localControl: true, workspaceBinding: f.binding, codexAuth: 'authenticated',
+    executionMode: 'live', sandbox: 'unrestricted', ...patch,
+  } });
+  assert.equal((await report({})).status, 200);
+  let device = (await f.call()).body.devices[0];
+  assert.equal(device.executionMode, 'local-read-only');
+  assert.equal(device.sandbox, 'no-execution');
+  assert.equal(device.localControl, true);
+  assert.equal((await report({ workspaceBinding: '0'.repeat(64), executionMode: 'local-read-only' })).status, 200);
+  device = (await f.call()).body.devices[0];
+  assert.equal(device.executionMode, 'inventory-only');
+  assert.equal(device.localControl, false);
+  const other = f.store.enroll('another-device');
+  assert.equal((await dispatch(f.server, other.token, {
+    method: 'POST', endpoint: '/api/agent/heartbeat', body: { ...f.device, deviceId: other.deviceId,
+      localControl: true, workspaceBinding: f.binding, executionMode: 'local-read-only', codexAuth: 'authenticated' },
+  })).status, 200);
+  const untrusted = (await f.call()).body.devices.find(value => value.id === other.deviceId);
+  assert.equal(untrusted.executionMode, 'inventory-only');
+  assert.equal(untrusted.localControl, false);
+  assert.equal(untrusted.codexAuth, 'unavailable');
+  assert.equal(untrusted.sandbox, 'no-execution');
+});
+
+test('explicit READ-ONLY confirmation and one terminal result remain required for local jobs', async t => {
+  const f = setup(t, { localReadOnly: true });
+  await register(f.agentCall, { ...f.device, localControl: true, workspaceBinding: f.binding, codexAuth: 'authenticated' });
+  const body = { deviceId: f.device.deviceId, mode: 'new', workspaceId: 'project', prompt: 'Synthetic read-only instruction', confirmed: true };
+  assert.equal((await f.call({ method: 'POST', endpoint: '/api/local/task', body: { ...body, confirmed: false } })).status, 400);
+  const created = await f.call({ method: 'POST', endpoint: '/api/local/task', body });
+  assert.equal(created.status, 201);
+  const jobId = created.body.job.id;
+  const claim = () => f.agentCall({ endpoint: '/api/agent/local/task?deviceId=' + f.device.deviceId });
+  assert.equal((await claim()).body.job.status, 'running');
+  assert.equal((await claim()).body.job, null);
+  const update = { deviceId: f.device.deviceId, jobId, status: 'completed', output: 'Synthetic read-only result' };
+  assert.equal((await f.agentCall({ method: 'POST', endpoint: '/api/agent/local/update', body: { ...update, status: 'live' } })).status, 400);
+  assert.equal((await f.agentCall({ method: 'POST', endpoint: '/api/agent/local/update', body: update })).status, 200);
+  assert.equal((await f.agentCall({ method: 'POST', endpoint: '/api/agent/local/update', body: update })).status, 409);
+  const state = (await f.call()).body;
+  assert.equal(Object.hasOwn(state, 'jobs'), false);
+  assert.equal(state.readonlyJobs[0].status, 'completed');
+});
+
+test('expired and revoked local devices cannot receive instructions', async t => {
   let time = Date.now();
-  const { call, agentCall, device } = setup(t, { now: () => time });
-  await register(agentCall, device);
-  const jobId = (await call({ method: 'POST', endpoint: '/api/task', body: { deviceId: device.deviceId, prompt: 'Reject demo' } })).body.job.id;
-  assert.equal((await call({ method: 'POST', endpoint: '/api/task/reject', body: { jobId } })).body.status, 'rejected');
-  assert.equal((await call({ method: 'POST', endpoint: '/api/task/approve', body: { jobId } })).status, 409);
-  assert.equal((await agentCall({ endpoint: '/api/agent/task?deviceId=' + device.deviceId })).body.job, null);
+  const f = setup(t, { localReadOnly: true, now: () => time });
+  const heartbeat = { ...f.device, localControl: true, workspaceBinding: f.binding, codexAuth: 'authenticated' };
+  await register(f.agentCall, heartbeat);
+  const body = { deviceId: f.device.deviceId, mode: 'new', workspaceId: 'project', prompt: 'Synthetic read-only instruction', confirmed: true };
+  assert.equal((await f.call({ method: 'POST', endpoint: '/api/local/task', body })).status, 201);
   time += 15000;
-  assert.equal((await call()).body.devices[0].online, false);
-  assert.equal((await call({ method: 'POST', endpoint: '/api/task', body: { deviceId: device.deviceId, prompt: 'offline' } })).status, 400);
-  assert.equal((await agentCall({ endpoint: '/api/agent/task?deviceId=' + device.deviceId })).status, 400);
+  let state = (await f.call()).body;
+  assert.equal(state.devices[0].online, false);
+  assert.equal(state.readonlyJobs[0].errorCode, 'agent-disconnected');
+  assert.equal((await f.call({ method: 'POST', endpoint: '/api/local/task', body })).status, 400);
+  assert.equal((await f.agentCall({ endpoint: '/api/agent/local/task?deviceId=' + f.device.deviceId })).status, 400);
+  await register(f.agentCall, heartbeat);
+  const created = await f.call({ method: 'POST', endpoint: '/api/local/task', body });
+  assert.equal(created.status, 201);
+  assert.equal((await f.call({ method: 'POST', endpoint: '/api/admin/agents/revoke', body: { deviceId: f.device.deviceId } })).status, 200);
+  state = (await f.call()).body;
+  assert.equal(state.readonlyJobs.find(job => job.id === created.body.job.id).errorCode, 'agent-revoked');
+  assert.equal((await f.agentCall({ endpoint: '/api/agent/local/task?deviceId=' + f.device.deviceId })).status, 401);
 });
 
 test('dashboard assets are served with restrictive headers', async t => {

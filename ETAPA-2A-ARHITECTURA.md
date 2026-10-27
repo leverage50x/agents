@@ -1,5 +1,7 @@
 # Etapa 2A — arhitectură și limite
 
+Document istoric al branch-ului `stage2-device-discovery`. Descrierea fluxului DEMO de mai jos este păstrată pentru audit; acesta a fost eliminat din aplicația curentă `stage2b-local-control`. Pentru comportamentul actual vezi [ETAPA-2B-LOCAL.md](ETAPA-2B-LOCAL.md).
+
 Frontend-ul rămâne HTML/CSS/JavaScript, servit de Hub-ul Node.js pe 127.0.0.1. Agentul Node rulează pe fiecare dispozitiv deținut. Dispozitivele au UUIDv4 aleator și fișier privat de credențiale; hostname-ul este numai o etichetă. Ambele dispozitive pot avea același nume fără să-și suprascrie inventarul.
 
 ```mermaid

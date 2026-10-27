@@ -3,7 +3,7 @@
   "version": "0.1.1",
   "private": true,
   "type": "module",
-  "description": "Local-only, demo-safe multi-device AI agent dashboard with human approval workflow",
+  "description": "Private device inventory and explicitly approved local read-only Codex control dashboard",
   "scripts": {
     "hub": "node src/hub.mjs",
     "agent": "node src/agent.mjs",

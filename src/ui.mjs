@@ -1,6 +1,6 @@
 const $ = id => document.getElementById(id);
 let secret = '';
-let state = { devices: [], jobs: [] };
+let state = { devices: [], readonlyJobs: [] };
 let connected = false;
 let busy = false;
 let refreshing = false;
@@ -81,10 +81,7 @@ function relativeTime(value) {
 }
 
 function controls() {
-  const available = connected && state.devices.some(d => online(d) && d.id === $('device').value);
-  for (const id of ['device', 'thread', 'prompt', 'submit']) $(id).disabled = !available || busy;
   $('inventory-device').disabled = !connected || !state.devices.length;
-  for (const button of document.querySelectorAll('#jobs button')) button.disabled = !connected || busy;
   const { ready, message } = localAvailability();
   $('local-control-status').textContent = message;
   const selection = localSelection();
@@ -122,14 +119,6 @@ async function api(method, pathname, body) {
   try { data = await result.json(); } catch { throw new Error('Invalid hub response.'); }
   if (!result.ok) throw new Error(data.error || 'Request failed.');
   return data;
-}
-function renderThreads() {
-  const device = state.devices.find(d => d.id === $('device').value);
-  const previous = $('thread').value;
-  $('thread').innerHTML = '<option value="">Without thread ID (DEMO)</option>' +
-    (device?.sessions || []).map(s => '<option value="' + escape(s.id) + '" title="Full session ID: ' + escape(s.id) + '">' +
-      escape(shortTitle(s)) + ' · ' + escape(relativeTime(s.lastActivity)) + '</option>').join('');
-  if (device?.sessions?.some(s => s.id === previous)) $('thread').value = previous;
 }
 function renderSessions() {
   const device = state.devices.find(d => d.id === $('inventory-device').value);
@@ -227,21 +216,7 @@ function render() {
     escape(deviceLabel(d)) + (d.revokedAt ? ' · revoked' : online(d) ? ' · online' : ' · offline') + '</option>').join('');
   if (state.devices.some(d => d.id === inventoryCurrent)) $('inventory-device').value = inventoryCurrent;
   renderSessions();
-  const current = $('device').value;
-  $('device').innerHTML = state.devices.filter(online).map(d =>
-    '<option value="' + escape(d.id) + '">' + escape(deviceLabel(d)) + '</option>').join('');
-  if (state.devices.some(d => d.id === current && online(d))) $('device').value = current;
-  renderThreads();
   renderLocalControl();
-  $('jobs').innerHTML = state.jobs.length ? state.jobs.map(j =>
-    '<div class="job"><b>' + escape(j.status) + '</b> · ' +
-    escape(state.devices.find(d => d.id === j.deviceId)?.name || j.deviceId) + '<br><small>' +
-    escape(j.createdAt) + ' · reference ID ' + escape(j.resultThreadId || j.threadId || 'none') +
-    '</small><p>' + escape(j.prompt) + '</p>' + (j.status === 'pending_approval' ?
-      '<button class="approve-job" data-id="' + escape(j.id) + '">Approve DEMO task</button> ' +
-      '<button class="reject-job" data-id="' + escape(j.id) + '">Reject</button>' : '') +
-    (j.output ? '<pre>' + escape(j.output) + '</pre>' : '') + '</div>'
-  ).join('') : '<p class="muted">No jobs yet.</p>';
   controls();
 }
 async function refresh() {
@@ -266,7 +241,6 @@ $('login').addEventListener('click', async () => {
   } catch (error) { secret = ''; connection(false, error.message); }
   finally { busy = false; $('login').disabled = false; controls(); }
 });
-$('device').addEventListener('change', () => { renderThreads(); controls(); });
 $('inventory-device').addEventListener('change', renderSessions);
 $('local-device').addEventListener('change', () => {
   $('local-mode').value = '';
@@ -314,38 +288,6 @@ $('local-form').addEventListener('submit', async event => {
     $('local-confirm').checked = false;
     await refresh();
   } catch (error) { $('local-message').textContent = error.message; await refresh(); }
-  finally { busy = false; controls(); }
-});
-$('form').addEventListener('submit', async event => {
-  event.preventDefault();
-  if (!connected || busy || !state.devices.some(d => online(d) && d.id === $('device').value)) {
-    $('message').textContent = 'Connect to the local hub and select an online device.';
-    return;
-  }
-  busy = true;
-  controls();
-  try {
-    await api('POST', '/api/task', {
-      deviceId: $('device').value, threadId: $('thread').value || null, prompt: $('prompt').value
-    });
-    $('message').textContent = 'Instruction submitted for explicit DEMO approval.';
-    $('prompt').value = '';
-    await refresh();
-  } catch (error) { $('message').textContent = error.message; await refresh(); }
-  finally { busy = false; controls(); }
-});
-$('jobs').addEventListener('click', async event => {
-  const button = event.target.closest('button[data-id]');
-  if (!button || !connected || busy) return;
-  const action = button.classList.contains('approve-job') ? 'approve' : 'reject';
-  const job = state.jobs.find(j => j.id === button.dataset.id);
-  if (!job) return;
-  if (action === 'approve' && !confirm('Approve this DEMO instruction?\n\n' + job.prompt +
-      '\n\nNo real Codex or shell execution will occur.')) return;
-  busy = true;
-  controls();
-  try { await api('POST', '/api/task/' + action, { jobId: job.id }); await refresh(); }
-  catch (error) { $('message').textContent = error.message; await refresh(); }
   finally { busy = false; controls(); }
 });
 controls();

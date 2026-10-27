@@ -14,14 +14,17 @@ async function freePort() {
 
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
-test('CLI hub authenticates, approves demo dispatch and accepts a mocked result', { timeout: 10000 }, async t => {
+test('CLI hub serves authenticated inventory and rejects retired dispatch endpoints', { timeout: 15000 }, async t => {
   const f = fixture(t);
   const port = await freePort();
   const token = f.token;
   const child = spawn(process.execPath, ['src/hub.mjs'], {
-    cwd: process.cwd(), env: { ...process.env, ...f.env, LEVERAGE_PORT: String(port), LEVERAGE_HOST: '127.0.0.1' },
+    cwd: process.cwd(), env: { PATH: process.env.PATH, HOME: f.root, TMPDIR: f.root,
+      ...f.env, LEVERAGE_PORT: String(port), LEVERAGE_HOST: '127.0.0.1' },
     stdio: ['ignore','pipe','pipe']
   });
+  let spawnFailed = false;
+  child.once('error', () => { spawnFailed = true; });
   async function call(method, endpoint, data, authorization = token) {
     const response = await fetch(`http://127.0.0.1:${port}${endpoint}`, {
       method, headers: { Authorization: `Bearer ${authorization}`, 'Content-Type': 'application/json' },
@@ -31,7 +34,9 @@ test('CLI hub authenticates, approves demo dispatch and accepts a mocked result'
   }
   try {
     let ready = false;
-    for (let i=0;i<25;i++) {
+    const deadline = Date.now() + 5000;
+    while (Date.now() < deadline) {
+      assert.equal(spawnFailed, false, 'hub test child started without spawn errors');
       try { await call('GET','/api/state'); ready = true; break; } catch { await wait(40); }
     }
     assert.ok(ready, 'hub started');
@@ -41,28 +46,20 @@ test('CLI hub authenticates, approves demo dispatch and accepts a mocked result'
       deviceId,name:'test-unit',platform:'linux',mcp:{status:'configured-only',servers:['docs']},sessions:[],sandbox:'no-execution',workspaceReady:true
     }, f.agentToken);
     assert.equal(joined.status,200);
-    const queued = await call('POST','/api/task',{deviceId,prompt:'Summarize this personal repository'});
-    assert.equal(queued.status,201);
-    assert.equal(queued.body.job.status,'pending_approval');
-    const premature=await call('GET',`/api/agent/task?deviceId=${deviceId}`,undefined,f.agentToken);
-    assert.equal(premature.body.job,null,'unapproved jobs are not delivered');
-    const unauthorizedApproval=await call('POST','/api/task/approve',{jobId:queued.body.job.id},'wrong-secret');
-    assert.equal(unauthorizedApproval.status,401);
-    const approved=await call('POST','/api/task/approve',{jobId:queued.body.job.id});
-    assert.equal(approved.body.status,'queued');
-    const claimed = await call('GET',`/api/agent/task?deviceId=${deviceId}`,undefined,f.agentToken);
-    assert.equal(claimed.body.job.id,queued.body.job.id);
-    const completed=await call('POST','/api/agent/result',{
-      deviceId,jobId:claimed.body.job.id,status:'completed',output:'MOCK DEMO RESULT — no command executed.'
-    },f.agentToken);
-    assert.equal(completed.status,200);
+    for (const endpoint of ['/api/task', '/api/task/approve', '/api/task/reject']) {
+      assert.equal((await call('POST', endpoint, { deviceId })).status, 404);
+    }
+    assert.equal((await call('GET', `/api/agent/task?deviceId=${deviceId}`, undefined, f.agentToken)).status, 404);
+    assert.equal((await call('POST', '/api/agent/result', { deviceId }, f.agentToken)).status, 404);
+    assert.equal((await call('POST', '/api/local/task', { deviceId }, f.agentToken)).status, 403);
+    assert.equal((await call('GET', '/api/agent/local/task?deviceId=' + deviceId)).status, 403);
     const state = await call('GET','/api/state');
-    assert.equal(state.body.jobs[0].status,'completed');
+    assert.equal(Object.hasOwn(state.body, 'jobs'), false);
+    assert.deepEqual(state.body.readonlyJobs, []);
     assert.equal(state.body.devices[0].mcp.servers[0],'docs');
-    const declined = await call('POST','/api/task',{deviceId,prompt:'Do not run this task'});
-    assert.equal(declined.body.job.status,'pending_approval');
-    assert.equal((await call('POST','/api/task/reject',{jobId:declined.body.job.id})).body.status,'rejected');
-    assert.equal((await call('GET',`/api/agent/task?deviceId=${deviceId}`,undefined,f.agentToken)).body.job,null);
+    assert.equal(state.body.devices[0].executionMode, 'inventory-only');
+    assert.equal(state.body.devices[0].sandbox, 'no-execution');
+    assert.equal(state.body.devices[0].localControl, false);
   } finally {
     if (child.exitCode === null) {
       await new Promise(resolve => { child.once('exit', resolve); child.kill('SIGTERM'); });

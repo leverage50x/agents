@@ -286,7 +286,7 @@ test('agent runs an explicitly queued synthetic controller turn in the backgroun
     assert.equal(state.readonlyJobs[0].output, 'Synthetic final answer; no files changed.');
     assert.ok(state.readonlyJobs[0].events.some(event => event.type === 'progress'));
     assert.ok(state.readonlyJobs[0].events.some(event => event.type === 'output'));
-    assert.equal(state.jobs.length, 0, 'real read-only and DEMO queues stay separate');
+    assert.equal(Object.hasOwn(state, 'jobs'), false, 'state exposes only the real read-only queue');
     assert.deepEqual(fs.readdirSync(f.workspace), []);
   } finally {
     finish({ status: 'interrupted', output: 'Synthetic cleanup' });

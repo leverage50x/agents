@@ -1,5 +1,7 @@
 # Leverage50xAgents — verificare Etapa 2B (2026-10-25)
 
+Snapshot istoric al verificărilor din 25 octombrie 2026, urmat de arhivele 2A/Stage 1. Rezultatele de mai jos nu descriu toate modificările ulterioare: fluxul DEMO a fost eliminat din aplicația curentă. Ghidul actual este [ETAPA-2B-LOCAL.md](ETAPA-2B-LOCAL.md), iar verificările ulterioare sunt în `comenzi executate agent.md`.
+
 ## Rezultate actuale executate
 
 - Baseline Stage 2A: 54/54 PASS. După implementarea launcherului, controllerului local, selectorilor și recuperării: **npm test 97/97 PASS**, zero fail/skip, 3783.816195ms. Testele controllerului importă modulul de producție; nu mai folosesc varianta temporară cu gate rescris în memorie.

@@ -36,7 +36,6 @@ function setup(t, { closeDelay = 0 } = {}) {
       const pathname = new URL(url).pathname;
       let body = { ok: true };
       let code = 200;
-      if (pathname === '/api/agent/task') body = { job: null };
       if (pathname === '/api/agent/local/task') {
         body = { job: claimed ? null : { id: JOB, mode: 'new', workspaceId: 'project', confirmed: true,
           policy: 'local-read-only', prompt: 'Synthetic read-only instruction.' } };

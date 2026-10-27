@@ -1,6 +1,6 @@
 # Etapa 2B — launcher și control Codex local READ-ONLY
 
-Acest branch este `stage2b-local-control`. Nu conectează laptopul 2 și nu permite execuție pe alte dispozitive sau scriere prin Codex. Instrucțiunile DEMO anterioare rămân separate de noul flux local.
+Acest branch este `stage2b-local-control`. Aplicația curentă oferă inventar și control Codex real local READ-ONLY, cu confirmare explicită. Nu conectează laptopul 2 și nu permite execuție pe alte dispozitive sau scriere prin Codex. Main și tagurile istorice rămân neschimbate.
 
 ## Pornire și oprire
 
@@ -47,11 +47,11 @@ Inventarul și selectorul Resume arată un titlu scurt și timpul relativ (`58m 
 
 Lista verificată folosește filtrul implicit `codex resume` din versiunea 0.163.0: **Cwd + Active**, cu `cwd` egal cu workspace-ul autorizat, `archived:false`, `sourceKinds:["cli","vscode"]`, sortare după `updated_at` descrescător. Active înseamnă **nearhivat**, independent de `Thread.status` sau de existența unui proces activ. Subagenții, sursele `exec`, `appServer`, necunoscute și sesiunile auxiliare sunt omise. Rândurile sunt reverificate local, deduplicate și paginate, cu maximum 40 de rezultate și indicator de inventar incomplet când este atinsă limita. Numărul nu este fixat la două. Un fallback bazat pe nume de fișiere nu certifică acest filtru; pentru un inventar App Server cu workspace configurat, o eroare produce o listă indisponibilă, fără a ghici din fișiere.
 
-Diferența 8 versus 2 provenea din cererea veche, care includea explicit toate sursele, inclusiv subagenții. Auditul metadatelor `source`/`createdAt`, corelat cu jurnalul precedent, identifică 2 sesiuni VS Code și 6 subagenți create până la acel audit. În verificarea curentă există 9 în inventarul larg (2 VS Code + 7 subagenți), iar filtrul CLI întoarce cele 2 VS Code. O sesiune auxiliară apărută ulterior explică trecerea la 9; nu a fost introdusă o limită artificială. Sesiunea sintetică creată anterior prin New are tot sursa oficială `vscode` și este eligibilă pentru același filtru în propriul workspace.
+Diferența 8 versus 2 provenea din cererea veche, care includea explicit toate sursele, inclusiv subagenții. Auditul metadatelor `source`/`createdAt`, corelat cu jurnalul precedent, identifica 2 sesiuni VS Code și 6 subagenți create până la acel audit. La verificarea din 26 octombrie 2026 erau 9 în inventarul larg (2 VS Code + 7 subagenți), iar filtrul CLI întorcea cele 2 VS Code. O sesiune auxiliară apărută ulterior explică trecerea la 9; nu a fost introdusă o limită artificială, iar numărul actual poate varia. Sesiunea sintetică creată anterior prin New are tot sursa oficială `vscode` și este eligibilă pentru același filtru în propriul workspace.
 
 Criteriile sunt verificate în sursa oficială Codex 0.163.0 (`tui/src/resume_picker.rs`, `thread_list_params`, testul `remote_thread_list_params_omit_provider_filter`) și în schema generată de CLI-ul instalat. [Referința CLI](https://learn.chatgpt.com/docs/cli/reference) descrie excluderea implicită a sesiunilor neinteractive; [App Server](https://learn.chatgpt.com/docs/app-server) documentează metadatele și `thread/list`. Aplicația păstrează `useStateDbOnly:true`, evitând repararea metadatelor prin scanarea transcripturilor.
 
-Formularul **REAL · READ-ONLY** creează sau continuă o conversație reală după selectarea explicită și confirmare. Formularul **DEMO · SIMULATION**, cu bordură distinctă, simulează instrucțiuni și nu deschide conversații Codex.
+Formularul **Local READ-ONLY** creează sau continuă o conversație reală după selectarea explicită și confirmare. Răspunsul și progresul sunt afișate în dashboard pentru instrucțiunea confirmată.
 
 Pentru un test manual, creează întâi o conversație New cu o instrucțiune scurtă fără modificări, așteaptă rezultatul, apoi selectează explicit aceeași sesiune pentru Resume. Verifică ID-ul complet și proiectul înainte de confirmare. Nu selecta o conversație personală doar pentru a testa interfața.
 

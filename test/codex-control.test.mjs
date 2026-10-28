@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { EventEmitter } from 'node:events';
 import { PassThrough, Writable } from 'node:stream';
-import { createCodexControl, CODEX_CONTROL_TOOL_POLICY_VERIFIED } from '../src/codex-control.mjs';
+import { createCodexControl } from '../src/codex-control.mjs';
 import { fixture } from '../test-support/fixtures.mjs';
 
 const threadId = '11111111-1111-1111-1111-111111111111';
@@ -263,7 +263,6 @@ test('all run requests require explicit confirmation, project ID and bounded inp
 });
 
 test('verified safety policy cannot be relaxed through run input', async t => {
-  assert.equal(CODEX_CONTROL_TOOL_POLICY_VERIFIED, true);
   const f = fakeCodex(t);
   const result = await f.control.run({ ...newInput, sandbox: 'unsafe-synthetic-value', enableTools: true,
     approvalPolicy: 'unsafe-synthetic-value', config: { features: { shell_tool: true } } });

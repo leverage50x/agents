@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import { spawn } from 'node:child_process';
 import { watchCodexChild, closeCodexChild } from './codex-child.mjs';
 import { codexHome, listSessionInventory } from './inventory.mjs';
-import { RESUME_SOURCE_KINDS, matchesResumePickerThread, resumeSessionMetadata, compareSessionActivity } from './codex-session-metadata.mjs';
+import { listResumeSessions } from './codex-session-metadata.mjs';
 
 const RPC_METHODS = new Set(['initialize', 'initialized', 'thread/list']);
 // The DB-only parameter is a privacy requirement, not an optional optimization.
@@ -155,40 +155,7 @@ export async function listAppServerSessions(input = {}) {
     await request('initialize', { clientInfo: { name: 'leverage50xagents_inventory', version: '0.2.0' },
       capabilities: { experimentalApi: false } });
     write({ method: 'initialized' });
-    const found = new Map();
-    let cursor;
-    let truncated = false;
-    let partial = false;
-    const cursors = new Set();
-    for (let page = 0; page < 8; page++) {
-      let result = await request('thread/list', { useStateDbOnly: true, limit: options.limit - found.size,
-        sortKey: 'updated_at', sortDirection: 'desc', archived: false, sourceKinds: RESUME_SOURCE_KINDS,
-        ...(options.workspace ? { cwd: options.workspace } : {}),
-        ...(cursor ? { cursor } : {}) });
-      if (!result || !Array.isArray(result.data) || result.data.length > 100 ||
-          (result.nextCursor != null && (typeof result.nextCursor !== 'string' || result.nextCursor.length > 4096))) {
-        throw new InventoryError();
-      }
-      for (const thread of result.data) {
-        const metadata = resumeSessionMetadata(thread, options.workspace);
-        if (!metadata) {
-          // Excluded rows do not make inventory partial; invalid eligible rows do.
-          if (matchesResumePickerThread(thread, options.workspace)) partial = true;
-          continue;
-        }
-        const previous = found.get(metadata.id);
-        if (previous && previous.modified >= metadata.modified) continue;
-        if (found.size < options.limit || found.has(metadata.id)) found.set(metadata.id, metadata);
-        else truncated = true;
-      }
-      cursor = result.nextCursor;
-      result = null;
-      if (!cursor) break;
-      if (found.size >= options.limit || cursors.has(cursor) || page === 7) { truncated = true; break; }
-      cursors.add(cursor);
-    }
-    const sessions = [...found.values()].sort(compareSessionActivity);
-    return { status: partial ? 'partial' : 'available', truncated, sessions, source: 'app-server' };
+    return await listResumeSessions(request, options);
   } catch { throw failure || new InventoryError(); }
   finally {
     stopped = true;

@@ -48,10 +48,14 @@ function setup(t, { closeDelay = 0, holdFirstUpdate = false } = {}) {
       if (pathname === '/api/agent/local/update') {
         updates.push({ bytes: Buffer.byteLength(options.body), body: JSON.parse(options.body) });
         if (holdFirstUpdate && updates.length === 1) await updateGate;
-        code = status;
+        if (status === 'network') throw new Error('Synthetic connection failure.');
+        code = typeof status === 'number' ? status : 200;
       }
       if (pathname === '/api/agent/heartbeat') heartbeats.push(JSON.parse(options.body));
-      return { ok: code >= 200 && code < 300, status: code, json: async () => body };
+      return { ok: code >= 200 && code < 300, status: code, json: async () => {
+        if (pathname === '/api/agent/local/update' && status === 'json') throw new Error('Synthetic JSON failure.');
+        return body;
+      } };
     }
   });
   t.after(async () => { releaseUpdate(); finish({ status: 'interrupted', output: 'Synthetic cleanup.' }); await agent.close(); });
@@ -71,6 +75,20 @@ test('failed progress requests close exactly once with no unhandled rejection wh
     await assert.rejects(f.agent.tick(), /restart/);
     await Promise.all([f.agent.close(), f.agent.close()]);
     assert.equal(f.closes, 1, 'explicit close shares the existing shutdown');
+  }
+});
+
+test('network and JSON progress failures share fail-closed cleanup without replay', { timeout: 5000 }, async t => {
+  for (const failure of ['network', 'json']) {
+    const f = setup(t);
+    await f.agent.tick();
+    f.failWith(failure);
+    f.emit({ type: 'progress', message: 'Synthetic progress before transport failure.' });
+    await f.agent.waitForIdle();
+    assert.equal(f.closes, 1);
+    await assert.rejects(f.agent.tick(), /restart/);
+    await f.agent.close();
+    assert.equal(f.closes, 1);
   }
 });
 
@@ -99,6 +117,29 @@ test('Unicode and JSON control characters stay inside the full update byte limit
   assert.equal(terminal.threadId, THREAD);
   assert.equal(terminal.errorCode, 'synthetic-result');
   assert.equal(terminal.status, 'completed');
+});
+
+test('agent text budgets preserve exact JSON byte boundaries and repair lone surrogates', { timeout: 5000 }, async t => {
+  const characters = Array.from({ length: 32 }, (_, code) => String.fromCharCode(code))
+    .concat(['"', '\\', 'é', '漢', '🙂', '\u2028', '\ud800', '\udfff']);
+  for (const character of characters) {
+    const repaired = character.toWellFormed();
+    const cost = Buffer.byteLength(JSON.stringify(repaired)) - 2;
+    for (const fits of [false, true]) {
+      const f = setup(t);
+      await f.agent.tick();
+      const prefix = 'x'.repeat(8000 - cost + (fits ? 0 : 1));
+      const messagePrefix = 'p'.repeat(160 - cost + (fits ? 0 : 1));
+      f.emit({ type: 'progress', message: messagePrefix + character + 'tail' });
+      f.finish({ status: 'completed', output: prefix + character + 'tail', threadId: THREAD });
+      await f.agent.waitForIdle();
+      const terminal = f.updates.at(-1).body;
+      assert.equal(terminal.output, prefix + (fits ? repaired : ''));
+      assert.equal(terminal.events.at(-1).message, messagePrefix + (fits ? repaired : ''));
+      assert.equal(terminal.outputTruncated, true);
+      assert.equal(terminal.status, 'completed');
+    }
+  }
 });
 
 test('progress flushes the trailing phase and replaces partial snapshots before the turn completes', { timeout: 5000 }, async t => {

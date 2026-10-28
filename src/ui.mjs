@@ -113,8 +113,11 @@ function connection(ok, message) {
   connected = ok;
   $('connection').textContent = message;
   $('connection').className = ok ? 'on' : 'off';
-  controls();
-  if (!ok) renderSessions();
+  // Successful callers immediately render the new state, including controls.
+  if (!ok) {
+    controls();
+    renderSessions();
+  }
 }
 async function api(method, pathname, body) {
   let result;
@@ -220,10 +223,7 @@ function render() {
       '<span class="chip">' + escape(s) + '</span>').join('') || '<small>None found</small>') +
     '</div><p><b>Reported sessions (' + d.sessions.length + ')</b></p><small>Inventory: ' +
     escape(d.sessionInventory?.status || 'unknown') + (d.sessionInventory?.truncated ? ' · scan incomplete' : '') +
-    ' · activity and resume NOT verified</small><div class="chips">' + (d.sessions.slice(0, 8).map(s =>
-      '<span class="chip" title="' + escape(sessionTitle(s) + ' · Full session ID: ' + s.id) + '">' +
-      escape(shortTitle(s) + ' · ' + relativeTime(s.lastActivity)) +
-      '</span>').join('') || '<small>None found</small>') + '</div></div>'
+    ' · activity and resume NOT verified. View sessions below.</small></div>'
   ).join('') : '<p class="muted">No device has reported inventory. Enroll an agent and connect it privately to this hub.</p>';
   const inventoryCurrent = $('inventory-device').value;
   $('inventory-device').innerHTML = state.devices.map(d => '<option value="' + escape(d.id) + '">' +

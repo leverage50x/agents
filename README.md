@@ -72,6 +72,8 @@ Detalii istorice despre descoperirea 2A: [ETAPA-2A-ARHITECTURA.md](ETAPA-2A-ARHI
 
 `npm test` folosește `node --test`, date sintetice și porturi temporare pe 127.0.0.1. Sunt testate și două procese agent reale pe același sistem; aceasta nu verifică fizic laptopul 2 sau tunelul SSH. Sandboxul poate necesita aprobare pentru loopback/subprocese; un blocaj nu reprezintă PASS.
 
+Ultima rundă de simplificare păstrează Etapa 2C: paginare comună a sesiunilor, pornire Hub/agent fără logică duplicată și limitare UTF-8/JSON mai eficientă. Computers arată rezumatul inventarului; metadatele complete sunt în lista selectabilă de sesiuni. Măsurători, teste și compromisuri: [RAPORT-OPTIMIZARE.md](RAPORT-OPTIMIZARE.md).
+
 Workflow-ul `.github/workflows/ci.yml` rulează pe push/PR: Ubuntu, Node.js 22, `npm ci`, `npm test`, permisiunea `contents: read`, fără secrete reale. [VERIFICARE.md](VERIFICARE.md) păstrează rezultatele istorice; operațiunile și rezultatele rundelor ulterioare sunt în [comenzi executate agent.md](<comenzi executate agent.md>). Nu publica `.env`, `.local-run`, credențiale sau configurații personale.
 
 Licență MIT; vezi LICENSE.

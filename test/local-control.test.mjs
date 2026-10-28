@@ -149,6 +149,28 @@ test('local jobs serialize queued and running turns and accept only bounded matc
   assert.equal((await f.propose()).status, 201, 'a completed turn releases the local queue');
 });
 
+test('terminal history rollover keeps newest results and never evicts queued or running work', async t => {
+  const f = setup(t, { now: () => 1000 });
+  await f.heartbeat();
+  const completedIds = [];
+  for (let index = 0; index < 105; index++) {
+    const proposed = await f.propose();
+    assert.equal(proposed.status, 201);
+    const id = proposed.body.job.id;
+    assert.equal((await f.claim()).body.job.id, id);
+    assert.equal((await f.update({ jobId: id, status: ['completed', 'failed', 'interrupted'][index % 3],
+      output: 'Synthetic terminal history ' + index })).status, 200);
+    completedIds.push(id);
+  }
+  assert.deepEqual((await f.operator()).body.readonlyJobs.map(job => job.id), completedIds.slice(-40).reverse());
+  const queued = (await f.propose()).body.job;
+  assert.equal((await f.propose()).status, 409);
+  assert.equal((await f.claim()).body.job.id, queued.id);
+  assert.equal((await f.propose()).status, 409);
+  assert.equal((await f.operator()).body.readonlyJobs[0].id, queued.id);
+  assert.equal((await f.update({ jobId: queued.id, status: 'completed', output: 'Synthetic retained work.' })).status, 200);
+});
+
 test('Resume requires an explicit session reported by the local device and excludes busy sessions', async t => {
   const f = setup(t);
   await f.heartbeat({ sessions: [session(), session(busyThreadId, 'busy')] });

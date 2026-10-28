@@ -351,6 +351,9 @@ test('session inventory shows metadata title and relative activity with project,
   const b = browser(localState([reported]));
   await b.login();
   const html = b.element('sessions').innerHTML;
+  assert.ok(b.element('devices').innerHTML.includes('Reported sessions (1)'));
+  assert.ok(b.element('devices').innerHTML.includes('activity and resume NOT verified'));
+  assert.equal(b.element('devices').innerHTML.includes('README review'), false);
   assert.ok(html.includes('&lt;b&gt;Personal project&lt;/b&gt;'));
   assert.equal(html.includes('<b>Personal project</b>'), false);
   assert.ok(html.includes('&lt;script&gt;README review&lt;/script&gt;'));

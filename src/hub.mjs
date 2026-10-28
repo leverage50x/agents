@@ -8,6 +8,7 @@ import { createCredentialStore } from './credentials.mjs';
 import { sanitizeSessionTitle } from './codex-session-metadata.mjs';
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
+const assets = { '/': ['ui.html', 'text/html'], '/app.js': ['ui.mjs', 'text/javascript'], '/app.css': ['ui.css', 'text/css'] };
 const UUID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const isObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const isDevice = value => typeof value === 'string' && UUID.test(value);
@@ -121,7 +122,6 @@ export function createHub({ token, credentialStore = createCredentialStore(), no
 
   async function route(req, res) {
     const u = new URL(req.url, 'http://127.0.0.1');
-    const assets = { '/': ['ui.html', 'text/html'], '/app.js': ['ui.mjs', 'text/javascript'], '/app.css': ['ui.css', 'text/css'] };
     if (req.method === 'GET' && Object.hasOwn(assets, u.pathname)) {
       const [file, type] = assets[u.pathname];
       const content = fs.readFileSync(path.join(directory, file));
@@ -218,10 +218,8 @@ export function createHub({ token, credentialStore = createCredentialStore(), no
       if ([...readonlyJobs.values()].some(j => ['queued', 'running'].includes(j.status))) {
         return send(res, 409, { error: 'A local READ-ONLY instruction is already queued or running.' });
       }
-      if (readonlyJobs.size >= 100) {
-        const oldest = [...readonlyJobs.values()].find(j => !['queued', 'running'].includes(j.status));
-        if (oldest) readonlyJobs.delete(oldest.id);
-      }
+      // The active-job guard above leaves only terminal history, in insertion order.
+      if (readonlyJobs.size >= 100) readonlyJobs.delete(readonlyJobs.keys().next().value);
       const job = { id: randomUUID(), deviceId: localDeviceId, mode: b.mode,
         threadId: b.mode === 'resume' ? b.threadId : null, workspaceId: 'project', prompt: b.prompt,
         confirmed: true, policy: 'local-read-only', status: 'queued', output: '', outputTruncated: false, events: [], createdAt: new Date(now()).toISOString() };

@@ -122,6 +122,15 @@ test('repeated pagination cursors stop without an unbounded scan', async t => {
   assert.equal(f.requests().filter(request => request.method === 'thread/list').length, 2);
 });
 
+test('inventory shares the controller newest-first cap even when a server overfills an unordered page', async t => {
+  const f = syntheticServer(t, { pages: [{ data: [row(3), row(1), row(4), row(2)], nextCursor: null }] });
+  const result = await listAppServerSessions({ home: f.home, limit: 2, spawnImpl: f.spawnImpl });
+  assert.deepEqual(result.sessions.map(session => session.id), [id(4), id(3)]);
+  assert.equal(result.truncated, true);
+  assert.equal(result.status, 'available');
+  assert.ok(result.sessions.every(session => !Object.hasOwn(session, 'eligibility')));
+});
+
 test('older duplicate pages cannot replace newer UUID metadata or its sanitized title', async t => {
   const f = syntheticServer(t, { pages: [
     { data: [row(1, { name: 'Newer metadata', updatedAt: 1700000200 })], nextCursor: 'second' },

@@ -11482,3 +11482,743 @@ Au fost recitite metadatele rapoartelor reale și TAP, configurația CI și refe
 Ultimul audit după acest adaos a trecut; git diff --check a raportat apoi exit 2 pentru o linie goală suplimentară la EOF. O comandă locală Node a eliminat doar whitespace-ul final și a înregistrat această corecție; nu a modificat codul aplicației.
 
 Acest adaos este realizat prin apply_patch înainte de staging/commit. Verificările finale ale acestei versiuni de jurnal, staging-ul explicit al celor 19 fișiere, commitul, push-ul și rezultatul CI sunt încă pași planificați în momentul înghețării jurnalului. Se vor executa `git diff --cached --check`, `git diff --cached --name-status`, `git diff --cached --stat`, `git commit -m 'Add bounded read-only repository analysis'`, `git push origin stage2b-local-control`, verificarea GitHub Actions pentru SHA-ul publicat și verificarea sincronizării/stării curate. Rezultatele lor reale vor fi comunicate operatorului în raportul final, fără editarea jurnalului după commit.
+
+## Minimalizare după Etapa 2C — 2026-10-28–29
+
+Scope autorizat: audit și simplificare pe stage2b-local-control, păstrând toate funcționalitățile READ-ONLY, teste sintetice și reale controlate, commit/push pe același branch. Baseline HEAD 1f1fda3840c47e215198fc738a70aa77c6d15018, index și working tree curate. Main/tagurile/configurațiile private și conversațiile personale nu au fost modificate. Director pentru operațiuni: <workspace>.
+
+Lucrul paralel este consemnat mai jos în ordinea executată în fiecare flux, fără a inventa o ordine totală între comenzi simultane. Rezultatele brute, credențialele și transcripturile nu sunt copiate. Întreruperile de utilizare ale celor trei subagenți au fost reluate din modificările existente; nu s-a repetat auditul de la zero.
+
+### Agent principal — comenzi executate
+
+1. Exit 0.
+
+```sh
+git status --short --branch && git log -1 --format='%H %s' && git remote get-url origin && git for-each-ref --format='%(refname) %(objectname)' refs/heads/main refs/tags && cat package.json && cat AGENTS.md
+```
+
+2. Exit 0.
+
+```sh
+rg --files -g '!package-lock.json' -g '!comenzi executate agent.md' -g '!LICENSE' && wc -l src/* test/* leverage
+```
+
+3. Exit 0.
+
+```sh
+cat src/codex-control.mjs
+```
+
+4. Exit 0.
+
+```sh
+cat src/codex-app-server.mjs && cat src/repository-tools.mjs && cat src/repository-reader.mjs && cat src/codex-session-metadata.mjs && cat src/codex-child.mjs
+```
+
+5. Exit 0.
+
+```sh
+cat test-support/fixtures.mjs && sed -n '1,140p' .local-run/stage2c-real-integration.mjs && cat .gitignore && cat .env.example && cat codex-project.example.toml && cat .github/workflows/ci.yml
+```
+
+6. Exit 0.
+
+```sh
+npm test > .local-run/opt-baseline-tests.tap 2>&1
+```
+
+7. Exit 0.
+
+```sh
+sed -n '310,570p' src/codex-control.mjs
+```
+
+8. Exit 0.
+
+```sh
+sed -n '570,735p' src/codex-control.mjs && cat src/codex-app-server.mjs
+```
+
+9. Exit 0.
+
+```sh
+cat test/local.integration.test.mjs && cat src/local-config.mjs && sed -n '1,145p' src/agent.mjs && sed -n '310,450p' src/launcher.mjs
+```
+
+10. Exit 0.
+
+```sh
+cat src/codex-app-server.mjs && sed -n '610,720p' src/codex-control.mjs && cat src/repository-tools.mjs
+```
+
+11. Exit 1.
+
+```sh
+node .local-run/opt-metrics.mjs .local-run/opt-before.json .local-run/opt-baseline && tail -n 12 .local-run/opt-baseline-tests.tap
+```
+
+12. Exit 0.
+
+```sh
+node .local-run/opt-metrics.mjs .local-run/opt-before.json .local-run/opt-baseline && tail -n 12 .local-run/opt-baseline-tests.tap
+```
+
+13. Exit 0.
+
+```sh
+cat test/codex-session-metadata.test.mjs && rg -n 'partial|truncated|cursor|limit|duplicate|pagination|TOOL_POLICY|tool-policy' test/app-server.test.mjs test/codex-control.test.mjs src README.md ETAPA-2C-READONLY.md && cat src/repository-reader.mjs
+```
+
+14. Exit 0.
+
+```sh
+git status --short --branch && git diff --stat && git diff --cached --stat && git diff --check && tail -n 12 .local-run/opt-baseline-tests.tap
+```
+
+15. Exit 0.
+
+```sh
+tail -n 90 .local-run/opt-hub-ledger.md && tail -n 60 .local-run/opt-launcher-ledger.md && tail -n 60 .local-run/opt-ui-ledger.md
+```
+
+16. Exit 0.
+
+```sh
+sed -n '175,235p' test/codex-control.test.mjs && sed -n '100,180p' test/app-server.test.mjs && sed -n '258,275p' test/codex-control.test.mjs
+```
+
+17. Exit 0.
+
+```sh
+node --input-type=module <<'JS'
+import fs from 'node:fs';
+const file = 'src/codex-app-server.mjs';
+let source = fs.readFileSync(file, 'utf8');
+source = source.replace('RESUME_SOURCE_KINDS, matchesResumePickerThread, resumeSessionMetadata, compareSessionActivity', 'listResumeSessions');
+const from = source.indexOf('    const found = new Map();');
+const end = source.indexOf('\n  } catch { throw failure || new InventoryError(); }', from);
+if (from < 0 || end < 0) throw new Error('Inventory scan anchors missing');
+source = source.slice(0, from) + '    return await listResumeSessions(request, options);' + source.slice(end);
+fs.writeFileSync(file, source);
+const controller = 'src/codex-control.mjs';
+source = fs.readFileSync(controller, 'utf8');
+source = source.replace('RESUME_SOURCE_KINDS, resumeSessionMetadata, compareSessionActivity', 'listResumeSessions');
+source = source.replace('export const CODEX_CONTROL_TOOL_POLICY_VERIFIED = true;\n\n', '');
+source = source.replace("    if (!CODEX_CONTROL_TOOL_POLICY_VERIFIED) return { status: 'failed', output: '', errorCode: 'tool-policy-unverified' };\n", '');
+source = source.replace("if (value && typeof value === 'object' && !Array.isArray(value))", "if (value && typeof value === 'object')");
+const start = source.indexOf('      const found = new Map();');
+const finish = source.indexOf('\n  const run = async', start);
+if (start < 0 || finish < 0) throw new Error('Controller scan anchors missing');
+source = source.slice(0, start) + `      const inventory = await listResumeSessions(request, { workspace: canonical,
+        decorate: (metadata, thread) => ({ ...metadata,
+          eligibility: active?.threadId === metadata.id || thread.status?.type === 'active' ||
+            processLocks.has(canonical + ':' + metadata.id) ? 'busy' : 'discovered' }) });
+      return { ...inventory, status: 'available' };
+    } catch (error) {
+      fail(error instanceof ControlError || error?.code === 'codex-protocol-error' ? error.code : 'codex-unavailable');
+      return { status: 'unavailable', source: 'app-server', truncated: false, sessions: [] };
+    }
+  };` + source.slice(finish);
+fs.writeFileSync(controller, source);
+const test = 'test/codex-control.test.mjs';
+source = fs.readFileSync(test, 'utf8').replace('createCodexControl, CODEX_CONTROL_TOOL_POLICY_VERIFIED', 'createCodexControl')
+  .replace('  assert.equal(CODEX_CONTROL_TOOL_POLICY_VERIFIED, true);\n', '');
+fs.writeFileSync(test, source);
+JS
+node --check src/codex-control.mjs && node --check src/codex-app-server.mjs && node --check src/codex-session-metadata.mjs && git diff --check
+```
+
+18. Exit 0.
+
+```sh
+node --test test/app-server.test.mjs test/codex-control.test.mjs test/codex-session-metadata.test.mjs test/codex-lifecycle.test.mjs test/repository-control.test.mjs test/repository-reader.test.mjs > .local-run/opt-core-tests.tap 2>&1
+```
+
+19. Exit 0.
+
+```sh
+git diff -- src/agent.mjs src/hub.mjs src/launcher.mjs src/ui.mjs test/agent-recovery.test.mjs test/ui.test.mjs && tail -n 13 .local-run/opt-core-tests.tap
+```
+
+20. Exit 0.
+
+```sh
+cat .local-run/opt-launcher-benchmark.mjs && sed -n '140,310p' .local-run/stage2c-real-integration.mjs && cat README.md
+```
+
+21. Exit 0.
+
+```sh
+node --input-type=module <<'JS'
+import fs from 'node:fs';
+const source = fs.readFileSync('.local-run/stage2c-real-integration.mjs', 'utf8');
+fs.writeFileSync('.local-run/opt-real-integration.mjs', source.replaceAll('stage2c-real', 'opt-real'), { mode: 0o600 });
+JS
+node --check .local-run/opt-real-integration.mjs && git diff --check && git diff --stat
+```
+
+22. Exit 0.
+
+```sh
+sed -n '10,38p' src/agent.mjs && tail -n 65 .local-run/opt-hub-ledger.md && rg --files --hidden .local-run -g 'opt-*' -g '!opt-baseline/**' | head -n 35
+```
+
+23. Exit 0.
+
+```sh
+npm test > .local-run/opt-final-tests.tap 2>&1
+```
+
+24. Exit 0.
+
+```sh
+node .local-run/opt-metrics.mjs .local-run/opt-after-source.json > .local-run/opt-after-source.log && tail -n 12 .local-run/opt-final-tests.tap && git diff --numstat && git diff --check
+```
+
+25. Exit 1.
+
+```sh
+node .local-run/opt-real-integration.mjs > .local-run/opt-real-run.log 2>&1
+```
+
+26. Exit 0.
+
+```sh
+tail -n 4 .local-run/opt-real-run.log && node --input-type=module <<'JS'
+import fs from 'node:fs';
+import { spawnSync } from 'node:child_process';
+const files = [...fs.readdirSync('src').filter(file=>file.endsWith('.mjs')).map(file=>'src/'+file), ...fs.readdirSync('test').filter(file=>file.endsWith('.mjs')).map(file=>'test/'+file), 'test-support/fixtures.mjs'];
+for (const file of files) {
+  const checked = spawnSync(process.execPath, ['--check', file], { stdio: 'pipe' });
+  if (checked.error || checked.status !== 0) throw new Error('Syntax check failed: '+file);
+}
+console.log(JSON.stringify({syntaxModules:files.length,passed:true}));
+JS
+```
+
+27. Exit 0.
+
+```sh
+git status --short --branch && git diff --stat && git diff --cached --stat && git diff --check && tail -n 12 .local-run/opt-final-tests.tap
+```
+
+28. Exit 0.
+
+```sh
+node --input-type=module <<'JS'
+import fs from 'node:fs';
+const file = '.local-run/opt-real-result.json';
+if (!fs.existsSync(file)) { console.log('Real integration result not yet available'); process.exit(0); }
+const r = JSON.parse(fs.readFileSync(file));
+console.log(JSON.stringify({passed:r.passed,failedPhase:r.failedPhase,safeError:r.safeError,elapsedMs:r.elapsedMs,authentication:r.authentication,findings:r.findings,resumeContextPreserved:r.resumeContextPreserved,privateReadsDenied:r.privateReadsDenied,nativeBusyProtected:r.nativeBusyProtected,legacyResume:r.legacyResume,differentThreadSameWorkspaceAllowed:r.differentThreadSameWorkspaceAllowed,resumeAfterNativeRelease:r.resumeAfterNativeRelease,realDeadline:r.realDeadline,allFixtureFilesUnchanged:r.allFixtureFilesUnchanged,ownedChildrenRemaining:r.ownedChildrenRemaining,phases:r.phases?.map(p=>({phase:p.phase,status:p.status,errorCode:p.errorCode,elapsedMs:p.elapsedMs,files:p.repositoryAccess?.files?.map(f=>f.path),requests:p.repositoryAccess?.requests,bytesRead:p.repositoryAccess?.bytesRead,denied:p.repositoryAccess?.denied}))},null,2));
+JS
+rg -n 'STARTUP_BENCHMARK|REAL_VALIDATION|CATEGORY_METRICS|așteptare|în curs' RAPORT-OPTIMIZARE.md
+```
+
+29. Exit 0.
+
+```sh
+node --input-type=module <<'JS'
+import fs from 'node:fs';
+let source = fs.readFileSync('.local-run/opt-real-integration.mjs', 'utf8');
+source = source.replaceAll('opt-real', 'opt-remaining-real');
+source = source.replace("  if (args[0] === 'app-server') {", `  if (args[0] === 'app-server') {
+    let diagnostics = '';
+    child.stdout.on('data', chunk => {
+      diagnostics += chunk.toString();
+      if (diagnostics.length > 2097152) { diagnostics = ''; return; }
+      let newline;
+      while ((newline = diagnostics.indexOf('\\n')) >= 0) {
+        const line = diagnostics.slice(0, newline); diagnostics = diagnostics.slice(newline + 1);
+        let message; try { message = JSON.parse(line); } catch { continue; }
+        if (message.method === 'turn/completed' && message.params?.turn?.status === 'failed') {
+          const error = message.params.turn.error;
+          const text = typeof error?.message === 'string' ? error.message : '';
+          report.safeFailureClassification = {
+            hasNativeError: !!error,
+            usageOrQuota: /usage limit|quota|credits|usage_limit/i.test(text),
+            rateLimit: /rate.?limit|too many requests/i.test(text),
+            authentication: /authenticat|unauthoriz|token expired|refresh token/i.test(text),
+            transport: /connection|stream|network|timed out|disconnected/i.test(text),
+            contextLimit: /context.*(?:limit|length)|too many tokens/i.test(text)
+          };
+        }
+      }
+    });`);
+const from = source.indexOf("  const first = await job('new-analysis'");
+const to = source.indexOf('  holder = nativeHolder();', from);
+if (from < 0 || to < 0) throw new Error('Remaining phases anchor missing');
+source = source.slice(0, from) + `  const first = await job('owned-thread-setup', 'new', 'Reține eticheta sintetică orchid-cobalt-stage2c. Răspunde scurt, fără unelte sau modificări.');
+  if (first.value.status !== 'completed') throw new Error('Owned synthetic setup did not complete.');
+` + source.slice(to);
+source = source.replace('  report.ownedChildrenRemaining = owned.size;', '  report.allFixtureFilesUnchanged = JSON.stringify(before) === JSON.stringify(digest());\n  report.ownedChildrenRemaining = owned.size;');
+fs.writeFileSync('.local-run/opt-remaining-real-integration.mjs', source, { mode: 0o600 });
+JS
+node --check .local-run/opt-remaining-real-integration.mjs
+```
+
+30. Exit 0.
+
+```sh
+node .local-run/opt-remaining-real-integration.mjs > .local-run/opt-remaining-real-run.log 2>&1
+```
+
+31. Exit 0.
+
+```sh
+node .local-run/review-publication.mjs stage2b-local-control > .local-run/opt-publication-audit.log 2>&1 && git diff --check
+```
+
+32. Exit 0.
+
+```sh
+gh repo view leverage50x/agents --json nameWithOwner,isPrivate,viewerPermission,url && git remote get-url origin && git ls-remote --heads origin stage2b-local-control
+```
+
+33. Exit 0.
+
+```sh
+tail -n 3 .local-run/opt-remaining-real-run.log && node --input-type=module <<'JS'
+import fs from 'node:fs';
+const audit = JSON.parse(fs.readFileSync('.local-run/publication-audit.json'));
+console.log(JSON.stringify({historyCommits:audit.history.commitsScanned,historyBlobs:audit.history.blobsScanned,historyFindings:audit.history.findings,privatePaths:audit.history.forbiddenPaths,files:audit.workingTree.filesReviewed,findings:audit.workingTree.findings,reviewedFalsePositives:audit.reviewedFalsePositives.length,stage1Retained:audit.history.stage1FirstCommitRetained}));
+JS
+```
+
+34. Exit 0.
+
+```sh
+node --input-type=module <<'JS'
+import fs from 'node:fs';
+const r = JSON.parse(fs.readFileSync('.local-run/opt-remaining-real-result.json'));
+console.log(JSON.stringify({passed:r.passed,failedPhase:r.failedPhase,safeFailureClassification:r.safeFailureClassification,elapsedMs:r.elapsedMs,authentication:r.authentication,legacyResume:r.legacyResume,nativeBusyProtected:r.nativeBusyProtected,differentThreadSameWorkspaceAllowed:r.differentThreadSameWorkspaceAllowed,resumeAfterNativeRelease:r.resumeAfterNativeRelease,realDeadline:r.realDeadline,allFixtureFilesUnchanged:r.allFixtureFilesUnchanged,ownedChildrenRemaining:r.ownedChildrenRemaining,phases:r.phases.map(p=>({phase:p.phase,status:p.status,errorCode:p.errorCode,elapsedMs:p.elapsedMs,requests:p.repositoryAccess?.requests,bytesRead:p.repositoryAccess?.bytesRead,denied:p.repositoryAccess?.denied,files:p.repositoryAccess?.files?.map(f=>f.path)}))},null,2));
+JS
+```
+
+### Modificări prin apply_patch și rezultate centralizate
+
+- apply_patch a creat helperul ignorat opt-metrics.mjs; prima rulare a primit spawnSync git EPERM, exit1. Reluarea cu aprobarea platformei a trecut și a păstrat o copie izolată a surselor baseline, fără fișiere private. Nu s-a dezactivat sandboxul.
+
+- apply_patch și comanda Node consemnată mai sus au extras paginarea comună în modulul metadata existent, înlocuit cele două blocuri și eliminat markerul true/ramura imposibilă plus testarea markerului; testul politicii reale a rămas. Noua regresie a verificat pagina neordonată/supradimensionată. Reviewerul independent nu a găsit probleme blocante; schimbarea de selecție a celor mai recente rânduri este explicită în raport.
+
+- apply_patch a creat RAPORT-OPTIMIZARE.md, actualizat README și completat raportul cu măsurătorile și probele reale. Au fost create numai helperi/rapoarte de lucru ignorați pentru baseline, măsurători, jurnal și probele reale; nu s-a adăugat infrastructură runtime. Helperul opt-root-ledger.json a fost regenerat local pentru a înlocui stările pending cu exit-urile efectiv primite.
+
+- Baseline npm test:204/204PASS,6595.514275ms. Lotul root Codex/reader:102/102PASS,2149.645124ms. Suita completă finală:208/208PASS,7533.44752ms,0fail/skip/cancel. Sintaxă:34modulePASS. Probe subagenți:34apoi47Hub/agent,15launcher,22UI; se suprapun cu suita completă și nu sunt adunate ca teste distincte.
+
+- Producție înainte/după:17/17fișiere,3166/3141linii fizice,177757/176427octeți;14/14module,18/18importuri locale,0/0dependențe externe. Reducere25linii(0,79%),1330octeți(0,75%). Nicio funcție numită/modul întreg eliminat: auditul nu a demonstrat asemenea cod mort. Un algoritm comun înlocuiește două blocuri; callback-urile redundant FIFO/UI, catch-ul duplicat și markerul static sunt eliminate.
+
+- boundedText:3670061comparații diferențialePASS. Nouă eșantioane alternante/set,funcția finală extrasă exact,10,14–15,03xmai rapidă izolat. Nu reprezintă accelerarea întregii aplicații. Benchmarklauncher:6perechi+warmup exclus,Hub/agent reale în copii sintetice,Codex indisponibil intenționat; mediană397.470→393.487ms,RSSsum138506→140136KiB. Intervalele se suprapun:nu există îmbunătățire globală demonstrată. Manifestul AFTER coincide cu sursele finale; toate procesele proprii sunt oprite.
+
+### Model real după refactoring — rezultate și eșec păstrat
+
+- node .local-run/opt-real-integration.mjs:exit1,141978ms. Newcompleted70388ms,7fișiere/12cereri/941octeți,funcția dormantFormat și duplicarea sum/sumAgain/liniile relevante identificate,căi reale. Resumecompleted31472ms,acelașiID/context și2recitiri. Patru citiri private/externe/symlink refuzate,0octeți. Busy nativ protejat. Turnulauxiliar legacy-construction a eșuatfailed fără errorCode disponibil; cauza nu a fost stabilită.0proceseproprii rămase. Nu se declară această rulare integralPASS.
+
+- A fost creat un helper separat numai pentru fazele rămase, cu clasificare booleană sigură a eventualelor erori native, fără salvarea mesajului brut. node .local-run/opt-remaining-real-integration.mjs:exit0,139861ms. Setup5109ms;Busy623ms;legacyconstruction5701ms;legacyResumecompleted99179ms,12continuări/7fișiere/941octeți,ID/context păstrate;altthreadacelașiworkspace permis;Resume după eliberarecompleted27541ms. Plafon50ms:codex-turn-timeout și worker închis. Toate9fișiereoriginale ale fixture-ului suplimentar au hashuri identice,0proceseproprii rămase. Nu s-a schimbat producția între rulări. Eșeculinițial nu s-a reprodus; nu îi inventăm cauza.
+
+- Ambele probe folosesc login existent,HubHTTP/agent/Codex/model reale,conversații sintetice noi. Nicio sesiune personală reluată,niciun proces personal oprit,niciun dispozitiv extern,zero transcripturi brute sau tokenuri în jurnal. UI:VM/DOM,nu browser vizual. Limita lungă implicită se testează sintetic; proba nativă validează un deadline scurt. Serviciile principale existente nu au fost repornite în această rundă.
+
+### Audit independent Hub/agent — ledger cronologic
+
+# Optimization audit — Hub/agent subagent
+
+All commands executed in <workspace>. No source edits authorized or made yet. Source reads only; raw outputs are not included.
+
+1. Exit 0 — inspection/search, read completed.
+
+```sh
+cat AGENTS.md && cat src/local-config.mjs && cat src/inventory.mjs && cat src/manage.mjs
+```
+
+2. Exit 0 — inspection/search, read completed.
+
+```sh
+cat src/hub.mjs
+```
+
+3. Exit 0 — inspection/search, read completed.
+
+```sh
+cat src/agent.mjs && cat src/credentials.mjs
+```
+
+4. Exit 0 — inspection/search, read completed.
+
+```sh
+sed -n '1,170p' src/hub.mjs
+```
+
+5. Exit 0 — inspection/search, read completed.
+
+```sh
+sed -n '171,330p' src/hub.mjs
+```
+
+6. Exit 0 — inspection/search, read completed.
+
+```sh
+sed -n '1,145p' src/agent.mjs
+```
+
+7. Exit 0 — inspection/search, read completed.
+
+```sh
+rg -n 'boundedText|createCredentialStore|hasToken|validateDeviceName|workspaceReady|listMcp|listSessionInventory|recoveryWork|shutdown|waitForIdle' src test test-support && cat test/agent-recovery.test.mjs
+```
+
+8. Exit 0 — inspection/search, read completed.
+
+```sh
+cat test/agent.test.mjs && cat test/hub.test.mjs && sed -n '1,220p' test/api.test.mjs && sed -n '1,230p' test/credentials.test.mjs
+```
+
+9. Exit 0 — inspection/search, read completed.
+
+```sh
+sed -n '1,180p' test/local-control.test.mjs && sed -n '180,420p' test/local-control.test.mjs
+```
+
+10. Exit 0 — inspection/search, read completed.
+
+```sh
+rg -n '^export |^function |^async function |^[[:space:]]+[A-Za-z][A-Za-z0-9_]*\(' src/hub.mjs src/agent.mjs src/credentials.mjs src/inventory.mjs src/manage.mjs src/local-config.mjs && sed -n '88,125p' src/manage.mjs && sed -n '1,130p' test/api.test.mjs && sed -n '1,115p' test/stage2.test.mjs
+```
+
+Findings sent to primary: boundedText's per-code-point JSON serialization/array is a measurable optimization candidate; centralized request error handling and hoisted static asset table are small safe simplifications. Keep independent boundary/revocation checks, fallback inventory and all credential filesystem defenses.
+
+Additional command, exit 0, test coverage inspection:
+
+```sh
+rg -n '100|oldest|history|retention|limit|abort|reject|json|500|401|403' test/local-control.test.mjs test/agent-recovery.test.mjs test/agent.test.mjs test/credentials.test.mjs && sed -n '1,110p' test/agent.test.mjs && sed -n '1,180p' test/credentials.test.mjs
+```
+
+Additional findings sent: Hub FIFO history eviction can use first Map key after the immediately preceding active-job guard proves all retained jobs terminal. Invalid-token syntax could be checked before credential-registry load, but that changes error reporting for an already-corrupt store; proposal only, no edit.
+
+## Approved implementation batches and verification
+
+Primary agent approved request error deduplication, hoisted assets, boundedText only with equivalent behavior and measured benefit, then separately FIFO history simplification. Primary explicitly rejected reordering credential-registry load/invalid-token validation because the error semantics would change without measured value. Credentials, inventory, management and local-config sources remain untouched.
+
+12. apply_patch succeeded: src/agent.mjs request now has one common transport/HTTP/JSON catch, preserving unconditional 401/403 fail-close and every active-run failure. src/hub.mjs moves the immutable asset routing table out of each request and evicts the first Map key after the preceding active-job guard proves the history has only terminal jobs.
+13. apply_patch succeeded: test/agent-recovery.test.mjs synthetic fetch fixture can simulate network and JSON failures in addition to HTTP failures.
+14. apply_patch succeeded: added public-agent failure cleanup regression. The same call included a no-op context hunk for test/local-control.test.mjs; no change resulted in that file from this call.
+15. Executed, exit 0:
+
+```sh
+sed -n '1,55p' test/local-control.test.mjs && git diff --stat -- src/agent.mjs src/hub.mjs test/agent-recovery.test.mjs test/local-control.test.mjs
+```
+
+16. apply_patch succeeded: added the 105-terminal-job rollover regression followed by a queued/running job that still rejects concurrent submissions.
+17. Executed with platform approval, exit 0, **34/34 PASS**, 1764.530937 ms:
+
+```sh
+node --test test/agent-recovery.test.mjs test/local-control.test.mjs test/api.test.mjs test/hub.test.mjs > .local-run/opt-hub-batch1.tap 2>&1
+```
+
+18. apply_patch succeeded: created ignored .local-run/opt-text-bench.mjs. It reads the exact baseline source from Git, compares a candidate against the original over every Unicode scalar/control/surrogate boundary and uses nine alternating before/after samples on synthetic strings. No application source changed yet.
+19. The test session was polled with write_stdin and completed exit 0. Executed next, exit 1:
+
+```sh
+tail -n 12 .local-run/opt-hub-batch1.tap && node .local-run/opt-text-bench.mjs > .local-run/opt-text-bench.log 2>&1
+```
+
+The TAP tail confirmed 34 PASS. The benchmark failed because the sandbox blocked its read-only Git subprocess with spawnSync git EPERM; no performance result was claimed from this run.
+
+20. Executed, exit 0:
+
+```sh
+sed -n '1,45p' .local-run/opt-text-bench.log && node --check .local-run/opt-text-bench.mjs
+```
+
+The ignored local diagnostic was inspected; raw diagnostics/user paths are not copied into this ledger. Script syntax passed.
+
+21. Executed with platform approval, exit 0 after write_stdin completion:
+
+```sh
+node .local-run/opt-text-bench.mjs > .local-run/opt-text-bench.log 2>&1
+```
+
+The candidate passed **3,670,061 differential comparisons** and nine alternating samples per input class. Candidate speedups were about 10–16x in this isolated function, not application throughput.
+
+22. Executed, exit 0:
+
+```sh
+node --input-type=module -e 'import fs from "node:fs"; const r=JSON.parse(fs.readFileSync(".local-run/opt-text-bench-result.json")); console.log(JSON.stringify({passed:r.passed,comparisons:r.differentialComparisons,node:r.node,results:r.results.map(({name,beforeMedianMs,afterMedianMs,speedup})=>({name,beforeMedianMs,afterMedianMs,speedup}))},null,2));'
+```
+
+23. apply_patch succeeded: boundedText now counts exact JSON escape/UTF-8 costs, retains well-formed Unicode and slices once instead of allocating a character array and serializing every character. Added a public-agent regression covering all 32 control characters, quotes, backslash, UTF-8 boundaries, astral characters, line separator and lone surrogates at exact output/progress budgets.
+24. Executed with platform approval, exit 0, **47/47 PASS**, 2326.329851 ms:
+
+```sh
+node --test test/agent-recovery.test.mjs test/local-control.test.mjs test/api.test.mjs test/hub.test.mjs test/agent.test.mjs test/agent-recovery.test.mjs test/codex-agent-restart.test.mjs > .local-run/opt-hub-batch2.tap 2>&1
+```
+
+The command listed agent-recovery twice; the runner reported 47 registered cases, not an inflated double count. No test failed.
+
+25. The test session was polled with write_stdin, exit 0. Executed, exit 0; targeted whitespace and syntax checks passed:
+
+```sh
+tail -n 14 .local-run/opt-hub-batch2.tap && git diff --check -- src/agent.mjs src/hub.mjs test/agent-recovery.test.mjs test/local-control.test.mjs && node --check src/agent.mjs && node --check src/hub.mjs
+```
+
+26. apply_patch succeeded: the ignored benchmark now extracts the actual optimized boundedText from src/agent.mjs rather than a copied candidate. Production code and tests are frozen after their passing checks.
+27. Executed with platform approval, exit 0 after write_stdin completion:
+
+```sh
+node .local-run/opt-text-bench.mjs > .local-run/opt-text-bench.log 2>&1
+```
+
+Actual source validation passed **3,670,061 comparisons**. Result artifact .local-run/opt-text-bench-result.json finished at 2026-10-28T17:42:55.396Z, before primary's later full-suite measurement message.
+
+28. Executed, exit 0:
+
+```sh
+node --input-type=module -e 'import fs from "node:fs"; const file=".local-run/opt-text-bench-result.json"; const r=JSON.parse(fs.readFileSync(file)); console.log(JSON.stringify({finishedAt:fs.statSync(file).mtime.toISOString(),passed:r.passed,comparisons:r.differentialComparisons,node:r.node,results:r.results.map(({name,beforeMedianMs,afterMedianMs,speedup})=>({name,beforeMedianMs,afterMedianMs,speedup}))},null,2));' && git diff --numstat -- src/agent.mjs src/hub.mjs test/agent-recovery.test.mjs test/local-control.test.mjs
+```
+
+| Synthetic input | Iterations/sample | Baseline median ms | Optimized median ms | Isolated ratio |
+| --- | ---: | ---: | ---: | ---: |
+| short ASCII | 10,000 | 28.703270 | 1.909803 | 15.0294x |
+| ASCII output | 500 | 350.244258 | 24.991301 | 14.0146x |
+| JSON escapes | 500 | 145.193322 | 14.318700 | 10.1401x |
+| mixed Unicode | 500 | 202.115761 | 14.009097 | 14.4275x |
+| malformed surrogates | 500 | 252.042531 | 19.078605 | 13.2107x |
+
+Each row uses nine samples with alternating execution order after warmup, Node v22.23.3. This is a synthetic function microbenchmark only; no RSS/startup/global throughput improvement is claimed.
+
+## Final ownership report
+
+Changed production files: src/agent.mjs (+20/-16), src/hub.mjs (+3/-5), net **+2 physical source lines**. The measured CPU/allocation benefit justifies the small line increase; no artificial line-count reduction or new module/export/dependency was introduced. Removed one terminal-job predicate callback and one duplicate catch path. The character-pieces array and oldest-job temporary state are eliminated. Moved one constant asset object, without caching source-file contents or changing live UI reload behavior.
+
+Changed tests: test/agent-recovery.test.mjs (+43/-2), test/local-control.test.mjs (+22/-0); three new regression cases overall. Existing tests retained. FIFO regression exercises 105 completed/failed/interrupted results and verifies the newest public 40 results plus queued/running concurrency protection; exact history bound follows the guarded Map insertion/eviction invariant.
+
+Kept deliberately: current credential-registry reloads/timing-safe scans, reauthentication after awaiting request bodies, Hub/agent/controller independent trust-boundary validation, recovery and progress lifecycle state, bounded MCP parser, files-only inventory fallback, private-file symlink/hardlink/ownership defenses. No uncalled module was established in the audited six modules. No personal Codex process, credential, session, network service, repository history or Git publication was changed by this subagent.
+
+29. apply_patch appended this final ledger; ignored helper/ledger artifacts only. Primary is responsible for centralization before its final commit. No additional test/production edits are pending.
+
+
+
+
+### Audit independent launcher — ledger cronologic
+
+# Launcher optimization audit — delegated commands
+
+Scope: src/launcher.mjs, leverage, src/codex-child.mjs, launcher tests. Working directory: <workspace>. No personal services, configuration or credentials were changed. No benchmarks or tests have been executed in this audit phase.
+
+1. Command (exit 0):
+
+```sh
+cat AGENTS.md && cat leverage && cat src/codex-child.mjs
+```
+
+Result: read-only inspection/search; some batched tool presentation was truncated, so a targeted follow-up read covered launcher internals. No source edits.
+2. Command (exit 0):
+
+```sh
+sed -n '1,250p' src/launcher.mjs && sed -n '251,520p' src/launcher.mjs
+```
+
+Result: read-only inspection/search; some batched tool presentation was truncated, so a targeted follow-up read covered launcher internals. No source edits.
+3. Command (exit 0):
+
+```sh
+cat test/launcher.test.mjs && rg -n 'terminateCodexChild|codex-child|launcher|ownedProcess|processIdentity' src test
+```
+
+Result: read-only inspection/search; some batched tool presentation was truncated, so a targeted follow-up read covered launcher internals. No source edits.
+4. Command (exit 0):
+
+```sh
+sed -n '170,460p' src/launcher.mjs && sed -n '1,75p' test/launcher.test.mjs && rg -n 'safeError|privateJSON|record|ownership|started' src/launcher.mjs
+```
+
+Result: read-only inspection/search; some batched tool presentation was truncated, so a targeted follow-up read covered launcher internals. No source edits.
+5. Command (exit 0):
+
+```sh
+sed -n '1,115p' src/agent.mjs && sed -n '210,285p' src/agent.mjs && cat src/inventory.mjs && rg -n 'export |from |safeRead|private|NOFOLLOW' src/credentials.mjs
+```
+
+Result: read-only inspection/search; some batched tool presentation was truncated, so a targeted follow-up read covered launcher internals. No source edits.
+
+Findings: all exported launcher/child APIs have callers. The shared Codex-child module is used by inventory App Server and execution controller; merging it would duplicate lifecycle code. Proposed reduction: one ordered Hub/agent startup loop sharing spawn, persist, event and readiness steps while retaining role-specific preflights. Process-generation checks, ownership checks, file safety validation, credential separation and rollback remain necessary and distinct. Proposed synthetic benchmark method sent to primary agent; not run.
+
+## Approved implementation and test phase
+
+6. Primary agent authorized the ordered startup loop after capturing the pristine baseline. `apply_patch` updated `src/launcher.mjs`: one Hub/agent loop shares spawning, recording, persistence, events and readiness; occupied-port and external-agent checks stay role-specific and in the original order. Rollback and ownership checks were not modified. Result: 15 lines added, 20 removed, 455 to 450 production lines. No functions removed or new modules added.
+
+7. `node --test test/launcher.test.mjs && git diff --check -- src/launcher.mjs` — platform-approved execution, final exit 0. Actual suite: 15/15 PASS, 0 FAIL/skip/cancel, 4406.898335 ms. Processes and loopback services belonged exclusively to synthetic fixtures; no personal service was stopped. Results included startup/duplicate prevention, detached ownership, port occupancy, invalid private files, rollback, missing shutdown metadata, foreign listener preservation, stale PID protection, active/unverifiable lock owner protection and log redaction. `write_stdin` retrieved completion for the same running test command; tests were not repeated.
+
+8. Command (exit 0):
+
+```sh
+rg -n 'supported|codex.*version|CODEX|binary|spawn|close\(' src/codex-control.mjs src/codex-app-server.mjs && rg --files .local-run/opt-baseline -g '*.mjs' -g package.json -g leverage && git diff --numstat -- src/launcher.mjs
+```
+
+Result: checked how to keep the benchmark off personal Codex, verified baseline layout and measured the launcher diff. No source changes.
+
+9. `apply_patch` created ignored `.local-run/opt-launcher-benchmark.mjs`. It copies baseline/current source snapshots into a fresh temporary fixture; runs actual copied Hub/agent with synthetic, separate credentials, empty private Codex home and PATH without Codex; measures full launcher CLI start until ready and owned Hub/agent RSS 500 ms afterward. One warmup per version is excluded; six paired samples alternate ordering. Stops only its own processes through the copied launcher. Token/env/state contents are never printed; raw CLI output is discarded. The benchmark has not yet run; primary agent will announce source freeze first.
+
+10. `node --check .local-run/opt-launcher-benchmark.mjs && git diff --check -- src/launcher.mjs && git diff --numstat -- src/launcher.mjs` — exit 0; helper syntax and source whitespace PASS, launcher +15/−20. No performance improvement is claimed from these checks.
+
+11. `apply_patch` appended this ledger before finalization. No tests, config or credentials changed; only source change is `src/launcher.mjs`, plus ignored helper/ledger.
+
+## Final benchmark — 2026-10-29
+
+12. Primary agent announced source freeze (full suite 208/208 PASS reported by primary agent, not rerun here). The benchmark deliberately waited for the primary agent's real Codex probe to finish so the two workloads did not overlap. No source changes after freeze.
+
+13. `node .local-run/opt-launcher-benchmark.mjs > .local-run/opt-launcher-benchmark.log 2>&1` — platform-approved execution, exit 0. Completion was read with write_stdin on the same session; no duplicate benchmark run. Actual copied Hub/agent plus synthetic operator/agent credentials, temporary empty Codex home/PATH, loopback-only. Existing personal services and Codex were untouched. Fourteen startup/stop cycles: one excluded warmup per version and six alternating paired samples.
+
+14. Command (exit 0):
+
+```sh
+node --input-type=module <<'JS'
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+const result = JSON.parse(fs.readFileSync('.local-run/opt-launcher-benchmark-result.json', 'utf8'));
+assert.equal(result.passed, true);
+assert.equal(result.ownedProcessesStopped, true);
+for (const row of result.manifests.after) assert.equal(createHash('sha256').update(fs.readFileSync(row.file)).digest('hex'), row.sha256, row.file);
+const production = result.manifests.after.filter(row => row.file !== 'package.json');
+const bytes = production.reduce((sum, row) => sum + fs.statSync(row.file).size, 0);
+const lines = production.reduce((sum, row) => sum + (fs.readFileSync(row.file,'utf8').match(/\n/g) || []).length, 0);
+assert.equal(production.length, 17);
+assert.equal(bytes, 176427);
+assert.equal(lines, 3141);
+console.log(JSON.stringify({passed:result.passed, ownedProcessesStopped:result.ownedProcessesStopped, node:result.node, manifestsMatch:true, production:{files:production.length,lines,bytes}, samples:result.samples, summary:result.summary, startupDefinition:result.startupDefinition, memoryDefinition:result.memoryDefinition, scenario:result.scenario}, null, 2));
+JS
+```
+
+Result: all AFTER source hashes match the frozen working tree; production manifest 17 files, 3141 lines, 176427 bytes. Benchmark passed; all own application processes were stopped through the copied launcher's verified ownership checks and temporary fixtures were removed. Node v22.23.3. No real Codex execution/authentication is part of this startup scenario.
+
+| Pair | Before startup ms | After startup ms | Before summed RSS KiB | After summed RSS KiB |
+| --- | ---: | ---: | ---: | ---: |
+| 0 | 400.103 | 389.707 | 140136 | 140244 |
+| 1 | 398.735 | 407.587 | 131160 | 140380 |
+| 2 | 395.358 | 392.040 | 136876 | 131228 |
+| 3 | 399.438 | 394.935 | 140248 | 131112 |
+| 4 | 396.205 | 390.819 | 136688 | 140044 |
+| 5 | 391.040 | 406.267 | 140232 | 140228 |
+
+Startup is elapsed full absolute-Node launcher CLI invocation until authenticated Hub/agent readiness exit, excluding fixture copying/credential setup. RSS is the sum of each owned process's VmRSS at 500 ms after readiness, including shared pages rather than unique physical memory.
+
+Median startup: 397.470 ms before, 393.487 ms after; ranges 391.040–400.103 and 389.707–407.587 ms. Median summed RSS: 138506 KiB before, 140136 KiB after; ranges 131160–140248 and 131112–140380 KiB. Overlapping ranges and roughly 9 MiB RSS variability prevent a supported speed/memory improvement claim. These are observations in one synthetic Codex-unavailable scenario, not a benchmark of live model inference or a statistical performance guarantee.
+
+15. `apply_patch` appended these actual benchmark results and commands to the ignored ledger. Local benchmark artifacts remain ignored; no additional production edits, tests, Git commits or pushes were made by this subagent.
+
+
+
+
+### Audit independent UI/paginare — ledger cronologic
+
+# Independent UI/module audit — optimization
+
+Working directory: <workspace>. No credentials, personal processes or private configuration accessed. Production edits await primary-agent approval.
+
+1. Exit 0. Read instructions and all UI source files; no source edits.
+
+```sh
+cat AGENTS.md && cat src/ui.mjs && cat src/ui.html && cat src/ui.css
+```
+
+2. Exit 0. Read UI regression harness and production import/export/function/API graph plus small shared modules; no edits.
+
+```sh
+cat test/ui.test.mjs
+```
+
+3. Exit 0. Read UI regression harness and production import/export/function/API graph plus small shared modules; no edits.
+
+```sh
+rg -n '^import |^export |function |=>|/api/' src test-support/fixtures.mjs package.json .github/workflows/ci.yml .gitignore codex-project.example.toml && cat src/codex-session-metadata.mjs && cat src/local-config.mjs && cat src/codex-child.mjs
+```
+
+4. Exit 0. Targeted UI assertions, production imports/exports, historical-document references and configuration audit; no edits.
+
+```sh
+rg -n '^import |^export ' src && rg -n 'codex-project\.example|INSTRUCTIUNI-RO|PROMPT-CODEX-RO|CODEX-AUTONOMIE|VERIFICARE|codex-app-server|codex-session-metadata|codex-child|local-config|repository-tools' README.md *.md .gitignore package.json src test --glob '!comenzi executate agent.md'
+```
+
+5. Exit 0. Targeted UI assertions, production imports/exports, historical-document references and configuration audit; no edits.
+
+```sh
+sed -n '345,585p' test/ui.test.mjs && cat .gitignore && cat .github/workflows/ci.yml && cat codex-project.example.toml
+```
+
+6. Exit 0. Verified shared-module callers and duplicate filter rationale; all small modules reachable; identified metadata-only candidate for root review.
+
+```sh
+sed -n '115,217p' src/codex-app-server.mjs && sed -n '450,495p' src/codex-control.mjs && rg -n 'CODEX_CONTROL_TOOL_POLICY_VERIFIED|REPOSITORY_READ_LIMITS|matchesResumePickerThread|resumeSessionMetadata|sanitizeSessionTitle|watchCodexChild|closeCodexChild|resumeLabel|connection\(' src test --glob '*.mjs'
+```
+
+Observations: all production modules reachable; small shared security helpers have multiple consumers. UI device cards duplicate an eight-session preview already shown in selected-device inventory/Resume. Successful connection path calls controls twice through connection and render. Suggested guarded simplifications sent to primary; no source change or test run yet. Some broad audit outputs were truncated; subsequent targeted reads confirmed relevant call sites. A search over explicit *.md also included the operational journal despite its glob exclusion; no journal content was copied here.
+
+
+## Approved UI batch and verification
+
+Primary agent approved only src/ui.mjs, test/ui.test.mjs and this ledger. Existing source/test changes were retained when the primary agent requested continuation.
+
+7. Exit 0. Approved UI batch: removed duplicate eight-session previews from device summaries; preserved count/status/details/Resume; successful connection no longer performs controls before immediate render. Extended existing session metadata regression.
+
+```sh
+apply_patch (src/ui.mjs; test/ui.test.mjs)
+```
+
+8. Exit 0. 22 registered UI tests PASS (52.407 ms); syntax/whitespace PASS. Production net zero physical lines: the useful disconnect/render explanation and multiline branch offset removed duplicate preview. No measured CPU/RSS performance claim.
+
+```sh
+node test/ui.test.mjs && node --check src/ui.mjs && git diff --check -- src/ui.mjs test/ui.test.mjs && git diff --stat -- src/ui.mjs test/ui.test.mjs
+```
+
+9. Exit 1. Exit 1: sandbox reported spawnSync git EPERM during byte measurement. No source changed; 22 UI tests had already passed. Raw stack output withheld because it contains local paths.
+
+```sh
+node --input-type=module <<'JS'
+import fs from 'node:fs';
+import {execFileSync} from 'node:child_process';
+const before = execFileSync('git', ['show', 'HEAD:src/ui.mjs']);
+const after = fs.readFileSync('src/ui.mjs');
+console.log(JSON.stringify({beforeBytes:before.length,afterBytes:after.length,bytesRemoved:before.length-after.length,beforeLines:before.toString().split('\n').length-1,afterLines:after.toString().split('\n').length-1}));
+JS
+```
+
+10. Exit 1. Patch parser rejected combined delete/add on same path; ledger file remained unchanged. Will append instead.
+
+```sh
+apply_patch (.local-run/opt-ui-ledger.md)
+```
+
+11. Exit 0. 308 21531 .local-run/opt-ui-baseline.mjs
+  308 21347 src/ui.mjs
+  616 42878 total
+
+```sh
+git show HEAD:src/ui.mjs > .local-run/opt-ui-baseline.mjs && wc -lc .local-run/opt-ui-baseline.mjs src/ui.mjs
+```
+
+Final result: 22/22 registered UI cases PASS (52.407 ms), syntax and whitespace PASS. These are VM/DOM simulations, not visual browser checks. Device cards retain count/inventory status; duplicate previews were removed because full metadata is in selectable Codex sessions and Resume. Both connection success callers render immediately; disconnect still updates controls and sessions immediately. Existing session regression extended with three assertions. Source src/ui.mjs: 308 lines before/after; 21,531 to 21,347 bytes (-184). No named functions removed; one duplicate map callback removed. No measured CPU, RSS or startup claim. No HTML/CSS changes and no further source edits after this passing run. Ledger update performed with apply_patch, preserving the preceding audit entries.
+
+
+## Independent review of primary-agent pagination batch
+
+Read-only review requested after UI completion; no source/test edits and no repeated tests were performed.
+
+12. Exit 0. Independent read-only review of root shared pagination and removed constant/dead branch diff.
+
+```sh
+git diff -- src/codex-control.mjs src/codex-app-server.mjs src/codex-session-metadata.mjs test/codex-control.test.mjs
+```
+
+13. Exit 0. Verified caller limit/workspace validation, fixed policy/version safeguards, and existing inventory/protocol regressions.
+
+```sh
+sed -n '1,115p' src/codex-app-server.mjs && sed -n '1,105p' src/codex-control.mjs && sed -n '260,295p' test/codex-control.test.mjs && cat test/codex-session-metadata.test.mjs && rg -n 'pagination|cursor|unordered|limit|malformed|partial|thread/list|listResumeSessions' test/app-server.test.mjs test/codex-control.test.mjs test/codex-session-metadata.test.mjs
+```
+
+Review result: no blocking finding. Shared scan genuinely removes duplicated filtering/pagination/deduplication from two consumers while retaining DB-only requests, source/workspace/archive filtering, partial classification for invalid eligible rows, cycle/8-page/100-row/4096-cursor bounds and newest duplicate handling. Existing inventory caller validates limit and returns early at zero; controller passes fixed default40. Output remains capped40. Plain inventory now sorts oversized unordered pages before the cap (intentional and covered by a new inventory regression); transient Map can contain at most139 rows, as previously possible in controller, so no memory reduction is claimed. Controller still adds local/native Busy eligibility and retains its previous available status for omitted invalid rows. Constant true marker/false branch and repeated post-array TOML array test have no runtime protection effect; actual policy/version checks and their behavioral assertions remain. No source changes proposed by this reviewer. This review and its actual commands were appended with apply_patch before root journal centralization.
+
+
+### Verificarea publicării și închidere precommit
+
+Auditul anterior centralizării:12commituri/190bloburi/58fișiere,0constatări de secrete și0căi private urmărite. Au rămas numai excepțiile punctuale pentru comanda regex istorică deja revizuită, nu date personale. GitHub leverage50x/agents verificatPRIVATE/ADMIN; origin corect și remote stage2b-local-control la HEADbaseline. Jurnalul istoric rămâne prefix identic cu backupul ignorat.
+
+Acest adaos este generat prin apply_patch .local-run/opt-finalize-journal.mjs și node .local-run/opt-finalize-journal.mjs, înainte de ultimul commit. Helperul .local-run/opt-final-metrics.mjs va înscrie măsurătorile finale pentru surse/teste/documentație/jurnal/configurații în raport, separat. Pașii de închidere încă planificați la înghețarea jurnalului: auditul ultimei versiuni,git diff --check,stagingexplicit al celor15fișiere,git diff --cached --check/listă/stat,git commit -m "Simplify session inventory and local runtime",git push origin stage2b-local-control,verificarea GitHubActions pentru SHA-ul publicat și confirmarea stării curate/aheadbehind0/main+taguri neschimbate. Rezultatele acestor pași nu sunt inventate anticipat; vor fi raportate operatorului după executare. Nu se modifică jurnalul după commit.

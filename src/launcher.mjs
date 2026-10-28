@@ -344,28 +344,23 @@ export function createLauncher({ root = DEFAULT_ROOT, env = process.env, log = c
         }
         state.host = config.host; state.port = config.port; state.deviceId = config.deviceId;
         event('start-requested');
-        if (!owned(state.hub, 'hub')) {
-          if (await portOpen(config.host, config.port)) {
-            throw safeError('Port ' + config.port + ' is occupied by an unmanaged process. It was not killed or adopted.');
+        let ready;
+        for (const role of ['hub', 'agent']) {
+          if (!owned(state[role], role)) {
+            if (role === 'hub' && await portOpen(config.host, config.port)) {
+              throw safeError('Port ' + config.port + ' is occupied by an unmanaged process. It was not killed or adopted.');
+            }
+            if (role === 'agent' && ready.devices.some(d => d.id === config.deviceId && d.online === true)) {
+              throw safeError('The local agent is already reporting outside this launcher. It was not adopted or duplicated.');
+            }
+            state[role] = await spawnOwned(role, config[role + 'Env']);
+            started.push(role);
+            atomicJSON(stateFile, state);
+            event(role + '-started', role, state[role].pid);
           }
-          state.hub = await spawnOwned('hub', config.hubEnv);
-          started.push('hub');
-          atomicJSON(stateFile, state);
-          event('hub-started', 'hub', state.hub.pid);
+          ready = await waitFor(config, state, role === 'agent');
+          event(role + '-ready');
         }
-        const ready = await waitFor(config, state, false);
-        event('hub-ready');
-        if (!owned(state.agent, 'agent')) {
-          if (ready.devices.some(d => d.id === config.deviceId && d.online === true)) {
-            throw safeError('The local agent is already reporting outside this launcher. It was not adopted or duplicated.');
-          }
-          state.agent = await spawnOwned('agent', config.agentEnv);
-          started.push('agent');
-          atomicJSON(stateFile, state);
-          event('agent-started', 'agent', state.agent.pid);
-        }
-        await waitFor(config, state, true);
-        event('agent-ready');
         event(started.length ? 'start-completed' : 'already-running');
         log(started.length ? 'Hub and local read-only agent are ready at ' + config.origin + '.' : 'Hub and local read-only agent are already running at ' + config.origin + '.');
         return { url: config.origin, hubPid: state.hub.pid, agentPid: state.agent.pid };

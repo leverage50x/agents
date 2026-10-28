@@ -46,3 +46,41 @@ export function resumeSessionMetadata(thread, workspace) {
 export function compareSessionActivity(a, b) {
   return b.modified.localeCompare(a.modified) || a.id.localeCompare(b.id);
 }
+
+// Both metadata clients use the same bounded, DB-only resume picker. The
+// controller may decorate sanitized rows with eligibility; raw rows never leave
+// this scan. Sorting before the final cap also handles an unordered server page.
+export async function listResumeSessions(request, { workspace, limit = 40, decorate = metadata => metadata } = {}) {
+  const found = new Map();
+  const cursors = new Set();
+  let cursor;
+  let truncated = false;
+  let partial = false;
+  for (let page = 0; page < 8; page++) {
+    let result = await request('thread/list', { useStateDbOnly: true, limit: limit - found.size,
+      sortKey: 'updated_at', sortDirection: 'desc', archived: false, sourceKinds: RESUME_SOURCE_KINDS,
+      ...(workspace ? { cwd: workspace } : {}), ...(cursor ? { cursor } : {}) });
+    if (!Array.isArray(result?.data) || result.data.length > 100 ||
+        (result.nextCursor != null && (typeof result.nextCursor !== 'string' || result.nextCursor.length > 4096))) {
+      throw Object.assign(new Error('Invalid session metadata page.'), { code: 'codex-protocol-error' });
+    }
+    for (const thread of result.data) {
+      const metadata = resumeSessionMetadata(thread, workspace);
+      if (!metadata) {
+        // Excluded rows are normal; malformed eligible rows make inventory partial.
+        if (matchesResumePickerThread(thread, workspace)) partial = true;
+        continue;
+      }
+      if (found.has(metadata.id) && found.get(metadata.id).modified >= metadata.modified) continue;
+      found.set(metadata.id, decorate(metadata, thread));
+    }
+    cursor = result.nextCursor;
+    result = null;
+    if (found.size > limit) truncated = true;
+    if (!cursor) break;
+    if (found.size >= limit || cursors.has(cursor) || page === 7) { truncated = true; break; }
+    cursors.add(cursor);
+  }
+  return { status: partial ? 'partial' : 'available', source: 'app-server', truncated,
+    sessions: [...found.values()].sort(compareSessionActivity).slice(0, limit) };
+}

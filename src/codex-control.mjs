@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { StringDecoder } from 'node:string_decoder';
 import { performance } from 'node:perf_hooks';
 import { watchCodexChild, closeCodexChild } from './codex-child.mjs';
-import { RESUME_SOURCE_KINDS, resumeSessionMetadata, compareSessionActivity } from './codex-session-metadata.mjs';
+import { listResumeSessions } from './codex-session-metadata.mjs';
 import { createRepositoryReader } from './repository-reader.mjs';
 import { REPOSITORY_TOOLS, REPOSITORY_INSTRUCTIONS, validRepositoryArguments, parseRepositoryRequest } from './repository-tools.mjs';
 
@@ -14,8 +14,6 @@ import { REPOSITORY_TOOLS, REPOSITORY_INSTRUCTIONS, validRepositoryArguments, pa
 // provider: only our bounded repository tools and denied request_user_input.
 // Cold Resume restores dynamic tools; older threads use a bounded data protocol.
 // This proof is version-bound and cannot be changed by dashboard input or env.
-export const CODEX_CONTROL_TOOL_POLICY_VERIFIED = true;
-
 const UUID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const METHODS = new Set(['initialize', 'initialized', 'account/read', 'thread/list',
   'config/read', 'skills/list', 'thread/start', 'thread/resume', 'turn/start']);
@@ -119,7 +117,7 @@ function lease(workspace, key) {
 
 function toml(value) {
   if (Array.isArray(value)) return '[' + value.map(toml).join(',') + ']';
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
+  if (value && typeof value === 'object') {
     return '{' + Object.entries(value).map(([key, item]) => JSON.stringify(key) + '=' + toml(item)).join(',') + '}';
   }
   return JSON.stringify(value);
@@ -457,37 +455,13 @@ function createControlSession({ workspace, home, command = 'codex', spawnImpl = 
   const listSessions = async () => {
     try {
       await ensure(); assertWorkspace();
-      const found = new Map();
-      const cursors = new Set();
-      let cursor;
-      let truncated = false;
-      for (let page = 0; page < 8; page++) {
-        let result = await request('thread/list', { cwd: canonical, useStateDbOnly: true, limit: 40 - found.size,
-          archived: false, sourceKinds: RESUME_SOURCE_KINDS, sortKey: 'updated_at', sortDirection: 'desc',
-          ...(cursor ? { cursor } : {}) });
-        if (!Array.isArray(result?.data) || result.data.length > 100 ||
-            (result.nextCursor != null && (typeof result.nextCursor !== 'string' || result.nextCursor.length > 4096))) {
-          throw new ControlError('codex-protocol-error');
-        }
-        for (const thread of result.data) {
-          const metadata = resumeSessionMetadata(thread, canonical);
-          if (!metadata) continue;
-          const { id, modified } = metadata;
-          if (found.has(id) && found.get(id).modified >= modified) continue;
-          const busy = active?.threadId === id || thread.status?.type === 'active' || processLocks.has(canonical + ':' + id);
-          found.set(id, { ...metadata, eligibility: busy ? 'busy' : 'discovered' });
-        }
-        cursor = result.nextCursor;
-        result = null;
-        if (found.size > 40) truncated = true;
-        if (!cursor) break;
-        if (found.size >= 40 || cursors.has(cursor) || page === 7) { truncated = true; break; }
-        cursors.add(cursor);
-      }
-      const sessions = [...found.values()].sort(compareSessionActivity).slice(0, 40);
-      return { status: 'available', source: 'app-server', truncated, sessions };
+      const inventory = await listResumeSessions(request, { workspace: canonical,
+        decorate: (metadata, thread) => ({ ...metadata,
+          eligibility: active?.threadId === metadata.id || thread.status?.type === 'active' ||
+            processLocks.has(canonical + ':' + metadata.id) ? 'busy' : 'discovered' }) });
+      return { ...inventory, status: 'available' };
     } catch (error) {
-      fail(error instanceof ControlError ? error.code : 'codex-unavailable');
+      fail(error instanceof ControlError || error?.code === 'codex-protocol-error' ? error.code : 'codex-unavailable');
       return { status: 'unavailable', source: 'app-server', truncated: false, sessions: [] };
     }
   };
@@ -497,7 +471,6 @@ function createControlSession({ workspace, home, command = 'codex', spawnImpl = 
         (input.mode === 'resume' ? !UUID.test(input.threadId) : input.threadId != null)) {
       return { status: 'failed', output: '', errorCode: 'invalid-local-request' };
     }
-    if (!CODEX_CONTROL_TOOL_POLICY_VERIFIED) return { status: 'failed', output: '', errorCode: 'tool-policy-unverified' };
     if (active || closed) return { status: 'failed', output: '', errorCode: active ? 'codex-busy' : 'codex-unavailable' };
     const releases = [];
     let timer;

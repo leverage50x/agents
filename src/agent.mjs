@@ -12,15 +12,19 @@ import { localHubUrl, validateToken, workspaceReady } from './local-config.mjs';
 // Count serialized UTF-8 bytes, including JSON escapes, without splitting a
 // Unicode code point. This is also stricter than the Hub's character limits.
 function boundedText(value, budget) {
-  const pieces = [];
-  let bytes = 0;
-  for (const character of value.toWellFormed()) {
-    const cost = Buffer.byteLength(JSON.stringify(character)) - 2;
+  value = value.toWellFormed();
+  let bytes = 0, end = 0;
+  for (const character of value) {
+    const code = character.codePointAt(0);
+    // Quote, backslash and JSON's short control escapes take two bytes;
+    // other controls use six-byte Unicode escapes, then ordinary UTF-8 applies.
+    const cost = code === 34 || code === 92 || code === 8 || code === 9 || code === 10 || code === 12 || code === 13 ? 2
+      : code < 32 ? 6 : code < 128 ? 1 : code < 2048 ? 2 : code < 65536 ? 3 : 4;
     if (bytes + cost > budget) break;
     bytes += cost;
-    pieces.push(character);
+    end += character.length;
   }
-  return pieces.join('');
+  return value.slice(0, end);
 }
 
 export function createAgent({ env = process.env, fetchImpl = fetch, controlFactory = createCodexControl,
@@ -100,16 +104,16 @@ export function createAgent({ env = process.env, fetchImpl = fetch, controlFacto
 
   async function request(method, endpoint, data, signal) {
     const timeout = AbortSignal.timeout(14000);
-    let response;
-    try { response = await fetchImpl(url + endpoint, {
-      method, headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-      ...(data === undefined ? {} : { body: JSON.stringify(data) }), redirect: 'error',
-      signal: signal ? AbortSignal.any([signal, timeout]) : timeout
-    }); } catch (error) { if (activeRun) failClosed(); throw error; }
-    if (response.status === 401 || response.status === 403 || (!response.ok && activeRun)) failClosed();
-    if (!response.ok) throw new Error('Local hub request failed (HTTP ' + response.status + ').');
-    try { return await response.json(); }
-    catch (error) { if (activeRun) failClosed(); throw error; }
+    try {
+      const response = await fetchImpl(url + endpoint, {
+        method, headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+        ...(data === undefined ? {} : { body: JSON.stringify(data) }), redirect: 'error',
+        signal: signal ? AbortSignal.any([signal, timeout]) : timeout
+      });
+      if (response.status === 401 || response.status === 403) failClosed();
+      if (!response.ok) throw new Error('Local hub request failed (HTTP ' + response.status + ').');
+      return await response.json();
+    } catch (error) { if (activeRun) failClosed(); throw error; }
   }
 
   async function executeReadonly(job, signal) {

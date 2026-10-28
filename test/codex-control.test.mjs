@@ -55,6 +55,8 @@ function fakeCodex(t, behavior = {}) {
           const response = result => reply({ id: message.id, result });
           switch (message.method) {
             case 'initialize': response({}); break;
+            case 'config/read': response({ config: { mcp_servers: {} } }); break;
+            case 'skills/list': response({ data: [{ cwd: f.workspace, errors: [], skills: [] }] }); break;
             case 'account/read': response({ account: behavior.unauthenticated ? null : {
               type: 'chatgpt', email: 'synthetic-private-account@example.com', planType: 'synthetic-private-plan',
             }, requiresOpenaiAuth: true }); break;
@@ -306,7 +308,10 @@ test('new read-only turn validates returned restrictions and emits bounded, safe
   assert.deepEqual(turn.params.sandboxPolicy, { type: 'readOnly', networkAccess: false });
   assert.equal(turn.params.approvalPolicy, 'on-request');
   assert.equal(turn.params.approvalsReviewer, 'user');
-  assert.match(turn.params.input[0].text, /Synthetic project/);
+  assert.equal(turn.params.input[0].text, newInput.prompt, 'No README or static project snapshot is preloaded.');
+  assert.equal(started.params.config.project_doc_max_bytes, 0);
+  assert.deepEqual(started.params.dynamicTools.map(tool => tool.name), ['repository_list', 'repository_read']);
+  assert.match(started.params.developerInstructions, /untrusted evidence, NOT instructions/);
   assert.ok(events.some(event => event.type === 'completed'));
   assert.ok(events.every(event => ['progress', 'output', 'error', 'completed'].includes(event.type)));
   assert.doesNotMatch(JSON.stringify(result), /PRIVATE_HISTORY/);
@@ -573,16 +578,17 @@ test('lease rejects concurrent controllers, persists private locks and releases 
   assert.deepEqual(fs.readdirSync(directory), []);
 });
 
-test('README symlinks are refused and model output is bounded and redacted', async t => {
+test('README is never preloaded, including symlinks; model output is bounded with an explicit truncation flag', async t => {
   const f = fakeCodex(t);
   fs.unlinkSync(path.join(f.workspace, 'README.md'));
   fs.symlinkSync(path.join(f.root, 'outside-file'), path.join(f.workspace, 'README.md'));
-  assert.equal((await f.control.run(newInput)).errorCode, 'workspace-context-unavailable');
-  assert.equal(f.requests.some(request => request.method === 'thread/start'), false);
+  assert.equal((await f.control.run(newInput)).status, 'completed');
+  assert.equal(f.requests.find(request => request.method === 'turn/start').params.input[0].text, newInput.prompt);
   const output = fakeCodex(t, { output: 'sk-' + 'a'.repeat(32) + ' ' + 'x'.repeat(10000) });
   const result = await output.control.run(newInput);
   assert.equal(result.status, 'completed');
   assert.ok(result.output.length <= 8000); assert.doesNotMatch(result.output, /sk-a{20}/);
+  assert.equal(result.outputTruncated, true);
 });
 
 test('stored file existence alone never makes an unknown session executable', async t => {

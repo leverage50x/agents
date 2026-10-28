@@ -10361,3 +10361,1124 @@ node --input-type=module -e 'import {spawnSync} from "node:child_process";const 
 6. apply_patch a creat .local-run/cleanup-final-command-data.json și .local-run/cleanup-freeze-journal.mjs, iar `node .local-run/cleanup-freeze-journal.mjs` înscrie această închidere. Helperii și rapoartele private sunt ignorate. Prefixul preexistent a rămas identic.
 
 Pașii următori sunt **planificați la momentul închiderii**, nu rezultate pretinse: `node .local-run/cleanup-finalize-docs.mjs --stats-only`, audit final/diffcheck, staging numai a raportului/jurnalului actualizate, `git commit -m 'Fix Resume lifecycle and simplify Stage 2B'`, `git push origin stage2b-local-control`, confirmarea remote/PRIVATE/CI/protectedrefs și workingtree curat. Commit/push folosesc aprobările platformei și nu ating main/taguri. Dacă aceste operațiuni eșuează, rezultatul real va fi raportat operatorului; nu se inventează PASS înainte de execuție. Nu se mai adaugă completări în fișiere după commitul final, conform cererii explicite. Hash-ul, CI și starea Git finale sunt comunicate în răspuns, în afara repository-ului.
+
+
+## 2026-10-27 — ETAPA 2C: analiză reală READ-ONLY la cerere
+
+Autorizare: implementare/testare locală și publicarea exclusivă a branch-ului stage2b-local-control, fără main/taguri/force-push, fără scriere prin model sau dispozitive suplimentare. Workspace-ul inițial era curat și sincronizat, HEAD c07dfb1f6081a167d9c9eb614002176bf5f65af1. Nu au fost eliminate modificări preexistente. Identitatea locală leverage50x corespunde autorului autorizat al HEAD; emailul nu este copiat în jurnal și configurația globală nu este modificată.
+
+Cronologia coordonării: verificare Git/politică și documentație oficială → baseline → dezvoltarea în paralel a cititorului, protocolului și UI → integrare și remedierea problemelor ambientale native → probe sintetice și reale → reîncărcarea aplicației proprii → verificări finale, documentație și audit. Subagenții au avut fișiere separate și au raportat agentului principal. Listele de mai jos păstrează ordinea comenzilor fiecărui agent; operațiunile paralele nu primesc timestampuri inventate. Segmentele identificatoare ale căilor locale sunt anonimizate, nu se înregistrează stdout brut de configurație, secrete sau conversații.
+
+Skill OpenAI Docs aplicat: citit SKILL.md instalat; căutare oficială „Codex app server dynamic tools tool call response”; deschis developers.openai.com/codex/app-server (redirect oficial learn.chatgpt.com/docs/app-server), apoi find pentru dynamicTools, item/tool/call și sandboxPolicy. Schema experimentală a CLI-ului0.163.0 instalat a fost generată local. Nu s-au invocat servicii MCP.
+
+### Agent principal — comenzi și modificări în ordinea executării
+
+Fiecare comandă shell are directorul de lucru <workspace>. Codurile de ieșire de mai jos sunt rezultatele efectiv observate, inclusiv după poll-ul sesiunilor de execuție. Operațiunile apply_patch notează fișierele și modificarea realizată, fără a reproduce inutil sursele.
+
+
+1. Comandă executată, exit 0:
+
+```text
+git status --short --branch && git log -1 --format='%H %s' && git remote -v
+```
+
+2. Comandă executată, exit 0:
+
+```text
+cat AGENTS.md && cat package.json && rg --files src test .github && tail -60 'comenzi executate agent.md'
+```
+
+3. Comandă executată, exit 0:
+
+```text
+cat /home/<operator>/.codex/skills/.system/openai-docs/SKILL.md
+```
+
+4. Comandă executată, exit 0:
+
+```text
+sed -n '1,260p' src/codex-control.mjs
+```
+
+5. Comandă executată, exit 0:
+
+```text
+sed -n '261,580p' src/codex-control.mjs
+```
+
+6. Comandă executată, exit 0:
+
+```text
+sed -n '581,960p' src/codex-control.mjs
+```
+
+7. Comandă executată, exit 0:
+
+```text
+cat src/ui.html && cat src/ui.mjs && cat src/ui.css
+```
+
+8. Comandă executată, exit 0:
+
+```text
+cat src/agent.mjs && rg -n 'codex|output|progress|control' src/hub.mjs
+```
+
+9. Comandă executată, exit 0:
+
+```text
+codex --version && codex app-server generate-json-schema --help && ./leverage status
+```
+
+10. Comandă executată, exit 0:
+
+```text
+sed -n '350,540p' src/codex-control.mjs
+```
+
+11. Comandă executată, exit 0:
+
+```text
+sed -n '540,780p' src/codex-control.mjs
+```
+
+12. Comandă executată, exit 0:
+
+```text
+cat src/agent.mjs
+```
+
+13. Comandă executată, exit 0:
+
+```text
+rg -n '8000|32000|output|progress|errorCode|control' src/ui.mjs src/hub.mjs src/ui.html && cat .github/workflows/ci.yml && cat .gitignore
+```
+
+14. Comandă executată, exit 0:
+
+```text
+rg --files .local-run | rg 'schema|source|cleanup-real|provider|readonly|control.*probe|policy' | head -80
+```
+
+15. Comandă executată, exit 1:
+
+```text
+cat .local-run/stage2c-protocol-schema/v2/DynamicToolSpec.json .local-run/stage2c-protocol-schema/v2/DynamicToolCallParams.json .local-run/stage2c-protocol-schema/v2/DynamicToolResponse.json
+```
+
+16. Comandă executată, exit 0:
+
+```text
+sed -n '1,250p' test/codex-control.test.mjs
+```
+
+17. Comandă executată, exit 0:
+
+```text
+sed -n '1,220p' .local-run/cleanup-real-integration.mjs
+```
+
+18. Comandă executată, exit 0:
+
+```text
+cat src/local-config.mjs && sed -n '1,150p' src/hub.mjs && sed -n '195,280p' src/hub.mjs
+```
+
+19. Comandă executată, exit 0:
+
+```text
+sed -n '1,115p' .local-run/cleanup-real-integration.mjs
+```
+
+20. Comandă executată, exit 0:
+
+```text
+rg --files .local-run | rg '(policy|provider|source|tool)' | head -60
+```
+
+21. Comandă executată, exit 0:
+
+```text
+cat test-support/fixtures.mjs && sed -n '1,180p' test/codex-lifecycle.test.mjs
+```
+
+22. Comandă executată, exit 0:
+
+```text
+sed -n '260,560p' test/codex-control.test.mjs
+```
+
+23. Comandă executată, exit 0:
+
+```text
+sed -n '1,180p' test/agent.test.mjs && sed -n '1,120p' test/local-control.test.mjs
+```
+
+24. Comandă executată, exit 0:
+
+```text
+sed -n '1,240p' .local-run/verify-codex-policy.mjs
+```
+
+25. Comandă executată, exit 0:
+
+```text
+cat .local-run/stage2c-protocol-schema/v2/ThreadResumeParams.json | head -80 && rg -n 'dynamicTool|DynamicTool' .local-run/stage2c-protocol-schema/v2/ThreadStartParams.json .local-run/stage2c-protocol-schema/ServerRequest.json | head -30
+```
+
+26. Comandă executată, exit 0:
+
+```text
+node --input-type=module -e 'import fs from "node:fs";for(const [p,keys]of [[".local-run/stage2c-protocol-schema/v2/ThreadStartParams.json",["DynamicToolSpec"]],[".local-run/stage2c-protocol-schema/ServerRequest.json",["DynamicToolCallParams"]],[".local-run/stage2c-protocol-schema/v2/ThreadResumeParams.json",[]]]){const v=JSON.parse(fs.readFileSync(p));console.log(p);for(const k of keys)console.log(k,JSON.stringify(v.definitions[k]));if(!keys.length)console.log(Object.keys(v.properties))}'
+```
+
+27. {
+  "operation": "apply_patch",
+  "files": [
+    "src/repository-tools.mjs"
+  ],
+  "result": "created tool schemas, untrusted-data instructions and bounded compatibility parser"
+}
+
+28. {
+  "operation": "apply_patch",
+  "files": [
+    "src/codex-control.mjs"
+  ],
+  "result": "dynamic read broker, legacy bounded followups, snapshot removed, lifecycle maintained"
+}
+
+29. {
+  "operation": "apply_patch",
+  "files": [
+    "src/agent.mjs",
+    "src/hub.mjs"
+  ],
+  "result": "preserve explicit output truncation through transport byte budget and validated Hub boolean"
+}
+
+30. {
+  "operation": "apply_patch",
+  "files": [
+    "test/codex-control.test.mjs"
+  ],
+  "result": "regression removed auto snapshot, safe tools/policy explicit, truncation"
+}
+
+31. {
+  "operation": "apply_patch",
+  "files": [
+    "test/local-control.test.mjs"
+  ],
+  "result": "Hub validates/propagates/replaces truncation metadata"
+}
+
+32. Comandă executată, exit 0:
+
+```text
+rg -n '8000|unicode|Unicode|budget|payload|partial' test/local-control.test.mjs
+```
+
+33. Comandă executată, exit 0:
+
+```text
+sed -n '290,455p' test/local-control.test.mjs && sed -n '1,220p' test/repository-control.test.mjs
+```
+
+34. Comandă executată, exit 0:
+
+```text
+cat src/repository-reader.mjs
+```
+
+35. Comandă executată, exit 0, aprobare platformă respectată:
+
+```text
+node --check src/codex-control.mjs && node --test test/codex-control.test.mjs test/codex-lifecycle.test.mjs test/local-control.test.mjs test/repository-reader.test.mjs test/repository-control.test.mjs > .local-run/stage2c-target-tests.tap 2>&1
+```
+
+36. Comandă executată, exit 0:
+
+```text
+tail -30 .local-run/stage2c-target-tests.tap
+```
+
+37. {
+  "operation": "apply_patch",
+  "files": [
+    ".local-run/stage2c-real-integration.mjs"
+  ],
+  "result": "created isolated real Hub-agent-Codex integration helper; not yet executed"
+}
+
+38. Comandă executată, exit 0:
+
+```text
+rg --files .local-run | rg '(rust|config.*schema|source.*\.rs|\.rs$|stage2c.*probe)' | head -55 && codex app-server --help
+```
+
+39. Comandă executată, exit 0:
+
+```text
+git diff --stat && node --check .local-run/stage2c-real-integration.mjs && rg -n 'user_instructions|project_doc_max_bytes|mcp_servers' .local-run/execution-official-core-codex.rs | head -40
+```
+
+40. {
+  "operation": "apply_patch",
+  "files": [
+    "test/local-control.test.mjs"
+  ],
+  "result": "UTF-8 output clipping regression through agent and Hub"
+}
+
+41. Comandă executată, exit 0:
+
+```text
+rg -n "case 'account/read'|case 'thread/start'|method === 'account/read'" test test-support
+```
+
+42. {
+  "operation": "apply_patch",
+  "files": [
+    "src/codex-control.mjs",
+    "test/codex-control.test.mjs",
+    "test/codex-lifecycle.test.mjs"
+  ],
+  "result": "preflight metadata-only effective config gate prevents existing enabled MCP/ambient instruction files; no native integration started"
+}
+
+43. {
+  "operation": "apply_patch",
+  "files": [
+    "src/codex-control.mjs"
+  ],
+  "result": "scope raw effective config to boolean check; discard metadata reply before turn"
+}
+
+44. Comandă executată, exit 0, aprobare platformă respectată:
+
+```text
+codex login status && ./leverage status
+```
+
+45. Comandă executată, exit 0:
+
+```text
+node --input-type=module -e 'import fs from "node:fs";import os from "node:os";import path from "node:path";const home=process.env.LEVERAGE_CODEX_HOME||process.env.CODEX_HOME||path.join(os.homedir(),".codex");const result={};for(const name of ["AGENTS.md","AGENTS.override.md"]){try{fs.lstatSync(path.join(home,name));result[name]=true;}catch(e){result[name]=e.code==="ENOENT"?false:"unavailable";}}console.log(JSON.stringify({ambientInstructionFilesPresent:result,contentsRead:false}));'
+```
+
+46. {
+  "operation": "apply_patch",
+  "files": [
+    "src/codex-control.mjs"
+  ],
+  "result": "gate ambient instruction file presence; block provider auth-command/compactprompt integrations; runtime notify disabled"
+}
+
+47. Comandă executată, exit 0, aprobare platformă respectată:
+
+```text
+npm test > .local-run/stage2c-before-real-tests.tap 2>&1
+```
+
+48. Comandă executată, exit 0:
+
+```text
+tail -15 .local-run/stage2c-before-real-tests.tap && git status --short --branch
+```
+
+49. {
+  "operation": "apply_patch",
+  "files": [
+    "ETAPA-2C-READONLY.md"
+  ],
+  "result": "draft Stage2C mechanism, actual restrictions, limits and known native gates; real tests explicitly pending"
+}
+
+50. Comandă executată, exit 0:
+
+```text
+node --input-type=module -e 'import fs from "node:fs";for(const file of ["SkillsListParams","SkillsListResponse"]){const p=".local-run/stage2c-protocol-schema/v2/"+file+".json",v=JSON.parse(fs.readFileSync(p));console.log(file,JSON.stringify(v.properties));if(v.definitions)for(const [k,o]of Object.entries(v.definitions))if(/SkillMetadata|SkillsListEntry|SkillError/.test(k))console.log(k,JSON.stringify(o.properties));}'
+```
+
+51. {
+  "operation": "apply_patch",
+  "files": [
+    "src/codex-control.mjs",
+    "test/codex-control.test.mjs",
+    "test/codex-lifecycle.test.mjs"
+  ],
+  "result": "enumerate metadata then per-thread disable every skill including system; preserve disabled entries; native runtime-only proof passed"
+}
+
+52. Comandă executată, exit 0, aprobare platformă respectată:
+
+```text
+node .local-run/stage2c-real-integration.mjs > .local-run/stage2c-real-run.log 2>&1
+```
+
+53. Comandă executată, exit 2:
+
+```text
+cat README.md && cat ETAPA-2B-LOCAL.md && rg -n 'snapshot|README|tools disabled|unelte|no filesystem|no-execution|Stage 2B' AGENTS.md README.md ETAPA-2B-LOCAL.md SECURITY* .env.example
+```
+
+54. Comandă executată, exit 0:
+
+```text
+tail -3 .local-run/stage2c-real-run.log
+```
+
+55. {
+  "operation": "apply_patch",
+  "files": [
+    "src/codex-control.mjs",
+    "AGENTS.md",
+    "README.md",
+    "ETAPA-2B-LOCAL.md"
+  ],
+  "result": "null catalog error classification; update authorized Stage2C policy and docs preserve historic2B"
+}
+
+56. Comandă executată, exit 0:
+
+```text
+tail -4 .local-run/stage2c-real-run.log
+```
+
+57. Comandă executată, exit 0:
+
+```text
+sed -n '500,615p' src/codex-control.mjs
+```
+
+58. Comandă executată, exit 0:
+
+```text
+tail -4 .local-run/stage2c-real-run.log
+```
+
+59. {
+  "operation": "apply_patch",
+  "files": [
+    "ETAPA-2C-READONLY.md"
+  ],
+  "result": "document confirmed native ambient gates and runtime skill suppression"
+}
+
+60. Comandă executată, exit 0:
+
+```text
+node --input-type=module -e 'import fs from "node:fs";const file="src/codex-control.mjs";let text=fs.readFileSync(file,"utf8");const begin=text.indexOf("      state.turnId = null; state.turns = new Map();"),end=text.indexOf("\n      }\n      const output = snapshotOutput",begin);if(begin<0||end<begin)throw new Error("Bounded loop not found");text=text.slice(0,begin)+text.slice(begin,end).split("\n").map(line=>"  "+line).join("\n")+text.slice(end);text=text.replace("      let raw;\n","").replace("        raw = messages.at(-1)?.text", "        const raw = messages.at(-1)?.text");fs.writeFileSync(file,text);'
+```
+
+61. Comandă executată, exit 0:
+
+```text
+rg -n 'instructionSources' .local-run/stage2c-*probe.mjs .local-run/stage2c-*result.json
+```
+
+62. Comandă executată, exit 0:
+
+```text
+tail -3 .local-run/stage2c-real-run.log
+```
+
+63. {
+  "operation": "apply_patch",
+  "files": [
+    ".local-run/stage2c-app-restart.mjs"
+  ],
+  "result": "restart helper checks no queued/running jobs then only verified launcher processes; not executed yet"
+}
+
+64. Comandă executată, exit neînregistrat separat, aprobare platformă respectată:
+
+```text
+node --env-file=.local-run/hub.env .local-run/stage2c-app-restart.mjs
+```
+
+65. Comandă executată, exit 0:
+
+```text
+sed -n '1,220p' .local-run/review-publication.mjs
+```
+
+66. Comandă executată, exit 0:
+
+```text
+git diff -- src/agent.mjs src/hub.mjs src/codex-control.mjs && git diff --check
+```
+
+67. Comandă executată, exit 0:
+
+```text
+cat .local-run/stage2c-reader-ledger.md && cat .local-run/stage2c-ui-ledger.md
+```
+
+68. Comandă executată, exit 0, aprobare platformă respectată:
+
+```text
+node .local-run/review-publication.mjs stage2b-local-control > .local-run/stage2c-prejournal-audit.log 2>&1
+```
+
+69. Comandă executată, exit 0, aprobare platformă respectată:
+
+```text
+npm ci && npm test > .local-run/stage2c-final-tests.tap 2>&1
+```
+
+70. Comandă executată, exit 0, aprobare platformă respectată:
+
+```text
+node --input-type=module -e 'import fs from "node:fs";import {spawnSync} from "node:child_process";const files=[...fs.readdirSync("src").map(file=>"src/"+file),...fs.readdirSync("test").map(file=>"test/"+file),...fs.readdirSync("test-support").map(file=>"test-support/"+file)].filter(file=>file.endsWith(".mjs"));for(const file of files){const result=spawnSync(process.execPath,["--check",file],{encoding:"utf8"});if(result.status!==0)throw new Error("Syntax check failed: "+file);}console.log(JSON.stringify({syntaxFiles:files.length,passed:true}));' && git diff --check
+```
+
+71. Comandă executată, exit 0:
+
+```text
+git branch --show-current && git show-ref --heads --tags && git status --short --branch && git diff --numstat && git ls-files --others --exclude-standard
+```
+
+72. Comandă executată, exit 0, aprobare platformă respectată:
+
+```text
+gh repo view leverage50x/agents --json nameWithOwner,isPrivate,viewerPermission && git ls-remote --heads origin stage2b-local-control
+```
+
+73. Comandă executată, exit 0:
+
+```text
+node --input-type=module -e 'import fs from "node:fs";const a=JSON.parse(fs.readFileSync(".local-run/publication-audit.json"));console.log(JSON.stringify({commits:a.history.commitsScanned,blobs:a.history.blobsScanned,historyFindings:a.history.findings,privatePaths:a.history.forbiddenPaths,files:a.workingTree.filesReviewed,findings:a.workingTree.findings}));' && tail -15 .local-run/stage2c-final-tests.tap
+```
+
+74. Comandă executată, exit 0:
+
+```text
+cat src/ui.html && sed -n '270,302p' src/ui.mjs && tail -25 test/ui.test.mjs && git diff --name-only
+```
+
+75. {
+  "operation": "apply_patch",
+  "files": [
+    "ETAPA-2C-READONLY.md"
+  ],
+  "result": "record actual204 tests, native-synthetic vsreal7file evidence, timings/denials/lifecycle/timeouts, reload and limitations"
+}
+
+76. Comandă executată, exit 0:
+
+```text
+cat .local-run/stage2c-protocol-ledger.md
+```
+
+77. Comandă executată, exit 0:
+
+```text
+cat .local-run/stage2c-instructions-ledger.md
+```
+
+78. Comandă executată, exit 0:
+
+```text
+sed -n '1,120p' src/ui.mjs && git diff --check && git check-ignore .env .local-run/stage2c-real-result.json .codex/config.toml
+```
+
+79. Comandă executată, exit 0, aprobare platformă respectată:
+
+```text
+npm test > .local-run/stage2c-final-verified.tap 2>&1
+```
+
+80. Comandă executată, exit 0, aprobare platformă respectată:
+
+```text
+tail -15 .local-run/stage2c-final-verified.tap && ./leverage status
+```
+
+81. {
+  "operation": "apply_patch",
+  "files": [
+    "ETAPA-2C-READONLY.md"
+  ],
+  "result": "last verified204/204 after approval wording, timing7.486s"
+}
+
+82. Comandă executată, exit 0, aprobare platformă respectată:
+
+```text
+node --input-type=module -e 'import {spawnSync} from "node:child_process";const get=args=>spawnSync("git",args,{encoding:"utf8"});const name=get(["config","--local","--get","user.name"]),email=get(["config","--local","--get","user.email"]),head=get(["show","-s","--format=%an%n%ae","HEAD"]).stdout.trim().split("\n");const ok=name.status===0&&email.status===0&&!!email.stdout.trim()&&name.stdout.trim()===head[0]&&email.stdout.trim()===head[1];console.log(JSON.stringify({author:name.stdout.trim(),emailConfigured:email.status===0,identityMatchesAuthorizedHead:ok,globalConfigurationChanged:false}));if(!ok)process.exitCode=1;'
+```
+
+83. {
+  "operation": "recovered command records",
+  "note": "Comenzi reale citite în fazele de dezvoltare de mai sus; nu se inventează un timestamp pentru operațiunile paralele.",
+  "commands": [
+    {
+      "command": "rg -n 'deepEqual\\([^\\n]*(result|run)|outputTruncated|snapshot|workspace-context' test/codex-control.test.mjs test/codex-lifecycle.test.mjs test/local-control.test.mjs && sed -n '165,205p' src/ui.mjs",
+      "exit": 0
+    },
+    {
+      "command": "sed -n '563,600p' test/codex-control.test.mjs && sed -n '145,195p' src/agent.mjs && git diff --check",
+      "exit": 0
+    },
+    {
+      "command": "sed -n '120,260p' test/local-control.test.mjs",
+      "exit": 0
+    },
+    {
+      "command": "git diff --check && git status --short --branch",
+      "exit": 0
+    }
+  ]
+}
+
+84. {
+  "operation": "completed background service verification",
+  "session": 1248,
+  "exit": 0,
+  "result": "status/stop/start/status all0, jobs0, HTTP200, agentOnline, authenticated, inventoryavailable5; no personal Codex processes signaled"
+}
+
+
+### Subagent cititor — implementare și regresii
+
+# Stage 2C — subagent stage2c_reader
+
+Working directory for every shell command: project workspace (`/home/<operator>/leverage50xagents`; operator segment anonymized). Only `src/repository-reader.mjs`, `test/repository-reader.test.mjs` and this ignored ledger were edited. No credentials/configuration, Git mutation, network, other device, service/process stop or global setting was used.
+
+Operations in execution order; outputs below contain metadata/results only, never repository content returned by the reader.
+
+1. Executed `cat AGENTS.md && sed -n '1,240p' src/codex-control.mjs && cat .gitignore` — exit 0; inspected workspace instructions, current snapshot implementation and ignored paths. Existing READ-ONLY restrictions retained.
+2. Executed `sed -n '1,240p' test/codex-session-metadata.test.mjs && sed -n '1,120p' test/inventory.test.mjs && rg -n 'PRIVATE KEY|gh[pousr]_|api[_-]?key|password|Bearer|@|/home/' src README.md ETAPA-2B-LOCAL.md package.json .github/workflows/ci.yml` — exit 0; inspected test style and source expressions that a conservative scanner must distinguish from actual secret values.
+3. `apply_patch` created `src/repository-reader.mjs` — successful. Added bounded Linux/WSL source reader with a pinned root descriptor, anchored O_NOFOLLOW traversal, symlink/hardlink/nonregular restrictions, source/path gates, whole-file recognizable-secret/PII scan, per-file/total/request/list/line limits, metadata-only statistics and close.
+4. `apply_patch` created `test/repository-reader.test.mjs` — successful. Added 12 regression tests described below.
+5. Executed `node --test test/repository-reader.test.mjs` — exit 1, 11 passed / 1 failed. The first test's expected byte count was 45, while the actual fixture contains 46 bytes. No security/functional assertion failed.
+6. `apply_patch` corrected that test expectation to 46 bytes.
+7. Executed the following compound command — exit 1. The test subprocess under the sandbox reported only one file-level pass rather than the 12 individual tests; this was not accepted as complete evidence. The following Git read-only child invocation raised `spawnSync git EPERM` under the sandbox (despite captured status/output), so the audit was replaced with a filesystem-only known-source listing. No permissions or sandbox policy were changed.
+
+```text
+node --test test/repository-reader.test.mjs && node --input-type=module -e 'import {createRepositoryReader} from "./src/repository-reader.mjs";import {execFileSync} from "node:child_process";const paths=execFileSync("git",["ls-files","src","test","test-support","README.md","package.json","package-lock.json",".github"],{encoding:"utf8"}).trim().split("\n");for(const path of paths){const reader=createRepositoryReader({workspace:process.cwd()});const result=reader.read({path});console.log(JSON.stringify({path,ok:result.ok,code:result.error?.code,bytes:reader.stats().bytesRead}));reader.close();}'
+```
+
+8. Executed the following compound command — exit 9: `node: bad option: --test-isolation=none`. The installed Node does not offer that option, so the subsequent scan in this compound command did not run.
+
+```text
+node --test --test-isolation=none test/repository-reader.test.mjs && node --input-type=module -e 'import fs from "node:fs";import {createRepositoryReader} from "./src/repository-reader.mjs";const paths=["README.md","package.json","package-lock.json",".github/workflows/ci.yml",...fs.readdirSync("src").map(p=>"src/"+p),...fs.readdirSync("test").map(p=>"test/"+p),...fs.readdirSync("test-support").map(p=>"test-support/"+p)];for(const path of paths){const reader=createRepositoryReader({workspace:process.cwd()});const result=reader.read({path});console.log(JSON.stringify({path,ok:result.ok,code:result.error?.code,bytes:reader.stats().bytesRead}));reader.close();}'
+```
+
+9. Executed `node --test test/repository-reader.test.mjs` through the platform's approval flow — exit 0, **12 / 12 PASS**, 244.09836 ms. This confirmed actual individual test execution. No broad command allowlist was installed.
+10. Executed the filesystem-only metadata audit below — exit 0. It printed paths, ok/error codes and byte counts only. All expected core sources except `hub.mjs` and `manage.mjs` were initially readable; those two were falsely identified as literal credentials because the initial recognizer also matched source expressions. Some synthetic security test files were intentionally withheld by recognizable credential/host patterns.
+
+```text
+node --input-type=module -e 'import fs from "node:fs";import {createRepositoryReader} from "./src/repository-reader.mjs";const paths=["README.md","package.json","package-lock.json",".github/workflows/ci.yml",...fs.readdirSync("src").map(p=>"src/"+p),...fs.readdirSync("test").map(p=>"test/"+p),...fs.readdirSync("test-support").map(p=>"test-support/"+p)];for(const path of paths){const reader=createRepositoryReader({workspace:process.cwd()});const result=reader.read({path});console.log(JSON.stringify({path,ok:result.ok,code:result.error?.code,bytes:reader.stats().bytesRead}));reader.close();}'
+```
+
+11. Executed `rg -n 'token\s*[:=]|secret\s*[:=]|password\s*[:=]|api[_-]?key\s*[:=]|[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+|Bearer|/home/|@' src/hub.mjs src/manage.mjs test-support/fixtures.mjs test/repository-reader.test.mjs` — exit 0; inspected only project sources and newly added synthetic test text.
+12. Executed `cat test-support/fixtures.mjs && sed -n '1,140p' src/manage.mjs && sed -n '20,70p' src/hub.mjs` — exit 0; confirmed the matches were source expressions such as `token: env.VALUE` and `'AGENT_TOKEN=' + generate()`, not secret literals.
+13. Executed this temporary in-memory instrumentation — exit 0. Output only rule labels and file names, no matched values:
+
+```text
+node --input-type=module -e 'import fs from "node:fs";const source=fs.readFileSync("src/repository-reader.mjs","utf8");let n=0;const code=source.slice(source.indexOf("function sensitive("),source.indexOf("function plainArguments(")).replaceAll("return true;",()=>"return \"rule-"+(n++)+"\";");const detect=Function("return ("+code+")")();for(const p of ["src/hub.mjs","src/manage.mjs","test-support/fixtures.mjs","test/credentials.test.mjs","test/repository-reader.test.mjs"]){console.log(JSON.stringify({path:p,reason:detect(fs.readFileSync(p,"utf8"))}));}'
+```
+
+14. Executed additional in-memory instrumentation — exit 0. Output only rule/offset/line metadata, no matched contents:
+
+```text
+node --input-type=module -e 'import fs from "node:fs";const source=fs.readFileSync("src/repository-reader.mjs","utf8");let n=0;const code=source.slice(source.indexOf("function sensitive("),source.indexOf("function plainArguments(")).replaceAll("return true;",()=>{const at=n++;return "return {rule:"+at+",index:"+([1,2,3,4].includes(at)?"match.index":"null")+"};"});const detect=Function("return ("+code+")")();for(const p of ["src/hub.mjs","src/manage.mjs","test-support/fixtures.mjs","test/credentials.test.mjs"]){const text=fs.readFileSync(p,"utf8"),r=detect(text);console.log(JSON.stringify({path:p,...r,line:r?text.slice(0,r.index).split("\n").length:null}));}'
+```
+
+15. `apply_patch` updated the reader recognizer and its test: keys inside quoted source construction strings are distinguished from actual assignment/JSON-property literals; bare credential values are recognized in JSON/YAML/TOML rather than mistaking JS variable bindings for secret contents.
+16. Executed `node --test test/repository-reader.test.mjs` through platform approval — exit 0, **12 / 12 PASS**, 125.267416 ms.
+17. Re-executed command 10 — exit 0; README/package/CI and every current `src` file now readable, including `hub.mjs`, `manage.mjs` and authentication implementation code. Some synthetic secret-bearing test fixtures remain withheld conservatively; this was not bypassed.
+18. `apply_patch` expanded non-source sensitive filename matching (`config.private.json`, `my-passwords.json`, `service-account.json`) and secret key recognition (short/camelCase credential literals); tests added inside existing cases.
+19. Executed `node --test test/repository-reader.test.mjs` through platform approval — exit 0, **12 / 12 PASS**, 108.335139 ms.
+20. Executed final core-source metadata scan below — exit 0. Every current `src` module plus README, package/lock and CI passed, without printing file contents. Core source files were below the 64 KiB limit; current controller was approximately 37 KiB at this concurrent checkpoint.
+
+```text
+node --input-type=module -e 'import fs from "node:fs";import {createRepositoryReader} from "./src/repository-reader.mjs";for(const path of ["README.md","package.json","package-lock.json",".github/workflows/ci.yml",...fs.readdirSync("src").map(p=>"src/"+p)]){const reader=createRepositoryReader({workspace:process.cwd()});const result=reader.read({path});console.log(JSON.stringify({path,ok:result.ok,code:result.error?.code,bytes:reader.stats().bytesRead}));reader.close();}'
+```
+
+21. Executed `sed -n '1,240p' src/repository-tools.mjs && git diff --stat -- src/repository-reader.mjs test/repository-reader.test.mjs && git status --short -- src/repository-reader.mjs test/repository-reader.test.mjs` — exit 0; confirmed root's tool API matches reader API and that both newly created owned files are untracked pending root staging. No Git mutation performed.
+22. `apply_patch` created this ignored ledger with real operations and errors, for centralization before the final commit.
+
+## Reader verification scope
+
+The 12 automated regression tests cover lazy directory listing/actual file reads, real line ranges/hashes and metadata-only stats, disallowed hidden/generated/private paths (including `.env.example`), malformed paths/traversal/encoded separators/extra arguments, file and ancestor symlinks/hardlinks, an ancestor moved out of the workspace and replaced by a symlink between component opens, whole workspace generation replacement, whole-file credential/recognizable PII scan even when the sensitive line was not requested, invalid UTF-8/control/bidi rejection, file/total/request budget and denied-attempt accounting, directory scan/line/output bounds and truncation, concurrent file growth/change and reread freshness, close/idempotence and non-enlargeable limits.
+
+No real Codex/model execution was performed by this subagent; the parent owns real integration. No existing runtime or personal Codex process was stopped.
+
+Hard limits: file 65,536 bytes, disk bytes per reader 524,288, 64 requests (denials included), 100 returned entries/list, 1,000 directory entries scanned/list, 200 lines/read, 16,384 returned bytes/read. Every range read scans its whole bounded file before returning anything, so secrets elsewhere in that file cannot escape via a line-only request; repeated reads consume the total budget again. Unsupported Linux/procfs descriptor anchoring fails closed. Known literal loopback/wildcard/documentation addresses and reserved example emails are accepted; private/public real host-address literals, home-user paths, actual email/phone patterns, known tokens/keys and short named credential literals are withheld. Arbitrary confidential prose or a person's name cannot be recognized reliably; source allowlisting and these gates are not a semantic-PII guarantee. Filename policy intentionally permits authentication implementation `.mjs` source while denying credential data/configuration files and operational reports/journal.
+
+
+### Subagent protocol — baseline, probe native și regresii controller
+
+# ETAPA 2C — protocol and baseline subagent ledger
+
+Agent: `/root/stage2c_protocol_review`. Working directory for all shell commands: `<workspace>`. In the initial analysis phase only ignored `.local-run` artifacts were created; later delegation added the controller regression test documented below. No Git state, credentials, private configuration or personal sessions were changed. No process belonging to a personal client was signaled. Native App Server test children used a newly generated synthetic CODEX_HOME and loopback fake Responses provider; no login files were copied/read.
+
+Commands in executed order (exit status is the actual command status, not a proposed result):
+
+1. `sed -n '1,260p' src/codex-control.mjs` — exit 0, inspected current pinned policy, leases, README-only snapshot and RPC handling.
+2. `command -v codex && codex --version && codex app-server --help` — exit 0, CLI 0.163.0 available. Warning: could not create PATH aliases because filesystem is read-only. No installation/configuration changes.
+3. `sed -n '260,620p' src/codex-control.mjs && codex app-server generate-json-schema --help && codex app-server generate-ts --help` — exit 0. Inspected disposable turn worker lifecycle and protocol generation commands.
+4. Web tool `find` on official `https://learn.chatgpt.com/docs/app-server` for `dynamicTools` and `item/tool/call` — successful. Official docs mark the dynamic tool protocol experimental and describe started/request/result/completed events. No MCP invocation.
+5. `codex app-server generate-json-schema --help && codex app-server generate-ts --help` — exit 0; `--experimental` required for experimental schema fields.
+6. `rg --files .local-run | rg 'schema|codex.*source|protocol|tool-policy|fixture' | head -80` — exit 0, located already cached official metadata and probe fixtures; no auth/environment files inspected.
+7. `codex app-server generate-json-schema --experimental --out .local-run/stage2c-protocol-schema && cat .local-run/stage2c-protocol-schema/DynamicToolCallParams.json && cat .local-run/stage2c-protocol-schema/DynamicToolCallResponse.json && rg -n -C 6 'dynamicTools|developerInstructions|baseInstructions' .local-run/stage2c-protocol-schema/v2/ThreadStartParams.json .local-run/stage2c-protocol-schema/v2/ThreadResumeParams.json` — exit 0. Exact installed schema generated. Start accepts dynamicTools; Resume does not. Tool request fields are arguments/callId/threadId/turnId/tool plus nullable namespace. Response accepts inputText contentItems and boolean success.
+8. `npm test > .local-run/stage2c-baseline.tap 2>&1` — exit 1 after polling session 38917; sandbox run reported 11 file suites passing and 6 failing. It did not expose individual failure reasons in the captured TAP, so no unobserved reason is asserted.
+9. `rg -n -C 10 'DynamicToolSpec|dynamicTools|DynamicToolCall' .local-run/stage2c-protocol-schema/v2/ThreadStartParams.json .local-run/stage2c-protocol-schema/v2/ThreadResumeParams.json .local-run/stage2c-protocol-schema/v2/ThreadItem.json .local-run/stage2c-protocol-schema/v1/InitializeParams.json && rg --files .local-run | rg '(writer_lock|thread_resume|tool.*rs|thread.*rs|lib.rs|codex-rs)' | head -100 && rg -n 'dynamicTools|dynamic_tools' .local-run --glob '*.rs' --glob '*.md' --glob '!comenzi*' | head -100` — exit 2: ThreadItem.json is not a standalone generated file. Because of `&&`, later searches in this command were not executed. Other named schema matches were read successfully.
+10. `tail -50 .local-run/stage2c-baseline.tap && rg -n -C 8 'not ok|EPERM|ERR|error:' .local-run/stage2c-baseline.tap | head -180 && rg --files .local-run | rg '(writer_lock|thread_resume|tool.*rs|thread.*rs|lib.rs|codex-rs)' | head -100 && rg -n 'dynamicTools|dynamic_tools' .local-run --glob '*.rs' --glob '*.md' | head -100` — exit 0. Recorded actual six failing sandbox file suites and located cached official Rust sources.
+11. `head -35 .local-run/stage2c-baseline.tap && sed -n '1440,1545p' .local-run/execution-official-thread-processor.rs && rg -n -C 12 'dynamic_tools|resume_thread|resume' .local-run/execution-official-thread-manager.rs | head -190 && rg -n -C 8 'experimentalApi' .local-run/stage2c-protocol-schema/v1/InitializeParams.json && sed -n '1,100p' test/hub.test.mjs` — exit 0. Read existing cached official source and loopback test setup. No fetch from unrelated hosts.
+12. `node --test test/hub.test.mjs` — exit 0, 1/1 PASS in this standalone sandbox run.
+13. `node --test > .local-run/stage2c-baseline-direct.tap 2>&1` — exit 1 after polling session 15509; same 11/17 file suites passed and 6 failed in sandbox.
+14. `sed -n '1315,1385p' .local-run/execution-official-thread-manager.rs && sed -n '2080,2140p' .local-run/execution-official-thread-manager.rs && sed -n '2335,2385p' .local-run/execution-official-thread-manager.rs && rg -n 'dynamic_tools' .local-run/execution-official-thread-processor.rs` — exit 0. Resume API has no client injection of new dynamic tool definitions.
+15. `rg --files .local-run | rg 'policy|provider|broker|proof' | head -80 && rg -n 'localhost|127.0.0.1|responses|tool.policy|tools' .local-run/*policy* .local-run/*probe*.mjs .local-run/cleanup-real-integration.mjs | head -160` — exit 0, located previous synthetic tool-catalog fixture for reuse.
+16. `cat .local-run/probe-control-tools.mjs && cat .local-run/verify-codex-policy.mjs && sed -n '1,220p' .local-run/stage2c-baseline-direct.tap && sed -n '1,50p' .local-run/execution-official-thread-processor.rs` — exit 0. Read existing fixture code only; did not execute prior helpers against real accounts.
+17. `node -p 'JSON.stringify({version:process.version,NODE_OPTIONS:process.env.NODE_OPTIONS,NODE_TEST_CONTEXT:process.env.NODE_TEST_CONTEXT})' && node --test --test-isolation=none > .local-run/stage2c-baseline-no-isolation.tap 2>&1` — exit 9; Node v22.23.3, neither of the two named Node options was set, Node22 does not support that test-isolation flag. No raw environment dump.
+18. `npm test > .local-run/stage2c-baseline-approved.tap 2>&1` — platform-approved execution, exit 0 after polling session 56091. 170/170 PASS, 0 fail/skip/cancel, 7579.424039ms. This is the actual full baseline result.
+19. `apply_patch` created `.local-run/stage2c-dynamic-probe.mjs` — succeeded. The script creates an isolated synthetic workspace/home, fake loopback Responses endpoint, pinned strict disabled-native-tool policy, and only its own App Server children. It records tool names/schema keys/statuses, never prompts, outputs, auth or account data. This is a protocol test, not model inference.
+20. `node .local-run/stage2c-dynamic-probe.mjs` — exit 1 in sandbox, actual error `listen EPERM: operation not permitted 127.0.0.1`. No child/App Server started before listener failure. The script emitted an empty-catalog failure result, later replaced by the approved successful result.
+21. `node .local-run/stage2c-dynamic-probe.mjs` — platform-approved execution, exit 0 after polling session 13121. Native CLI0.163 App Server accepted New dynamic tool and performed request/response/completed. Cold Resume with a new App Server process restored the saved dynamic tool and successfully invoked it again. An older thread created without dynamic tools had only the builtin denied request_user_input. Exact model-visible catalogs contained only request_user_input and repository_list for New/cold-Resume; no shell/filesystem/network/MCP/browser tools. Results saved to `.local-run/stage2c-dynamic-probe-result.json`. All three synthetic turns completed and own child cleanup confirmed.
+22. `tail -15 .local-run/stage2c-baseline-approved.tap` — exit 0, independently read final 170/170 baseline totals.
+23. `apply_patch` created this ledger — succeeded. It is ignored and intended for centralization by the parent before the final commit.
+
+Findings sent to the parent: use experimentalApi true and exact supported dynamic-tool schema; existing dynamic tools survive a cold Resume, while legacy/CLI sessions lack them and cannot be silently retrofitted through thread/resume. Either expose a clear legacy limitation or use a bounded, same-thread text read-request continuation fallback with one approval, one overall deadline/read budget and app lease held throughout. Never fork silently, modify native history, relax native tools or bypass unknown tool/approval requests. Require selected thread/turn binding, bounded call IDs, exact tool/namespace/argument allowlists and duplicate-call protection; requests can race the turn/start response and must be buffered and validated before execution. App-owned handlers remain the enforcement boundary even when file text or saved metadata attempts to redirect the model.
+
+## Delegated controller regression suite and independent review
+
+Parent then authorized edits only to `test/repository-control.test.mjs` for synthetic broker regressions. No production files were edited by this subagent.
+
+24. `sed -n '1,260p' test/codex-control.test.mjs && sed -n '1,240p' test/codex-lifecycle.test.mjs && cat test-support/fixtures.mjs` — exit 0; inspected existing in-memory transport and fixture patterns.
+25. `cat src/repository-tools.mjs && sed -n '1,230p' src/repository-reader.mjs` — exit 0; inspected new delegated APIs, including untrusted response envelope.
+26. `apply_patch` created `test/repository-control.test.mjs`, then corrected helper dispatch to avoid a default completion when the supplied synchronous callback returned undefined. Both edits succeeded. Test fixture uses real temporary source files but an in-memory fake App Server; it is not evidence of real model inference.
+27. `node --check test/repository-control.test.mjs && node --test test/repository-control.test.mjs > .local-run/stage2c-control-initial.tap 2>&1` — exit 1. Syntax passed; sandbox TAP exposed only a failing file suite, no individual details.
+28. `cat .local-run/stage2c-control-initial.tap && git diff --stat -- test/repository-control.test.mjs && rg -n 'repository|outputTruncated' src/codex-control.mjs` — exit 0, inspected result and integration already being edited by parent. No source changes here.
+29. `node --test test/repository-control.test.mjs > .local-run/stage2c-control-approved.tap 2>&1` — platform-approved, exit 1: 8/12 PASS, 4 FAIL. Failures came from this new test decoder expecting the file result directly, while the actual tool body correctly wraps it as `{source:'untrusted-repository-data',result:...}`. No production bug is asserted for these failures.
+30. `cat .local-run/stage2c-control-approved.tap && sed -n '255,300p' src/codex-control.mjs && sed -n '465,550p' src/codex-control.mjs` — exit 0. Confirmed actual envelope contract and failure locations.
+31. `apply_patch` corrected only test decoder to assert the untrusted-data source and unwrap result — succeeded.
+32. `node --test test/repository-control.test.mjs > .local-run/stage2c-control-verified.tap 2>&1` — platform-approved, exit 0: 12/12 PASS, 0 fail/skip/cancel, 524.318342ms.
+33. `tail -15 .local-run/stage2c-control-verified.tap && git diff --check -- test/repository-control.test.mjs` — exit 0; verified totals and whitespace.
+34. `sed -n '1,410p' src/codex-control.mjs && sed -n '450,640p' src/codex-control.mjs && cat src/repository-tools.mjs && sed -n '140,330p' src/repository-reader.mjs` — exit 0. Independent read-only security/lifecycle review requested by parent.
+35. `apply_patch` updated ignored `.local-run/stage2c-dynamic-probe.mjs` to use both exact exported repository tools, current developer instructions and project_doc_max_bytes=0; created synthetic project/home AGENTS sentinel files — succeeded. No real home AGENTS was read.
+36. `node .local-run/stage2c-dynamic-probe.mjs` — platform-approved, exit 0. Native catalog still contains only request_user_input plus repository_list/repository_read (older synthetic thread has only request_user_input). New/coldResume both completed. **Confirmed security gap:** project AGENTS sentinel absent, but synthetic CODEX_HOME/AGENTS sentinel present in every model request despite project_doc_max_bytes=0. Developer policy also present. Reported immediately; parent assigned global-instruction isolation investigation to reader subagent.
+37. Official web search for Codex global instruction override and model instruction configuration, then `rg -n -C 5 'user_instructions|instructions:' .local-run/execution-official-thread-manager.rs .local-run/execution-official-thread-processor.rs .local-run/stage2c-protocol-schema/v2/ThreadStartParams.json | head -160` — successful/exit 0. Read only cached official source/schema, not actual user instruction files.
+38. `rg --files .local-run | rg 'config.*schema|user.*instruction|instructions.*rs' && rg -n -C 5 'user_instructions_provider|load_user_instructions|supplied_user_instructions' .local-run/execution-official-thread-manager.rs | tail -120` — exit 1: first filename filter had no matches, so the second half did not execute.
+39. Official web `open` and `find` configuration reference (`https://developers.openai.com/codex/config-reference/`, redirects to learn.chatgpt.com) — successful; no documented user_instructions override found. project_doc_max_bytes describes project files; instructions field is reserved, not a proven isolation switch.
+40. `rg --files /home/<operator>/.nvm/versions/node/v22.23.3/lib/node_modules/@openai/codex | head -35 && rg -n -C 6 'supplied_user_instructions|load_user_instructions|user_instructions_provider' .local-run/execution-official-thread-manager.rs | tail -110` — exit 0; package paths and cached provider code only. No private configuration/auth read.
+41. `apply_patch` created ignored `.local-run/stage2c-config-probe.mjs` — succeeded. Synthetic CODEX_HOME contains an enabled MCP entry whose command deliberately does not exist; probe allows initialize/config/read only, never starts a thread or calls MCP.
+42. `node .local-run/stage2c-config-probe.mjs` — platform-approved, exit 0. **Confirmed security gap:** `-c mcp_servers={}` leaves the preconfigured synthetic MCP entry enabled in effective configuration. threadsStarted=0, mcpInvoked=false. Reported immediately; raw config is discarded, output contains only booleans. No server names, URLs, credentials or commands from real configs were collected.
+43. `codex features list | rg -i 'mcp|apps|plugin|tool' && rg -n -C 5 'config\.mcp_servers|mcp_servers|McpManager' .local-run/execution-official-thread-processor.rs .local-run/execution-official-thread-manager.rs | head -100 && rg -n 'mcp|environment|capabilit' .local-run/stage2c-protocol-schema/v2/ThreadStartParams.json | tail -50` — exit 0; CLI0.163 has no documented universal MCP disable feature. Versioned MCP feature flags are not a master gate. Existing cached thread creation code uses ConfigManager.
+44. `sed -n '1330,1450p' .local-run/execution-official-thread-processor.rs && rg -n -C 8 'thread_start_config|load_config_with_overrides|load_config|ConfigOverrides' .local-run/execution-official-thread-processor.rs | head -150` — exit 0. Native thread creation calls config_manager.load_with_overrides; immutable config snapshot could not be claimed. Recommended fail-closed config/read check before any thread creation when any effective MCP entry is enabled/implicit enabled or malformed, no raw values retained/output, and document stable-config requirement or guard effective layers.
+45. `apply_patch` added native tool argument null/extra-command denial cases to the existing regression test — succeeded. Follow-up test result will be recorded below after parent finishes ambient policy gate.
+46. `apply_patch` appended this actual subagent work to the ignored ledger — succeeded.
+
+47. `apply_patch` added `config/read` clean synthetic replies, configurable MCP metadata and two inherited-MCP regression cases to `test/repository-control.test.mjs` — succeeded. Enabled/implicitly enabled/malformed maps reject before any thread is loaded; explicitly disabled entries remain allowed. No MCP service is started by the tests.
+48. `node --check test/repository-control.test.mjs && node --test test/repository-control.test.mjs > .local-run/stage2c-control-ambient.tap 2>&1` — platform-approved, exit 0: 14/14 PASS, 867.803832ms.
+49. `sed -n '380,455p' src/codex-control.mjs && sed -n '462,505p' src/codex-control.mjs && sed -n '80,160p' src/repository-reader.mjs && rg -n -C 7 'ambient' src/codex-control.mjs` — exit 0, continued independent review. Identified correct documented fields experimental_compact_prompt_file (not compact_prompt_file) and model_providers.<id>.auth.command (not top-level auth.command), plus legacy notify commands. Parent corrected production gate; this subagent did not edit controller.
+50. `apply_patch` extended ignored metadata-only config probe to report types of relevant optional keys, no values — succeeded.
+51. `node .local-run/stage2c-config-probe.mjs` — platform-approved, exit 0. Native effective config includes optional model_instructions_file/experimental_compact_prompt_file/model_provider/model_providers/notify fields (null/object defaults); compact_prompt_file and top-level auth absent. Enabled synthetic MCP still retained under empty table override; no threads/MCP invocation.
+52. `sed -n '124,150p' src/codex-control.mjs && tail -15 .local-run/stage2c-control-ambient.tap && git diff --check -- test/repository-control.test.mjs` — exit 0; verified updated ambient gate and prior passing totals/whitespace.
+53. `apply_patch` added ambient instruction-file, compaction-file, nested provider-auth command and notification-program denial tests — succeeded.
+54. `node --test test/repository-control.test.mjs > .local-run/stage2c-control-security.tap 2>&1` — platform-approved, exit 0: 15/15 PASS.
+55. `tail -15 .local-run/stage2c-control-security.tap && node --check test/repository-control.test.mjs && git diff --check -- test/repository-control.test.mjs` — exit 0; final own test totals confirmed, syntax and whitespace pass. Tests remain synthetic protocol plus real fixture filesystem, not actual inference.
+56. `apply_patch` appended this final subagent ledger section — succeeded. Centralization belongs to the primary agent before its final commit.
+
+Independent security/lifecycle conclusion at this point: no additional traversal/symlink/hardlink/nonregular/byte-budget bypass found. Unknown saved dynamic tools cannot authorize code execution because dispatch independently checks exact own names/namespace, selected thread/current turn and unique bounded call IDs; terminal requests reject, pre-ack queue is bounded eight, native shell/write requests remain denied. The shared reader counts dynamic and legacy reads, legacy turn cap/deadline does not reset. The known ambient MCP and automatic outside global-instruction findings were real native-protocol observations and reported, not hidden as successes. Parent owns final fixes and real inference validation. ConfigManager reloads config for thread creation, so audits assume stable trusted host configuration; no immutable snapshot or protection against a malicious same-UID OS user is claimed. Reader pattern filters cannot infer arbitrary personal names or unlabelled confidential prose; document the practical boundary. User-authorized Resume history is separate from repository-file reads and is not fetched/logged by this test. Output streaming currently withholds JSON-leading answers until final result; complete final output is still returned. A commentary-plus-internal-request envelope could briefly surface internal relative-path data in progress; no credential read/execution bypass was found from this UI detail.
+
+## Follow-up: skill catalog suppression and home-instruction guards
+
+Parent requested three additional broker regressions after native probes confirmed that per-path runtime skill disabling is needed. All source changes remained the parent's work.
+
+57. `sed -n '1,140p' test/repository-control.test.mjs && sed -n '115,210p' src/codex-control.mjs && sed -n '490,570p' src/codex-control.mjs` — exit 0; read current fake and ambient gate before extending tests.
+58. `apply_patch` added a clean `skills/list` fake reply, injectable synthetic catalog, valid New/Resume runtime-disable regression, and malformed/foreign/incomplete/oversized catalog rejection regression — succeeded. Only `test/repository-control.test.mjs` edited.
+59. `node --check test/repository-control.test.mjs && node --test test/repository-control.test.mjs > .local-run/stage2c-control-skills.tap 2>&1` — platform-approved, exit 1 after polling session 28778: 16/17 PASS. Catalog row `null` exposed a real error-classification defect: production code dereferenced `.cwd` and returned codex-unavailable instead of codex-ambient-config-blocked. It still rejected safely before loading a thread. Reported to parent; parent changed the access to `?.cwd`.
+60. `sed -n '118,180p' src/codex-control.mjs && sed -n '515,565p' src/codex-control.mjs` — exit 0. Verified recursive TOML array serialization, bounded path-only skill catalog and runtime override policy under development.
+61. `tail -65 .local-run/stage2c-control-skills.tap` — exit 0, read actual failed null-row assertion.
+62. `apply_patch` added home AGENTS presence tests for New/Resume, both AGENTS.md and AGENTS.override.md, and own fixture regular files/directories/symlinks — succeeded. The assertions ensure no native child starts, no file is removed/followed/read by the controller, and private synthetic content never appears in result/progress.
+63. `node --test test/repository-control.test.mjs > .local-run/stage2c-control-final-ambient.tap 2>&1` — platform-approved, exit 1 after polling session 10048: 17/18 PASS, same null-row classification failure while the loaded controller version preceded the fix. The added home guards passed.
+64. `tail -70 .local-run/stage2c-control-final-ambient.tap && node --check test/repository-control.test.mjs && git diff --check -- test/repository-control.test.mjs` — exit 0; syntax and whitespace passed, failure totals accurately retained above.
+65. Parent notified that null-row production fix was now ready. `node --test test/repository-control.test.mjs > .local-run/stage2c-control-final.tap 2>&1` — platform-approved, exit 0: 18/18 PASS, no fail/skip/cancel.
+66. `git diff -- src/codex-control.mjs src/repository-tools.mjs src/agent.mjs src/hub.mjs && git status --short` — exit 0, independent final production diff review. No additional blocker found. Model requests remain scoped, metadata-only config/skill reads are internal and discarded, thread catalog contains only disabled paths, no configuration-write methods are allowed. Output truncation propagates as a boolean through agent and Hub. Root fixed the overly broad JSON-leading suppression regex during its final edits; arbitrary JSON answers can stream normally.
+67. `tail -15 .local-run/stage2c-control-final.tap && git diff --check && node --check test/repository-control.test.mjs` — exit 0, verified final own suite totals and whole current whitespace/syntax. No Git mutations performed.
+68. `apply_patch` appended this completed follow-up ledger — succeeded. Final publication, full-suite result and real model inference remain the primary agent's responsibility; this subagent makes no unverified real-analysis claim.
+
+Final own tracked-file scope remains one newly created file, `test/repository-control.test.mjs`, containing 18 tests. No production source files, credentials, global config, personal sessions or Git refs were changed by this subagent. Native evidence for explicit disabled-skill mentions was independently supplied by reader subagent (`.local-run/stage2c-skills-mention-probe-result.json`): descriptions/bodies stayed absent from all provider requests despite explicit synthetic skill names. That proof was not executed by this subagent and must be attributed separately in the centralized journal.
+
+
+### Subagent cititor — investigația instrucțiunilor și skill-urilor
+
+# Stage 2C — native instruction/skill isolation research
+
+Subagent: `stage2c_reader`, follow-up from the primary agent. Cwd for shell commands: workspace `/home/<operator>/leverage50xagents` (operator path segment anonymized). Existing services, Codex threads, credentials, login/configuration and global files were not changed or read. Installed executable/launcher and generated schema/source caches were inspected read-only. All native turn probes used new private **synthetic CODEX_HOME** directories and a **synthetic Responses provider on 127.0.0.1**, with `requires_openai_auth=false`; no real login/model endpoint was used. Result JSON records booleans/catalog field names only, not request bodies or skill content.
+
+## Documentation operations
+
+- `web__run` searched official domains for `Codex app-server user_instructions project_doc_max_bytes developerInstructions baseInstructions`; fetched https://learn.chatgpt.com/docs/app-server and attempted https://learn.chatgpt.com/docs/config-reference (404). Found no `baseInstructions` in the prose page. Followed that page's Configuration Reference link to https://learn.chatgpt.com/docs/config-file/config-reference and inspected `instructions`, `project_doc_max_bytes`, `user_instructions` (not found), and later `skills.config`. Also fetched official https://developers.openai.com/codex/config-schema.json, which redirects to https://learn.chatgpt.com/docs/config-schema.json. Official prose calls `instructions` reserved, `model_instructions_file` a built-in instruction replacement, `project_doc_max_bytes` a project-doc byte limit, and documents per-skill `skills.config` enablement. These descriptions alone were not treated as proof of runtime isolation.
+
+## Chronological shell/tool operations and outcomes
+
+1. Executed:
+
+```text
+rg --files .local-run | rg 'codex.*(source|schema)|schema|stage2c.*probe|project_doc|config' | head -60 && command -v codex && codex --version
+```
+
+Exit 0. Installed version: `codex-cli 0.163.0`. CLI warned that it could not create PATH aliases on the read-only filesystem; protections were not changed.
+
+2. Executed:
+
+```text
+rg --files .local-run | rg '(codex-source|project_doc|config_schema|config-schema|stage2c-dynamic-probe|stage2c-dynamic-result)' && cat .local-run/codex-schema/v2/ThreadStartParams.json && cat .local-run/codex-schema/v2/ThreadResumeParams.json && sed -n '1,220p' .local-run/stage2c-config-probe.mjs
+```
+
+Exit 0. Schema output was large/truncated; subsequent inspections projected only relevant properties. Both generated request schemas expose `baseInstructions`, `developerInstructions`, `config` and `cwd`.
+
+3. Executed:
+
+```text
+rg --files .local-run | rg '(^|/)(project_doc|config|codex|lib|config_loader)\.(rs|schema\.json)$|stage2c-dynamic-probe|stage2c.*json$' | head -80 && node --input-type=module -e 'import fs from "node:fs";for(const p of ["ThreadStartParams","ThreadResumeParams"]){const s=JSON.parse(fs.readFileSync(".local-run/codex-schema/v2/"+p+".json","utf8"));console.log(JSON.stringify({name:p,properties:Object.fromEntries(Object.entries(s.properties).filter(([k])=>/instruction|config|cwd/i.test(k)))}));}' && rg -n 'user_instructions|project_doc_max_bytes|developer_instructions|instructions_file|base_instructions' .local-run/stage2c-dynamic-probe.mjs .local-run/codex-cli-source .local-run/codex-source 2>/dev/null
+```
+
+Exit 2 because two proposed source-cache paths did not exist; the preceding schema and probe-policy reads succeeded. No configuration files from the real Codex home were opened.
+
+4. Executed:
+
+```text
+rg --files .local-run | rg '\.rs$' | head -80 && sed -n '1,260p' .local-run/stage2c-dynamic-probe.mjs && cat .local-run/stage2c-dynamic-probe-result.json
+```
+
+Exit 0. The reviewer-owned baseline native probe showed project sentinel excluded and home AGENTS sentinel included in every model request, despite `project_doc_max_bytes=0`; it showed New/cold Resume/legacy turns completed. This probe file was never edited by this subagent.
+
+5. Executed:
+
+```text
+rg -n 'user_instructions|project_doc|load_instructions|read_instructions|developer_instructions|base_instructions|model_instructions_file' .local-run/execution-official-core-codex.rs .local-run/execution-official-thread-processor.rs .local-run/execution-official-processor.rs .local-run/cleanup-official-exec-lib.rs | head -110 && rg --files /tmp | rg '/(project_doc|config|mod|config_loader)\.rs$|codex.*/config\.schema\.json$' | head -40
+```
+
+Exit 0 for the shell pipeline. Cache inspection found config override wiring; the exploratory `/tmp` filename scan reported several Permission denied errors for private service directories and a Codex daemon directory. No contents from those private paths were read, no approval bypass attempted, and the broad cache search was not repeated.
+
+6. Executed:
+
+```text
+wc -l .local-run/execution-official-core-codex.rs && head -5 .local-run/execution-official-core-codex.rs && sed -n '1660,1760p' .local-run/execution-official-thread-processor.rs && rg --files /home/<operator>/.nvm/versions/node/v22.23.3/lib/node_modules/@openai/codex | head -25
+```
+
+Exit 0. The cached core file was empty, so it provided no implementation evidence; cached thread processor showed only base/developer config overrides. Installed package entry files were located.
+
+7. Executed:
+
+```text
+rg --files /home/<operator>/.nvm/versions/node/v22.23.3/lib/node_modules/@openai | rg '/codex$|config.schema' | head -15 && sed -n '1,100p' /home/<operator>/.nvm/versions/node/v22.23.3/lib/node_modules/@openai/codex/bin/codex.js && rg -n 'instructions' .local-run/stage2c-protocol-schema/v2/Config.json .local-run/stage2c-protocol-schema/v2/ConfigLayer.json 2>/dev/null | head -25
+```
+
+Exit 0 for the shell pipeline. Inspected the installed npm launcher's native package resolution; no global configuration read.
+
+8. Executed:
+
+```text
+node --input-type=module -e 'import {createRequire} from "node:module";import path from "node:path";const require=createRequire("/home/<operator>/.nvm/versions/node/v22.23.3/lib/node_modules/@openai/codex/bin/codex.js");console.log(path.join(path.dirname(require.resolve("@openai/codex-linux-x64/package.json")),"vendor/x86_64-unknown-linux-musl/bin/codex"));' && codex debug --help
+```
+
+Exit 0. Resolved installed Linux executable; help mentioned `prompt-input`. Only help was used; model-visible prompt rendering on the real profile was not run.
+
+9. Executed `codex debug prompt-input --help && codex app-server --help` — exit 0. Confirmed native app-server `--strict-config` exists, and ordinary help warns about read-only PATH aliases. No security/configuration mode changed.
+
+10. Executed (through platform approval):
+
+```text
+node --input-type=module -e 'import fs from "node:fs";let source=fs.readFileSync(".local-run/stage2c-dynamic-probe.mjs","utf8");source=source.replace("project_doc_max_bytes:0};","project_doc_max_bytes:0,instructions:\"\"};").replaceAll("stage2c-dynamic-","stage2c-instructions-").replaceAll("stage2c-dynamic-probe-result.json","stage2c-instructions-probe-result.json");fs.writeFileSync(".local-run/stage2c-instructions-probe.mjs",source);' && node .local-run/stage2c-instructions-probe.mjs
+```
+
+Exit 0; synthetic New/cold Resume/legacy completed. `instructions=""` did not suppress the home AGENTS sentinel in any request. Result: `.local-run/stage2c-instructions-probe-result.json`.
+
+11. Executed:
+
+```text
+strings /home/<operator>/.nvm/versions/node/v22.23.3/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/bin/codex | rg -o '.{0,100}(user_instructions|disable_user_instructions|skip_user_instructions|project_doc_max_bytes|AGENTS.override.md|read_instructions).{0,180}' | head -45
+```
+
+Exit 0. Binary strings identified `codex-home/src/instructions/mod.rs` and project docs as separate instruction loaders, but provided no supported disable-user-instructions key. Static strings are hints, not a runtime proof.
+
+12. Executed:
+
+```text
+strings /home/<operator>/.nvm/versions/node/v22.23.3/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/bin/codex | rg -o '.{0,120}(global_instructions|instruction.*disabled|disable.*instruction|skip.*instruction|user_instructions.*Option|codex_home::instructions|InstructionsLoad|instructions.load).{0,180}' | head -50
+```
+
+Exit 0, output truncated due a greedy static-string pattern. No private file was read. The narrower query in operation 14 replaced it.
+
+13. Executed:
+
+```text
+node --input-type=module -e 'import fs from "node:fs";for(const p of ["ThreadStartParams","ThreadResumeParams"]){const s=JSON.parse(fs.readFileSync(".local-run/stage2c-protocol-schema/v2/"+p+".json","utf8"));console.log(JSON.stringify({name:p,properties:Object.fromEntries(Object.entries(s.properties).filter(([k])=>/instruction|config|cwd/i.test(k)))}));}' && rg -n 'instructionSources|InstructionSource' .local-run/stage2c-protocol-schema/v2/ThreadStartParams.json .local-run/stage2c-protocol-schema/v2/ThreadResumeParams.json .local-run/stage2c-protocol-schema/v2/Config*.json | head -30
+```
+
+Exit 0. No instruction-source override is exposed in those generated request schemas.
+
+14. Executed:
+
+```text
+strings /home/<operator>/.nvm/versions/node/v22.23.3/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/bin/codex | rg -o '.{0,100}(instruction_sources|instructionSources|global_instructions|skip_global|instructions_file|InstructionsSource|InstructionSource).{0,140}' | head -35 && rg --files .local-run/stage2c-protocol-schema | rg 'Instruction|SessionConfig|ThreadStart'
+```
+
+Exit 0. Native binary suggested `instructionSources` response metadata, later verified from the actual synthetic thread/start response.
+
+15. Executed (through platform approval):
+
+```text
+node --input-type=module -e 'import fs from "node:fs";const base=fs.readFileSync(".local-run/stage2c-dynamic-probe.mjs","utf8");const cases={user:{policy:"user_instructions:\"\""},base:{common:"baseInstructions:REPOSITORY_INSTRUCTIONS"},environment:{policy:"include_environment_context:false"}};for(const [name,c]of Object.entries(cases)){let s=base.replaceAll("stage2c-dynamic-","stage2c-instructions-"+name+"-");if(c.policy)s=s.replace("project_doc_max_bytes:0};","project_doc_max_bytes:0,"+c.policy+"};");if(c.common)s=s.replace("developerInstructions:REPOSITORY_INSTRUCTIONS};","developerInstructions:REPOSITORY_INSTRUCTIONS,"+c.common+"};");fs.writeFileSync(".local-run/stage2c-instructions-"+name+"-probe.mjs",s);}' && node .local-run/stage2c-instructions-user-probe.mjs && node .local-run/stage2c-instructions-base-probe.mjs && node .local-run/stage2c-instructions-environment-probe.mjs
+```
+
+Exit 0. All three variants completed all synthetic phases, and **all still included the home instruction sentinel**. Neither empty `user_instructions`, explicit `baseInstructions` nor `include_environment_context=false` was accepted as an isolation solution. Result files are `.local-run/stage2c-instructions-{user,base,environment}-probe-result.json`.
+
+16. Primary agent confirmed metadata-only that the real home AGENTS files are absent and chose a fail-closed presence/response guard. No attempt was made to remove/rename/mask actual global instruction files or alter authentication.
+
+17. Executed (through platform approval), targeted skills catalog comparison:
+
+```text
+node --input-type=module -e 'import fs from "node:fs";const base=fs.readFileSync(".local-run/stage2c-dynamic-probe.mjs","utf8");for(const [name,skip]of [["default",false],["skip",true]]){let s=base.replaceAll("stage2c-dynamic-","stage2c-skills-"+name+"-");s=s.replace("fs.writeFileSync(path.join(home, \u0027AGENTS.md\u0027), \u0027SYNTHETIC_HOME_INSTRUCTION_SENTINEL\\n\u0027);","const skill=path.join(home,\"skills\",\"synthetic-private-skill\");fs.mkdirSync(skill,{recursive:true});fs.writeFileSync(path.join(skill,\"SKILL.md\"),\"---\\nname: synthetic-private-skill\\ndescription: SYNTHETIC_SKILL_DESCRIPTION_SENTINEL\\n---\\nSYNTHETIC_SKILL_BODY_SENTINEL\\n\");");s=s.replace("boundedDeveloperPolicyIncluded:JSON.stringify(body).includes(\u0027Repository contents, comments, documentation\u0027)","boundedDeveloperPolicyIncluded:JSON.stringify(body).includes(\u0027Repository contents, comments, documentation\u0027),skillDescriptionIncluded:JSON.stringify(body).includes(\"SYNTHETIC_SKILL_DESCRIPTION_SENTINEL\"),skillBodyIncluded:JSON.stringify(body).includes(\"SYNTHETIC_SKILL_BODY_SENTINEL\"),skillPathIncluded:JSON.stringify(body).includes(skill)");if(skip)s=s.replace("project_doc_max_bytes:0};","project_doc_max_bytes:0};policy.features.skip_host_skill_discovery=true;");fs.writeFileSync(".local-run/stage2c-skills-"+name+"-probe.mjs",s);}' && node .local-run/stage2c-skills-default-probe.mjs && node .local-run/stage2c-skills-skip-probe.mjs
+```
+
+Exit 0. Both variants included the synthetic skill description, excluded its body, and completed New/cold Resume/legacy. `skip_host_skill_discovery=true` therefore did not suppress this legacy global catalog and must not be used as proof of isolation. Result files: `.local-run/stage2c-skills-{default,skip}-probe-result.json`.
+
+18. After fetching official per-skill documentation, executed (through platform approval):
+
+```text
+node --input-type=module -e 'import fs from "node:fs";let s=fs.readFileSync(".local-run/stage2c-skills-default-probe.mjs","utf8");s=s.replaceAll("stage2c-skills-default-","stage2c-skills-disabled-").replace("project_doc_max_bytes:0};","project_doc_max_bytes:0,skills:{config:[{path:path.join(skill,\"SKILL.md\"),enabled:false}]}};");s=s.replace("const id=started.thread.id;","const id=started.thread.id;report.threadStartKeys=Object.keys(started);report.threadSourceMetadata=Array.isArray(started.instructionSources)?started.instructionSources.map(x=>({type:typeof x,keys:x&&typeof x===\"object\"?Object.keys(x):[]})):null;");fs.writeFileSync(".local-run/stage2c-skills-disabled-probe.mjs",s);' && node .local-run/stage2c-skills-disabled-probe.mjs
+```
+
+This attempt **did not complete normally**. The inherited probe TOML serializer did not support arrays and encoded `skills.config` as a table. The new native child exited; the helper lacked an initialization deadline and remained awaiting its RPC. No success was claimed.
+
+19. Executed `pgrep -af '^node .local-run/stage2c-skills-disabled-probe.mjs$'` in the sandbox — exit 1, no match because the approved process was not visible in that namespace. Repeated that exact narrowly scoped read-only command through platform approval — exit 0, found only the owned helper PID 299419. No personal process command line was printed.
+
+20. Executed cleanup through platform approval:
+
+```text
+node --input-type=module -e 'import fs from "node:fs";const pid=299419;const status=fs.readFileSync("/proc/"+pid+"/status","utf8"),args=fs.readFileSync("/proc/"+pid+"/cmdline","utf8").split("\0").filter(Boolean),children=fs.readFileSync("/proc/"+pid+"/task/"+pid+"/children","utf8").trim();if(!status.includes("Uid:\t"+process.getuid()+"\t")||args.length!==2||args[1]!==".local-run/stage2c-skills-disabled-probe.mjs"||children)throw new Error("Owned helper verification rejected");const stat=fs.readFileSync("/proc/"+pid+"/stat","utf8"),start=stat.slice(stat.lastIndexOf(")")+2).split(" ")[19];if(!start)throw new Error("No generation");process.kill(pid,"SIGTERM");console.log(JSON.stringify({ownSyntheticHelperTerminated:true,childrenAlreadyExited:true,personalProcessesUntouched:true}));'
+```
+
+Exit 0, UID/exact two-argument command/generation verified; no child remained. Only this helper was signaled. `write_stdin` polling the earlier exec session returned exit 143 for that terminated helper. No existing Codex process was killed.
+
+21. `apply_patch` fixed **only the ignored synthetic helper**: proper array TOML serialization plus a 10-second global RPC deadline cleared in finally. Executed `node .local-run/stage2c-skills-disabled-probe.mjs` through platform approval — exit 0. CLI+thread per-skill `enabled:false` removed the synthetic description/body from all provider requests; New/cold Resume/legacy completed. Native thread/start returned `instructionSources: []` and response field names were recorded without content. Result: `.local-run/stage2c-skills-disabled-probe-result.json`.
+
+22. Executed schema shape inspection:
+
+```text
+node --input-type=module -e 'import fs from "node:fs";for(const p of ["SkillsListParams","SkillsListResponse"]){const s=JSON.parse(fs.readFileSync(".local-run/stage2c-protocol-schema/v2/"+p+".json","utf8"));console.log(JSON.stringify({name:p,properties:s.properties,definitions:Object.keys(s.definitions||{})}));}'
+```
+
+Exit 0. Params: `{cwds:[string],forceReload:boolean}`; response: `{data:[SkillsListEntry]}`.
+
+23. Executed additional schema projection:
+
+```text
+node --input-type=module -e 'import fs from "node:fs";const s=JSON.parse(fs.readFileSync(".local-run/stage2c-protocol-schema/v2/SkillsListResponse.json","utf8"));for(const k of ["SkillsListEntry","SkillMetadata","SkillErrorInfo"]){const d=s.definitions[k];console.log(JSON.stringify({name:k,required:d.required,properties:d.properties}));}'
+```
+
+Exit 0. Entry requires cwd/errors/skills; skills include path/enabled/scope/name/description, errors include message/path. The planned application projection retains only absolute paths for disabling and discards description/body/name/private fields; any errors/incomplete response blocks turns.
+
+24. Parent requested a small reader hardening confirmed by independent review. `apply_patch` added URL userinfo credential rejection in `src/repository-reader.mjs` and a synthetic loopback database URL case inside `test/repository-reader.test.mjs`. No unrelated code changed. Executed `node --test test/repository-reader.test.mjs` through platform approval — exit 0, **12 / 12 PASS**, 193.235447 ms.
+
+25. Executed the final runtime-only skill disable verification through platform approval:
+
+```text
+node --input-type=module -e 'import fs from "node:fs";let s=fs.readFileSync(".local-run/stage2c-skills-disabled-probe.mjs","utf8");s=s.replaceAll("stage2c-skills-disabled-","stage2c-skills-runtime-");s=s.replace("project_doc_max_bytes:0,skills:{config:[{path:path.join(skill,\"SKILL.md\"),enabled:false}]}};","project_doc_max_bytes:0};");s=s.replace("const disabled =", "const systemSkill=path.join(home,\"skills\",\".system\",\"synthetic-system-skill\");fs.mkdirSync(systemSkill,{recursive:true});fs.writeFileSync(path.join(systemSkill,\"SKILL.md\"),\"---\\nname: synthetic-system-skill\\ndescription: SYNTHETIC_SYSTEM_SKILL_DESCRIPTION_SENTINEL\\n---\\nSYNTHETIC_SYSTEM_SKILL_BODY_SENTINEL\\n\");\nconst disabled =");s=s.replace("skillBodyIncluded:JSON.stringify(body).includes(\"SYNTHETIC_SKILL_BODY_SENTINEL\")","skillBodyIncluded:JSON.stringify(body).includes(\"SYNTHETIC_SKILL_BODY_SENTINEL\"),systemSkillDescriptionIncluded:JSON.stringify(body).includes(\"SYNTHETIC_SYSTEM_SKILL_DESCRIPTION_SENTINEL\"),systemSkillBodyIncluded:JSON.stringify(body).includes(\"SYNTHETIC_SYSTEM_SKILL_BODY_SENTINEL\")");s=s.replace("const started=await call(\u0027thread/start\u0027,", "const listed=await call(\"skills/list\",{cwds:[workspace],forceReload:true});if(!Array.isArray(listed.data)||listed.data.length!==1||listed.data[0].cwd!==workspace||listed.data[0].errors.length)throw new Error(\"synthetic-skills-list-incomplete\");const skillRows=listed.data[0].skills;report.skillList={entries:listed.data.length,errors:listed.data[0].errors.length,skills:skillRows.map(x=>({basename:path.basename(x.path),absolute:path.isAbsolute(x.path),system:x.path.includes(\"/.system/\"),enabled:x.enabled,scope:x.scope})),runtimeOnly:true};common.config={...policy,skills:{config:skillRows.map(x=>({path:x.path,enabled:false}))}};const started=await call(\u0027thread/start\u0027,");fs.writeFileSync(".local-run/stage2c-skills-runtime-probe.mjs",s);' && node .local-run/stage2c-skills-runtime-probe.mjs
+```
+
+Exit 0, **runtime-only native proof PASS**. No CLI skill disable initially. Native skills/list returned one matching cwd, zero errors, six absolute SKILL.md entries: one user and five system (including the synthetic .system skill and installed native builtins). Runtime `config.skills.config` with every returned path `enabled:false` was supplied to thread/start and cold thread/resume. All five captured provider requests excluded both synthetic user/system descriptions and bodies; only request_user_input/repository_list/repository_read were exposed on dynamic-tool threads. New, cold Resume and legacy turns completed. Native instructionSources remained empty in the no-global-doc profile. Result: `.local-run/stage2c-skills-runtime-probe-result.json`.
+
+26. `apply_patch` created this ignored ledger for centralization. No commit/push performed by this subagent.
+
+## Findings to carry into implementation/report
+
+- `project_doc_max_bytes=0` suppresses project instructions but cannot be claimed to suppress CODEX_HOME/AGENTS files. All tested overrides retained home docs; root chose fail-closed on their presence; synthetic probes observed empty instructionSources, but production does not rely on that undocumented response field, without changing real files.
+- Disabling skill-search/tools does not prevent the automatic skills catalog. The tested skip-host feature did not suppress legacy CODEX_HOME skills. Official per-path runtime skill disable **does** suppress synthetic user and system skill metadata in real native requests, while preserving dynamic repository tools and cold Resume.
+- These were native CLI protocol tests with a synthetic loopback provider, **not real model analysis**. They verify the actual serialization/model-visible tool and instruction envelope; real external model execution is the primary agent's separate responsibility.
+- No claim of a race-proof defense against arbitrary malicious same-user changes to native Codex global files; root controls known paths/catalog preflight and fails closed on incomplete metadata. No personal global configuration, auth file, real AGENTS/skill content, transcript or user environment was opened by these shell commands.
+
+Privacy normalization: this final writer replaced the operator installation-path segment with `<operator>` in the ledger commands; only identifying path segments are anonymized, no command semantics/results are invented.
+
+27. At the protocol reviewer's request, executed one additional targeted disabled-skill explicit-mention regression through platform approval:
+
+```text
+node --input-type=module -e 'import fs from "node:fs";let s=fs.readFileSync(".local-run/stage2c-skills-runtime-probe.mjs","utf8");s=s.replaceAll("stage2c-skills-runtime-","stage2c-skills-mention-").replaceAll("Synthetic tool probe","$synthetic-private-skill $synthetic-system-skill Synthetic tool probe").replaceAll("Synthetic resumed tool probe","$synthetic-private-skill $synthetic-system-skill Synthetic resumed tool probe").replaceAll("Legacy synthetic tool probe","$synthetic-private-skill $synthetic-system-skill Legacy synthetic tool probe");fs.writeFileSync(".local-run/stage2c-skills-mention-probe.mjs",s);' && node .local-run/stage2c-skills-mention-probe.mjs
+```
+
+Exit 0. Native runtime-only disable continued to suppress user/system synthetic skill descriptions **and bodies even when the user prompt explicitly named both `$synthetic-private-skill` and `$synthetic-system-skill`**. New/cold Resume/legacy completed; tools remained the same restricted set. Native request booleans and skill scope/count metadata only: `.local-run/stage2c-skills-mention-probe-result.json`. This is still a loopback provider protocol regression, not external real-model completion. Existing processes/global config remained untouched.
+
+
+### Subagent UI — afișare, erori și aprobarea unei analize
+
+# Stage 2C — subagent UI ledger
+
+Working directory for every command: `<workspace>` (authorized project root).
+Files changed: `src/ui.html`, `src/ui.mjs`, `src/ui.css`, `test/ui.test.mjs`. No Git mutations, credentials, services, sessions or external devices were changed.
+
+Chronological executed operations (2026-10-27):
+
+1. `cat AGENTS.md && cat src/ui.mjs && cat src/ui.html && cat src/ui.css && cat test/ui.test.mjs` — exit 0; read current instructions and UI/test structure. Tool output was truncated, so targeted reads followed.
+2. `sed -n '150,330p' src/ui.mjs` — exit 0; inspected selector, job output and confirmation rendering.
+3. `cat src/ui.html` — exit 0.
+4. `cat src/ui.css` — exit 0.
+5. `sed -n '1,140p' test/ui.test.mjs` — exit 0; inspected synthetic VM browser harness and explicit-selection tests.
+6. `rg -n 'workspaces|readonlyJobs' src/hub.mjs` — exit 0; confirmed Hub supplies a workspace label/basename plus alias, not full path. No Hub edit.
+7. Three `apply_patch` operations — succeeded; changed UI summary to display selected workspace label/alias and full Resume ID, New pending-ID notice, per-job context, explicit `outputTruncated === true` warning, READ-ONLY dynamic repository-access notice, Stage 2C label and scoped CSS. Instruction confirmation discloses limited reads; existing approval gates and escaping retained.
+8. `apply_patch` — succeeded; added three UI regressions for explicit workspace/session context, safe read-progress rendering with truncation distinct from completion, and access notice/confirmation restrictions.
+9. `node --test test/ui.test.mjs && git diff --check -- src/ui.html src/ui.mjs src/ui.css test/ui.test.mjs` — exit 0. Default sandbox runner reported one file-level PASS, not the registered test count; no test-case success count inferred from that run.
+10. `node --version && node --test --test-reporter=spec test/ui.test.mjs && git diff --stat -- src/ui.html src/ui.mjs src/ui.css test/ui.test.mjs && git diff -- src/ui.mjs` — exit 0. Node v22.23.3, spec reporter also one file-level PASS. Diff at this point: 4 files, +88/−8.
+11. `type -a node && node --input-type=module -e 'import { test } from "node:test"; test("probe one", () => {}); test("probe two", () => {}); console.log(JSON.stringify({node:process.version,nodeTestContext:process.env.NODE_TEST_CONTEXT||null,nodeOptionsPresent:Boolean(process.env.NODE_OPTIONS)}));' && rg -c '^test\(' test/ui.test.mjs` — exit 0. Node executable was the installed WSL Node v22.23.3; two synthetic probe cases passed; no NODE_OPTIONS present; UI source contains 22 cases. No environment contents were printed.
+12. `node test/ui.test.mjs` — exit 0; all **22 registered UI cases PASS, 0 FAIL** (including the three new regressions). These are VM/DOM simulations, not visual browser verification or proof of real Codex analysis.
+13. `node --check src/ui.mjs && git diff --check -- src/ui.html src/ui.mjs src/ui.css test/ui.test.mjs` — exit 0; syntax/whitespace checks pass.
+14. `apply_patch` — succeeded; created this ignored ledger for centralization by primary agent.
+
+Errors/limitations: no implementation test failures. The default-sandbox `node --test` reporter discrepancy was reported to primary agent; direct `node test/ui.test.mjs` verified actual registration and all 22 cases. No browser launched, no real Codex turn executed by this subagent. UI expects core `job.outputTruncated` boolean; primary agent owns controller/agent/Hub transport.
+
+Follow-up requested by primary agent:
+
+15. `sed -n '28,52p' src/ui.mjs && rg -n 'outputTruncated|repository-|ambient|snapshotOutput|8000|32000' src/codex-control.mjs src/agent.mjs src/hub.mjs` — exit 0; reviewed current transport. Controller bounds output at 8,000 characters; agent additionally bounds serialized UTF-8 output and propagates truncation, Hub validates the boolean. UI warning intentionally describes a local output limit without an inaccurate fixed-byte claim.
+16. `tail -24 .local-run/stage2c-ui-ledger.md` — exit 0; reviewed prior ledger before append.
+17. Two `apply_patch` operations — succeeded; added safe descriptions for `repository-request-invalid`, `repository-budget-exceeded`, `repository-unavailable`, and `codex-ambient-config-blocked` in UI plus cases in the existing error-label regression loop. Ambient configuration message explains that the turn is blocked without changing user configuration and points to `ETAPA-2C-READONLY.md`; no raw diagnostics are shown.
+18. `node test/ui.test.mjs && node --check src/ui.mjs && git diff --check -- src/ui.html src/ui.mjs src/ui.css test/ui.test.mjs` — exit 0; **22 registered UI cases PASS, 0 FAIL**, syntax/whitespace checks pass. VM/DOM simulation only.
+19. `apply_patch` — succeeded; appended these actual operations to the ignored ledger.
+
+Final authorization-wording alignment requested by primary agent:
+
+20. `rg -n 'one |turn|analysis|confirmations' src/ui.html src/ui.mjs test/ui.test.mjs` — exit 0; located one-turn authorization wording that was inaccurate for bounded legacy continuations.
+21. Executed the following exact HTML-only text replacement command, exit 0:
+
+```sh
+node --input-type=module <<'JS'
+import fs from 'node:fs';
+const file = 'src/ui.html';
+let source = fs.readFileSync(file, 'utf8');
+for (const [before, after] of [
+  ['configured local read-only turns require explicit confirmation.', 'configured local read-only analyses require explicit confirmation.'],
+  ['Instruction for one read-only turn', 'Instruction for one read-only analysis'],
+  ['I approve one real local read-only Codex turn for this selection.', 'I approve one real local read-only Codex analysis for this selection.']
+]) {
+  if (!source.includes(before)) throw new Error('Expected UI wording missing.');
+  source = source.replace(before, after);
+}
+fs.writeFileSync(file, source);
+JS
+```
+
+22. Two `apply_patch` operations — succeeded; form/checkbox/confirmation/submission/empty-state wording now authorizes **one analysis**, not exactly one native turn. Confirmation discloses: “Older sessions may use bounded continuations in this same conversation; the total analysis deadline still applies.” API fields and approval logic were unchanged. Existing test expectations and the same confirmation regression assert the disclosure.
+23. `node test/ui.test.mjs && node --check src/ui.mjs && git diff --check -- src/ui.html src/ui.mjs src/ui.css test/ui.test.mjs` — exit 0; **22/22 registered UI cases PASS**, syntax/whitespace PASS. Tool presentation truncated the middle of TAP output; final counts were visible. These remain VM/DOM simulations, not visual verification.
+24. `apply_patch` — succeeded; appended this final subagent activity before root finalization.
+
+
+### Rezultate centralizate și erori reale
+
+- Baseline aprobat:170/170PASS7579ms; rularea în sandbox a raportat6suite eșuate fără diagnostice individuale, iar proba listenerului sintetic a confirmat EPERM pe127.0.0.1. Nu se declară PASS pentru încercările blocate. Aprobarile platformei au fost folosite pentru loopback/subprocese/Git/network în scopul autorizat, fără modificarea sandboxului.
+- Rulare țintită inițială:89/89PASS2155ms. Suită intermediară:200PASS9047ms. După toate protecțiile:204/204PASS9301ms. Ultima suită după clarificarea aprobării UI:204/204PASS7486ms,0fail/skip/cancel; npmci exit0,1pachet auditat,0vulnerabilități. Sintaxă:34moduleESM PASS. UI22/22 este simulareVM/DOM, nu browser vizual.
+- Erori remediate în această rundă: primul bytecount al fixture-ului46vs45, decoderul testului care omitea wrapperul untrusted, clasificarea catalogului skills nul ca indisponibil în loc de ambient-blocked. Generatorul TOML al unui helper sintetic nu gestiona arrays; helperul propriu rămas în așteptare a fost verificat strict și oprit, nu procese personale. Node22 respinge --test-isolation=none; nu s-a insistat cu protecțiile dezactivate. Unele căutări de fișiere/schema/SECURITY* inexistente au avut exit1/2 și sunt în listele reale. Nu au fost ascunse ca teste trecute.
+- Probleme native confirmate și tratate:0.163.0 nu poate adăuga dynamicTools prin Resume; compatibilitytransport oferă citiri limitate în același thread. mcp_servers={} combină configurații și nu dezactivează servere existente: preflight refuză MCP activ. project_doc_max_bytes0 nu suprimă AGENTS global: prezența lui blochează execuția, fără citire/ștergere. Descrierile skills apăreau automat chiar fără shell: sunt dezactivate toate căile inventariate, numai în configurația thread-ului. Probe native cu provider sintetic confirmă suprimarea user/system inclusiv la menționare explicită. Nu se pretinde apărare împotriva unui utilizator ostil care modifică simultan configurația Codex/OS.
+
+### Probe cu Codex și model real — distincte de simulări
+
+Comanda node .local-run/stage2c-real-integration.mjs a folosit un repository sintetic nou, HubHTTP/agent/Codex reale, login-ul local existent și credențiale sintetice separate. Exit0,187733ms; raport local ignorat .local-run/stage2c-real-result.json, fără răspunsuri brute sau tokenuri.
+
+- Newcompleted66555ms:12cereri,7fișiere reale,941octeți. Citite src/main.mjs1–3,src/math.mjs1–7,src/display.mjs1–3,package.json1–7,test/math.test.mjs1–4,.github/workflows/ci.yml1–9,README.md1–2. Identificate dormantFormat nefolosită și duplicarea sum/sumAgain; căile citate există și liniile relevante au fost verificate.
+- Resumecompleted20781ms,acelașiID/context păstrat,2recitiri. Patru citiri private/în afara rădăcinii/symlink respinse,0octeți,completed21430ms; sentinelul privat nu apare în rezultat.
+- Alt AppServer nativ propriu a dobândit thread-ul după completed: eliberarea workerului confirmată. Cât îl deținea, Resume a fost refuzat codex-busy628ms; proprietarul nu a fost forțat. Alt thread în același workspace a rămas permis.
+- Sesiune legacy construită nativ fără dynamicTools, într-un fixture nou (omiterea câmpului numai de helper la construire): Resumecompleted59383ms,12continuări de citire,acelașiID/context. Nu se pretinde acces la un CLI personal.
+- După eliberarea proprietarului propriu de test, Resumecompleted11237ms cu citire de importuri. Timeoutreal cu plafon50ms numai în probă:codex-turn-timeout,workerpropriuînchis. Limitele lungi implicite/progresul extrem sunt testate sintetic, nu printr-o execuție reală de10minute.
+- Toate cele9fișiere originale ale fixture-ului, inclusiv private, au hashuri identice după analiză; nicio unealtă de scriere disponibilă.0proceseproprii rămase,0conversațiipersonalereluate,0dispozitivesuplimentare. Fără verificare vizuală în browser.
+
+### Aplicația principală și publicarea
+
+Codexloginstatus a confirmat autentificarea existentă. Comanda node --env-file=.local-run/hub.env .local-run/stage2c-app-restart.mjs:exit0; înainte de restart0joburiqueued/running,apoi leverage status/stop/start/status toateexit0. Au fost oprite numai procesele proprii ale aplicației prin launcher, nu Codex personal. HTTP200,agentOnline,authenticated,inventaravailable5sesiuni la acel moment; ultima verificare leverage status confirmă serviciiOnline la127.0.0.1:8765. Fără noulogin, tokenuri afișate sau autostart.
+
+Auditul înaintea centralizării:11commituri,171bloburi,57fișiere,0constatări în istoric/workingtree,0căiprivate. .env/.local-run/.codex sunt ignorate; numai .env.example placeholder este urmărit. Repository leverage50x/agents verificatPRIVATE/ADMIN,remote branchc07dfb1 identicHEADinițial. Main906c24f15f8b364d9bec6da8cebb74b57caa8862,tagistoric229f258d9316dc5169eda089df374f0ccfbbe234 și branch2A6136fe5478586ed9dda31c165dbb75ca211baaab sunt păstrate.
+
+Fișiere:14modificate/5create/0șterse. Create ETAPA-2C-READONLY.md,src/repository-reader.mjs,src/repository-tools.mjs,test/repository-reader.test.mjs,test/repository-control.test.mjs. Actualizate AGENTS/README/ghid2B/jurnal,controller/agent/Hub,UI și regresiile existente. Fără dependențe noi, main/taguri/configurații private modificate. Documentația istorică păstrată.
+
+### Închidere precommit — fără completări după commit
+
+Acest bloc este generat de apply_patch .local-run/stage2c-finalize-journal.mjs și node .local-run/stage2c-finalize-journal.mjs; prefixul jurnalului este păstrat identic cu backup-ul ignorat .local-run/stage2c-journal-before.md. Se vor verifica auditul final al jurnalului/fișierelor, git diff --check,stagingexplicit,git diff --cached --check/listă/stat. Aceste rezultate finale sunt comunicate separat operatorului, fără completări postcommit ale jurnalului.
+
+Pași planificați la momentul închiderii, NU rezultate inventate: git add explicit cele19fișiere; git commit -m 'Add bounded read-only repository analysis'; git push origin stage2b-local-control; verificareghrepo/commit/run,urmărireCI și gitstatuscurat/aheadbehind0/refsprotejate. Publicarea folosește aprobările platformei și nu atinge main/taguri. Dacă eșuează un pas, se raportează rezultatul real; nu se pretinde anticipat succes. Hashul,CI și starea finală vor fi raportate în răspuns, în afara repository-ului. Nu se modifică jurnalul după ultimul commit.
+
+### Reluarea finalizării ETAPA 2C — 2026-10-28
+
+Director de lucru pentru toate operațiunile: <workspace>. Implementarea, testele reale și modificările existente au fost păstrate. Nu s-au repetat inferențele reale și nu s-au modificat sursele după suita finală 204/204 PASS.
+
+Verificări executate la reluare, în ordine (outputurile brute nu sunt copiate):
+
+1. Exit 0:
+
+```sh
+git status --short --branch && git log -1 --format='%H %s' && git diff --cached --stat && git diff --stat && git diff --check && git diff --cached --check
+```
+
+2. Exit 0:
+
+```sh
+tail -15 .local-run/stage2c-final-verified.tap && cat .local-run/stage2c-app-restart-result.json && tail -35 ETAPA-2C-READONLY.md && tail -22 'comenzi executate agent.md'
+```
+
+3. Exit 0:
+
+```sh
+node --input-type=module -e 'import fs from "node:fs";const audit=JSON.parse(fs.readFileSync(".local-run/publication-audit.json"));const real=JSON.parse(fs.readFileSync(".local-run/stage2c-real-result.json"));console.log(JSON.stringify({audit:{commits:audit.history.commitsScanned,blobs:audit.history.blobsScanned,historyFindings:audit.history.findings,privatePaths:audit.history.forbiddenPaths,files:audit.workingTree.filesReviewed,workingFindings:audit.workingTree.findings,stage1Retained:audit.history.stage1FirstCommitRetained},real:{passed:real.passed,authentication:real.authentication,findings:real.findings,resumeContextPreserved:real.resumeContextPreserved,privateReadsDenied:real.privateReadsDenied,nativeBusyProtected:real.nativeBusyProtected,legacyResume:real.legacyResume,realDeadline:real.realDeadline,allFixtureFilesUnchanged:real.allFixtureFilesUnchanged,ownedChildrenRemaining:real.ownedChildrenRemaining,elapsedMs:real.elapsedMs}}));' && sed -n '1,90p' AGENTS.md
+```
+
+4. Exit 0:
+
+```sh
+node --input-type=module -e 'import fs from "node:fs";import {createHash} from "node:crypto";const file="comenzi executate agent.md",lines=fs.readFileSync(file,"utf8").split("\n");for(let n=10974;n<=10979;n++)console.log(n+": "+lines[n-1].replace(/\/(?:home|Users)\/[^\s"\x27<>]+/g,"<local-user-path>"));const audit=JSON.parse(fs.readFileSync(".local-run/publication-audit.json"));console.log(JSON.stringify({changedSinceCompletedAudit:audit.workingTree.manifest.filter(item=>createHash("sha256").update(fs.readFileSync(item.file)).digest("hex")!==item.sha256).map(item=>item.file),historicalJournalPrefixPreserved:fs.readFileSync(file,"utf8").startsWith(fs.readFileSync(".local-run/stage2c-journal-before.md","utf8"))}));'
+```
+
+5. Exit 0:
+
+```sh
+git status --short --branch && git log -1 --format='%H %s' && git diff --stat && git diff --cached --stat && git diff --check && git diff --cached --check
+```
+
+6. Exit 0:
+
+```sh
+tail -n 85 'comenzi executate agent.md' && sed -n '1,180p' .local-run/review-publication.mjs
+```
+
+7. Exit 0:
+
+```sh
+cat AGENTS.md && cat ETAPA-2C-READONLY.md
+```
+
+8. Exit 0:
+
+```sh
+node --input-type=module <<'JS'
+import fs from 'node:fs';
+const audit = JSON.parse(fs.readFileSync('.local-run/publication-audit.json'));
+const real = JSON.parse(fs.readFileSync('.local-run/stage2c-real-result.json'));
+const restart = JSON.parse(fs.readFileSync('.local-run/stage2c-app-restart-result.json'));
+console.log(JSON.stringify({ audit: { commits: audit.history.commitsScanned, blobs: audit.history.blobsScanned, historyFindings: audit.history.findings, privatePaths: audit.history.forbiddenPaths, files: audit.workingTree.filesReviewed, findings: audit.workingTree.findings, reviewedFalsePositives: audit.reviewedFalsePositives, stage1Retained: audit.history.stage1FirstCommitRetained }, real, restart }, null, 2));
+JS
+
+git rev-parse --show-toplevel --git-dir && git branch --show-current && git remote get-url origin && git for-each-ref --format='%(refname) %(objectname)' refs/heads/main refs/heads/stage2-device-discovery refs/tags
+```
+
+9. Exit 0:
+
+```sh
+git diff --name-only && git ls-files --others --exclude-standard && git status --porcelain=v1 && git check-ignore .env .local-run/publication-audit.json .codex/config.toml
+```
+
+Rezultate: branch stage2b-local-control, HEAD inițial c07dfb1f6081a167d9c9eb614002176bf5f65af1, tracking identic; 14 fișiere modificate și 5 create, nimic staged la reluare. Diff/check fără erori. Prefixul istoric al jurnalului și toate hash-urile manifestului auditului anterior erau neschimbate. Artefactele locale confirmă 204/204 PASS, integrarea reală reușită și restartul controlat descris mai sus. Workflow-ul existent folosește Ubuntu, Node.js 22, npm ci, npm test și contents:read, fără secrete. Căile private sunt ignorate.
+
+Auditul final anterior, recuperat prin write_stdin pentru sesiunea proprie 89794, s-a încheiat cu exit 2: expresia regulată dintr-o comandă rg consemnată la linia 10977 a fost interpretată eronat ca o cale personală. Nu era o cale personală și nu a fost șters sau schimbat textul comenzii executate.
+
+apply_patch a modificat numai helperul ignorat .local-run/review-publication.mjs: clasifică punctual acel fals pozitiv pentru regula de cale personală, fișierul jurnal și SHA-256 exact al liniei 1db93b204a70bc6e1f28344f0b3d2dee59139b8eb962f072f49d25d1914450e2. Toate celelalte reguli și linii rămân verificate; excepția revizuită apare explicit în raport. Nu s-au schimbat protecțiile aplicației.
+
+Comandă executată: `node .local-run/review-publication.mjs stage2b-local-control > .local-run/stage2c-final-publication-audit.log 2>&1` — exit 0. Rezultat: 11 commituri, 171 bloburi, 57 fișiere, 0 constatări de secrete/date personale și 0 căi private urmărite; un fals pozitiv documentat separat. Primul commit Stage 1 este păstrat. După încheierea comenzii, orchestratorul a respins salvarea unui session_id undefined, deoarece comanda terminase deja; această eroare de bookkeeping nu a afectat auditul sau fișierele.
+
+Au fost recitite metadatele rapoartelor reale și TAP, configurația CI și referințele Git. Niciun răspuns brut al modelului, token sau transcript personal nu a fost copiat în jurnal. Main, branch-ul 2A și tagul istoric sunt neschimbate.
+
+Ultimul audit după acest adaos a trecut; git diff --check a raportat apoi exit 2 pentru o linie goală suplimentară la EOF. O comandă locală Node a eliminat doar whitespace-ul final și a înregistrat această corecție; nu a modificat codul aplicației.
+
+Acest adaos este realizat prin apply_patch înainte de staging/commit. Verificările finale ale acestei versiuni de jurnal, staging-ul explicit al celor 19 fișiere, commitul, push-ul și rezultatul CI sunt încă pași planificați în momentul înghețării jurnalului. Se vor executa `git diff --cached --check`, `git diff --cached --name-status`, `git diff --cached --stat`, `git commit -m 'Add bounded read-only repository analysis'`, `git push origin stage2b-local-control`, verificarea GitHub Actions pentru SHA-ul publicat și verificarea sincronizării/stării curate. Rezultatele lor reale vor fi comunicate operatorului în raportul final, fără editarea jurnalului după commit.

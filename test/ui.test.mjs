@@ -124,7 +124,7 @@ test('UI contains only read-only controls and never references removed legacy ID
   await b.login();
   await b.poll();
   assert.ok(b.calls.every(call => call.endpoint === '/api/state'));
-  assert.ok(b.element('local-jobs').innerHTML.includes('No local read-only turns submitted.'));
+  assert.ok(b.element('local-jobs').innerHTML.includes('No local read-only analyses submitted.'));
 });
 
 test('UI scopes read-only sessions by persistent ID even when devices have identical names', async () => {
@@ -204,7 +204,7 @@ test('local control never auto-selects device, mode, workspace or session and re
   assert.equal(b.element('local-confirm').checked, false);
 });
 
-test('local New sends exactly the selected context after explicit approval and clears one-turn confirmation', async () => {
+test('local New sends exactly the selected context after explicit approval and clears one-analysis confirmation', async () => {
   const b = browser(localState());
   await b.login();
   selectLocal(b);
@@ -456,7 +456,11 @@ test('local errors explain native ownership, cleanup, availability, policy and a
     'codex-version-unsupported': 'The installed Codex CLI version is unsupported.',
     'codex-not-authenticated': 'Codex authentication could not be confirmed.',
     'codex-policy-mismatch': 'Local safety settings could not be verified.',
-    'codex-request-rejected': 'Codex rejected the local request.'
+    'codex-request-rejected': 'Codex rejected the local request.',
+    'codex-ambient-config-blocked': 'The turn was blocked without changing configuration. See ETAPA-2C-READONLY.md',
+    'repository-request-invalid': 'Codex requested repository data in an unsupported format.',
+    'repository-budget-exceeded': 'This analysis reached its repository request limit.',
+    'repository-unavailable': 'The authorized repository reader could not complete the request safely.'
   };
   for (const [errorCode, message] of Object.entries(messages)) {
     b.state({ ...localState(), readonlyJobs: [{ id: 'synthetic-error', deviceId: localDevice.id,
@@ -497,5 +501,81 @@ test('UI distinguishes partial streaming, stopped partials and final answers wit
   await b.poll();
   assert.ok(b.element('local-jobs').innerHTML.includes('Final response'));
   assert.equal(b.element('local-jobs').innerHTML.includes('Partial response'), false);
+  assert.equal(localRequests(b).length, 0);
+});
+
+test('repository analysis makes workspace and selected session explicit without inventing an absolute path', async () => {
+  const selected = { ...localDevice, sessions: [{ ...localDevice.sessions[0], title: 'Repository review', project: 'Personal project' }] };
+  const b = browser(localState([selected]));
+  await b.login();
+  assert.ok(b.element('local-selection-summary').textContent.includes('Workspace: not selected'));
+  selectLocal(b);
+  let summary = b.element('local-selection-summary').textContent;
+  assert.ok(summary.includes('no existing session will be resumed'));
+  assert.ok(summary.includes('Session ID will appear in the result after creation'));
+  assert.ok(summary.includes('Workspace: Personal project (alias: project)'));
+  assert.equal(summary.includes(localThread), false);
+  change(b, 'local-mode', 'resume');
+  change(b, 'local-thread', localThread);
+  summary = b.element('local-selection-summary').textContent;
+  assert.ok(summary.includes('Repository review'));
+  assert.ok(summary.includes('Session ID: ' + localThread));
+  assert.ok(summary.includes('Workspace: Personal project (alias: project)'));
+  assert.equal(summary.includes('/home/'), false);
+  b.state({ ...localState([selected]), readonlyJobs: [{ id: 'repository-new', deviceId: localDevice.id,
+    mode: 'new', workspaceId: 'project', status: 'running', output: '', events: [] }] });
+  await b.poll();
+  assert.ok(b.element('local-jobs').innerHTML.includes('workspace Personal project (alias: project)'));
+  assert.ok(b.element('local-jobs').innerHTML.includes('session ID pending creation'));
+  b.state({ ...localState([selected]), readonlyJobs: [{ id: 'repository-new', deviceId: localDevice.id,
+    mode: 'new', workspaceId: 'project', status: 'completed', resultThreadId: localThread, output: 'Read-only review.', events: [] }] });
+  await b.poll();
+  assert.ok(b.element('local-jobs').innerHTML.includes('session ' + localThread));
+  assert.equal(b.element('local-jobs').innerHTML.includes('ID pending creation'), false);
+  assert.equal(localRequests(b).length, 0);
+});
+
+test('repository reads show safe progress and output truncation remains distinct from turn completion', async () => {
+  const job = { id: 'repository-analysis', deviceId: localDevice.id, mode: 'resume', workspaceId: 'project', threadId: localThread,
+    status: 'running', output: '<code>Bounded response</code>', outputTruncated: true,
+    events: [{ type: 'progress', message: 'Repository read: src/example.mjs lines 1–20.' }] };
+  const b = browser({ ...localState(), readonlyJobs: [job] });
+  await b.login();
+  let html = b.element('local-jobs').innerHTML;
+  assert.ok(html.includes('Repository read: src/example.mjs lines 1–20.'));
+  assert.ok(html.includes('Response truncated: the local output limit was reached'));
+  assert.ok(html.includes('Partial response — turn still running — truncated'));
+  assert.ok(html.includes('&lt;code&gt;Bounded response&lt;/code&gt;'));
+  b.state({ ...localState(), readonlyJobs: [{ ...job, status: 'completed' }] });
+  await b.poll();
+  html = b.element('local-jobs').innerHTML;
+  assert.ok(html.includes('Final response — truncated'));
+  assert.ok(html.includes('Completion status does not mean that the full response is displayed'));
+  b.state({ ...localState(), readonlyJobs: [{ ...job, status: 'completed', outputTruncated: false }] });
+  await b.poll();
+  html = b.element('local-jobs').innerHTML;
+  assert.equal(html.includes('Response truncated'), false);
+  assert.ok(html.includes('Final response'));
+  assert.equal(localRequests(b).length, 0);
+});
+
+test('repository access notice and confirmation disclose limited dynamic reads without granting extra tools', async () => {
+  assert.ok(markup.includes('Real local Codex'));
+  assert.ok(markup.includes('Repository access: limited READ-ONLY'));
+  assert.ok(markup.includes('files are available on demand'));
+  assert.ok(markup.includes('untrusted analysis data'));
+  assert.ok(markup.includes('File size, total reads and request counts are limited'));
+  assert.ok(markup.includes('No arbitrary shell, writes, browser, network tools or MCP access'));
+  assert.ok(markup.includes('Instruction for one read-only analysis'));
+  assert.ok(markup.includes('I approve one real local read-only Codex analysis for this selection.'));
+  const b = browser(localState());
+  await b.login();
+  selectLocal(b);
+  confirmLocal(b);
+  await submitLocal(b);
+  assert.ok(b.confirmations[0].includes('Run one REAL LOCAL READ-ONLY Codex analysis?'));
+  assert.ok(b.confirmations[0].includes('Codex may request authorized project files through the limited READ-ONLY reader'));
+  assert.ok(b.confirmations[0].includes('Older sessions may use bounded continuations in this same conversation; the total analysis deadline still applies.'));
+  assert.ok(b.confirmations[0].includes('File changes, arbitrary shell and access to private files are prohibited'));
   assert.equal(localRequests(b).length, 0);
 });

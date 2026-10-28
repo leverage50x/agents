@@ -2,6 +2,8 @@
 
 Acest branch este `stage2b-local-control`. Aplicația curentă oferă inventar și control Codex real local READ-ONLY, cu confirmare explicită. Nu conectează laptopul 2 și nu permite execuție pe alte dispozitive sau scriere prin Codex. Main și tagurile istorice rămân neschimbate.
 
+Extensia curentă pentru citirea surselor la cerere este documentată în [ETAPA-2C-READONLY.md](ETAPA-2C-READONLY.md). Acest document păstrează lifecycle-ul, launcher-ul și verificările istorice 2B.
+
 ## Pornire și oprire
 
 Din rădăcina proiectului, în WSL/Linux cu Node.js >=22:
@@ -99,7 +101,7 @@ Incidentul raportat New avea 120,256s și 535 caractere de răspuns la eșec: a 
 
 Controllerul trebuie să verifice versiunea/schema și configurația efectivă înainte de turn. Folosește sandbox readOnly, networkAccess=false pentru instrumente, o politică de aprobare care nu ocolește aprobările și refuză cererile de escaladare. Nu sunt expuse thread/shellCommand, command/exec sau process/*, care ar putea ocoli sandboxul. MCP, aplicațiile, browserul și instrumentele cu efecte secundare trebuie dezactivate înaintea unei probe reale.
 
-Modul inițial furnizează modelului un snapshot validat al README-ului și o listă sigură a fișierelor proiectului, păstrând instrumentele dezactivate. Aceasta permite analiza cerută fără a lăsa modelul să citească fișiere private sau să execute shell. Versiunea0.163.0 și catalogul efectiv de instrumente au fost verificate cu un provider sintetic local; prima analiză cu model real a reușit fără schimbarea fișierelor urmărite. Acoperirea exactă și limitările sunt raportate în VERIFICARE.md, nu deduse din simpla autentificare.
+Modul inițial 2B furniza modelului un snapshot validat al README-ului și o listă sigură de fișiere, cu instrumentele dezactivate. Aceasta este o descriere istorică: Etapa 2C elimină snapshot-ul și permite numai un cititor propriu, limitat, la cerere; nu activează shell sau scriere. Versiunea0.163.0 și catalogul inițial au fost verificate cu un provider sintetic local. Rezultatele istorice rămân în VERIFICARE.md; politica și verificările curente sunt în [ETAPA-2C-READONLY.md](ETAPA-2C-READONLY.md), fără a deduce accesul real din simpla autentificare.
 
 Autonomia dezvoltării este documentată în [CODEX-AUTONOMIE.md](CODEX-AUTONOMIE.md). Setările workspace-write ale agentului de dezvoltare nu se aplică controllerului READ-ONLY din dashboard.
 

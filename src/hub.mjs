@@ -224,7 +224,7 @@ export function createHub({ token, credentialStore = createCredentialStore(), no
       }
       const job = { id: randomUUID(), deviceId: localDeviceId, mode: b.mode,
         threadId: b.mode === 'resume' ? b.threadId : null, workspaceId: 'project', prompt: b.prompt,
-        confirmed: true, policy: 'local-read-only', status: 'queued', output: '', events: [], createdAt: new Date(now()).toISOString() };
+        confirmed: true, policy: 'local-read-only', status: 'queued', output: '', outputTruncated: false, events: [], createdAt: new Date(now()).toISOString() };
       readonlyJobs.set(job.id, job);
       return send(res, 201, { job });
     }
@@ -255,12 +255,14 @@ export function createHub({ token, credentialStore = createCredentialStore(), no
       if (!job || job.deviceId !== agent.id || job.status !== 'running') return send(res, 409, { error: 'No matching running job.' });
       requireValue(['running', 'completed', 'failed', 'interrupted'].includes(b.status), 'Invalid READ-ONLY job state.');
       requireValue(b.output === undefined || (typeof b.output === 'string' && b.output.length <= 8000), 'Output limit exceeded.');
+      requireValue(b.outputTruncated === undefined || typeof b.outputTruncated === 'boolean', 'Invalid output truncation flag.');
       requireValue(b.threadId == null || (typeof b.threadId === 'string' && UUID.test(b.threadId) &&
         (!job.threadId || b.threadId === job.threadId)), 'Thread identity mismatch.');
       requireValue(b.events === undefined || (Array.isArray(b.events) && b.events.length <= 20 && b.events.every(e =>
         isObject(e) && ['progress', 'output', 'error', 'completed'].includes(e.type) && typeof e.message === 'string' && e.message.length <= 160)), 'Invalid progress events.');
       job.status = b.status;
       if (b.output !== undefined) job.output = b.output;
+      if (b.outputTruncated !== undefined) job.outputTruncated = b.outputTruncated;
       if (b.threadId) job.threadId = b.threadId;
       if (b.events) job.events = b.events.map(({ type, message }) => ({ type, message }));
       if (typeof b.errorCode === 'string' && /^[a-z-]{1,60}$/.test(b.errorCode)) job.errorCode = b.errorCode;

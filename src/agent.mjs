@@ -116,6 +116,7 @@ export function createAgent({ env = process.env, fetchImpl = fetch, controlFacto
     const runControl = control;
     const events = [];
     let stream = '';
+    let streamTruncated = false;
     let lastUpdate = -Infinity;
     let updates = Promise.resolve();
     let acceptingEvents = true;
@@ -134,6 +135,7 @@ export function createAgent({ env = process.env, fetchImpl = fetch, controlFacto
       const remaining = 17999 - Buffer.byteLength(JSON.stringify({ ...payload, output: '' }));
       if (remaining < 0) { failClosed(); return Promise.reject(new Error('Local update metadata exceeded its safe limit.')); }
       payload.output = boundedText(payload.output, remaining);
+      payload.outputTruncated = body.outputTruncated === true || payload.output !== (body.output || '');
       if (Buffer.byteLength(JSON.stringify(payload)) >= 18000) {
         failClosed(); return Promise.reject(new Error('Local update exceeded its safe limit.'));
       }
@@ -149,7 +151,8 @@ export function createAgent({ env = process.env, fetchImpl = fetch, controlFacto
       if (closing || !acceptingEvents || !dirty || sending) return;
       clearTimeout(trailingTimer); trailingTimer = undefined;
       dirty = false; sending = true; lastUpdate = Date.now();
-      const snapshot = { status: 'running', output: stream, events: events.map(event => ({ ...event })) };
+      const snapshot = { status: 'running', output: stream, outputTruncated: streamTruncated,
+        events: events.map(event => ({ ...event })) };
       updates = Promise.resolve().then(() => closing ? undefined : update(snapshot)).catch(() => {}).finally(() => {
         sending = false;
         scheduleUpdate();
@@ -160,7 +163,10 @@ export function createAgent({ env = process.env, fetchImpl = fetch, controlFacto
       const type = ['progress', 'output', 'error', 'completed'].includes(event?.type) ? event.type : 'progress';
       const message = typeof event?.message === 'string' ? event.message : '';
       // Output events are complete sanitized replacement snapshots, not deltas.
-      if (type === 'output') stream = boundedText(message, 8000);
+      if (type === 'output') {
+        stream = boundedText(message, 8000);
+        streamTruncated = event.outputTruncated === true || stream !== message;
+      }
       if (type !== 'output' || events.at(-1)?.type !== 'output') {
         events.push({ type, message: type === 'output' ? 'Codex response received.' : boundedText(message, 160) });
       }
@@ -182,7 +188,9 @@ export function createAgent({ env = process.env, fetchImpl = fetch, controlFacto
     const status = ['completed', 'failed', 'interrupted'].includes(result?.status) ? result.status : 'failed';
     const output = typeof result?.output === 'string'
       ? (status !== 'completed' && !result.output ? stream : boundedText(result.output, 8000)) : stream;
-    await update({ status, output,
+    await update({ status, output, outputTruncated: result?.outputTruncated === true ||
+      (typeof result?.output === 'string' && output !== result.output) ||
+      (status !== 'completed' && !result?.output && streamTruncated),
       ...(typeof result?.threadId === 'string' ? { threadId: result.threadId } : {}),
       ...(typeof result?.errorCode === 'string' ? { errorCode: result.errorCode } : {}), events });
   }

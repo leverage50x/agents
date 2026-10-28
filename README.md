@@ -1,8 +1,8 @@
-# Leverage50xAgents — Etapa 2B, control local READ-ONLY
+# Leverage50xAgents — Etapa 2C, analiză locală READ-ONLY
 
 Dashboard central pentru dispozitive personale, heartbeat și inventar al sesiunilor Codex. Stage 1 este păstrat în tagul `v0.1.1-stage1-demo`, 2A pe `stage2-device-discovery`, iar controlul local și launcher-ul pe `stage2b-local-control`, fără merge în main.
 
-Aplicația oferă inventar de dispozitive/sesiuni și control Codex real, local, **READ-ONLY**. Selectează explicit dispozitivul principal, New sau Resume, workspace-ul și instrucțiunea, apoi confirmă. Scrierea și execuția pe alte dispozitive rămân blocate; `LEVERAGE_ENABLE_LIVE_CODEX=1` este refuzat. Ghid curent: [ETAPA-2B-LOCAL.md](ETAPA-2B-LOCAL.md).
+Aplicația oferă inventar de dispozitive/sesiuni și control Codex real, local, **READ-ONLY**. Selectează explicit dispozitivul principal, New sau Resume, workspace-ul și instrucțiunea, apoi confirmă. Codex poate cere directoare și linii din sursele autorizate în timpul analizei, fără preload al întregului repository. Scrierea și execuția pe alte dispozitive rămân blocate; `LEVERAGE_ENABLE_LIVE_CODEX=1` este refuzat. Ghid curent: [ETAPA-2C-READONLY.md](ETAPA-2C-READONLY.md); launcher și istoric: [ETAPA-2B-LOCAL.md](ETAPA-2B-LOCAL.md).
 
 ## Pornire locală
 
@@ -58,9 +58,11 @@ Inventarul și autentificarea folosesc un App Server care nu încarcă thread-ur
 
 `updatedAt` este ultima activitate cunoscută; timpul relativ, ID-ul complet și UTC-ul sunt afișate în dashboard. Pentru inventar explicit din fișiere, `LEVERAGE_SESSION_SOURCE=files` citește numai nume/stat și nu certifică filtrul CLI sau activitatea. Numele MCP indică numai configurarea, fără verificare live. `LEVERAGE_REPORT_PROJECT=0` omite etichetele proiectelor.
 
-Controlul local poate crea o conversație New ori continua sesiunea Resume selectată explicit. Controllerul verifică politica efectivă READ-ONLY, oferă contextul sigur al proiectului, păstrează instrumentele dezactivate și respinge escaladările. Modelul nu primește acces de scriere sau comenzi shell. Autentificarea, politica și selecția trebuie să fie valide înainte de turn; o eroare este raportată fără reluarea automată a instrucțiunii.
+Controlul local poate crea o conversație New ori continua sesiunea Resume selectată explicit. Controllerul verifică politica READ-ONLY și permite numai uneltele proprii `repository_list` / `repository_read`, care citesc la cerere fișiere sursă și configurații neconfidențiale. Pentru sesiunile vechi fără unelte persistate, un protocol JSON limitat continuă analiza în același thread. Nu sunt preîncărcate automat README-ul sau toate fișierele. Modelul nu primește scriere, shell, network, browser sau MCP.
 
-Progresul și răspunsul parțial apar în timpul turnului; numai notificarea `turn/completed` pentru thread-ul și turnul selectate confirmă finalizarea. Limitele implicite sunt separate: 30s pentru răspuns RPC, 180s fără activitate a turnului și 10 minute durată totală după confirmarea RPC. Activitatea prelungește numai limita de inactivitate. Timeouturile au coduri distincte și păstrează răspunsul parțial sigur. Detalii și verificări reale: [ETAPA-2B-LOCAL.md](ETAPA-2B-LOCAL.md).
+Cititorul blochează `.env*`, `.local-run`, directoare private, traversal, symlink/hardlink și formate sensibile recognoscibile; impune 64 KiB/fișier, 512 KiB și 64 cereri per job. Fiecare pagină are maximum 200 linii/16 KiB. Filtrul conservator poate refuza unele teste cu credențiale sintetice și nu garantează detectarea informațiilor confidențiale arbitrare. Instrucțiunile găsite în fișiere nu pot schimba politica. Preflight-ul Codex refuză configurații ambientale incompatibile și dezactivează skills numai pentru thread-ul propriu, fără schimbarea login-ului/configurației globale. Detalii: [ETAPA-2C-READONLY.md](ETAPA-2C-READONLY.md).
+
+Progresul citirilor și răspunsul parțial apar în timpul analizei; numai notificările `turn/completed` corelate confirmă finalizarea. Limitele implicite sunt separate: 30s pentru răspuns RPC, 180s fără activitate și 10 minute durată totală după primul ACK. Continuările de compatibilitate nu resetează plafonul total. Timeouturile păstrează răspunsul parțial sigur, fără retry automat. Dashboard-ul semnalează explicit orice răspuns trunchiat de limita de afișare/transport. Detalii și verificări reale: [ETAPA-2C-READONLY.md](ETAPA-2C-READONLY.md).
 
 Configurație agent: `LEVERAGE_AGENT_ID`, `LEVERAGE_AGENT_TOKEN`, `LEVERAGE_DEVICE`, `LEVERAGE_URL` loopback, opțional `LEVERAGE_WORKSPACE`, `LEVERAGE_CODEX_HOME`/`CODEX_HOME`, `LEVERAGE_SESSION_SOURCE=app-server|files`, `LEVERAGE_REPORT_PROJECT=0`. Hub: `LEVERAGE_OPERATOR_TOKEN`, `LEVERAGE_CREDENTIAL_STORE`, `LEVERAGE_HOST`, `LEVERAGE_PORT`. Vechiul `LEVERAGE_TOKEN` este acceptat doar ca token operator pentru tranziție; nu autentifică agenți.
 

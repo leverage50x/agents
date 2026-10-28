@@ -35,6 +35,10 @@ const localErrors = {
   'codex-version-unsupported': 'The installed Codex CLI version is unsupported. Check the supported version before retrying local control.',
   'codex-not-authenticated': 'Codex authentication could not be confirmed. Check local Codex login before retrying.',
   'codex-policy-mismatch': 'Local safety settings could not be verified. The turn was refused; check local configuration.',
+  'codex-ambient-config-blocked': 'Local Codex configuration would load outside instructions, skill metadata, enabled MCP connections or other external integrations. The turn was blocked without changing configuration. See ETAPA-2C-READONLY.md for the supported local setup.',
+  'repository-request-invalid': 'Codex requested repository data in an unsupported format. No additional files were read; retry with a focused read-only instruction.',
+  'repository-budget-exceeded': 'This analysis reached its repository request limit. Any received response is shown below; use Resume for a narrower follow-up.',
+  'repository-unavailable': 'The authorized repository reader could not complete the request safely. Check the local workspace and agent before retrying; private filesystem diagnostics are withheld.',
   'codex-request-rejected': 'Codex rejected the local request. Check local Codex status and refresh inventory before retrying.',
   'codex-unavailable': 'Local Codex is unavailable. Check the local agent and Codex status before retrying.',
   'controller-unavailable': 'The local controller stopped unexpectedly. Any received partial response is shown below.',
@@ -88,12 +92,15 @@ function controls() {
   const { ready, message } = localAvailability();
   $('local-control-status').textContent = message;
   const selection = localSelection();
-  $('local-selection-summary').textContent = $('local-mode').value === 'new'
+  const conversation = $('local-mode').value === 'new'
     ? 'New conversation — no existing session will be resumed.'
     : $('local-mode').value !== 'resume' ? 'Choose New or Resume explicitly.'
     : !selection.session ? 'Choose a session explicitly. Discovered IDs are unverified candidates.'
     : shortTitle(selection.session) + ' · ' + relativeTime(selection.session.lastActivity) + ' · ' +
-      resumeAvailability(selection.device, selection.session);
+      resumeAvailability(selection.device, selection.session) + ' · Session ID: ' + selection.session.id;
+  $('local-selection-summary').textContent = conversation +
+    (selection.mode === 'new' ? ' Session ID will appear in the result after creation.' : '') +
+    ' Workspace: ' + (selection.workspace ? selection.workspace.label + ' (alias: ' + selection.workspace.id + ')' : 'not selected') + '.';
   $('local-device').disabled = !connected || !state.localControl?.enabled || busy;
   for (const id of ['local-mode', 'local-workspace', 'local-prompt']) $(id).disabled = !ready || busy;
   $('local-thread').disabled = !ready || busy || $('local-mode').value !== 'resume';
@@ -185,16 +192,20 @@ function renderLocalControl() {
   $('local-jobs').innerHTML = jobs.length ? jobs.map(job =>
     '<article class="job"><b>' + escape(job.status) + '</b> · ' +
     escape(state.devices.find(device => device.id === job.deviceId)?.name || job.deviceId) +
-    '<p><small>' + escape(job.mode) + ' · workspace ' + escape(job.workspaceId) + ' · session ' +
-    escape(job.resultThreadId || job.threadId || 'new') + ' · ' + escape(job.createdAt) + '</small></p><p>' +
+    '<p><small>' + escape(job.mode) + ' · workspace ' +
+    escape(workspaces.find(workspace => workspace.id === job.workspaceId)?.label || job.workspaceId) +
+    ' (alias: ' + escape(job.workspaceId) + ') · session ' +
+    escape(job.resultThreadId || job.threadId || 'ID pending creation') + ' · ' + escape(job.createdAt) + '</small></p><p>' +
     escape(job.prompt) + '</p>' + ((job.events || []).length ? '<ul class="local-events">' + job.events.map(event =>
       '<li><b>' + escape(event.type) + '</b> ' + escape(event.message) + '</li>').join('') + '</ul>' : '') +
     (job.errorCode ? '<p class="off">Error: <code>' + escape(job.errorCode) + '</code></p><p class="muted">' +
       escape(Object.hasOwn(localErrors, job.errorCode) ? localErrors[job.errorCode] :
         'The local turn stopped. Check the error code and current device status before retrying.') + '</p>' : '') +
+    (job.outputTruncated === true ? '<p class="response-limit" role="status">Response truncated: the local output limit was reached. The text below is incomplete; ask a narrower follow-up in Resume. Completion status does not mean that the full response is displayed.</p>' : '') +
     (job.output ? '<p class="muted">' + (job.status === 'completed' ? 'Final response' : job.status === 'running'
-      ? 'Partial response — turn still running' : 'Partial response — turn stopped') + '</p><pre>' + escape(job.output) + '</pre>' : '') + '</article>'
-  ).join('') : '<p class="muted">No local read-only turns submitted.</p>';
+      ? 'Partial response — turn still running' : 'Partial response — turn stopped') +
+      (job.outputTruncated === true ? ' — truncated' : '') + '</p><pre>' + escape(job.output) + '</pre>' : '') + '</article>'
+  ).join('') : '<p class="muted">No local read-only analyses submitted.</p>';
 }
 function render() {
   $('device-count').textContent = '(' + state.devices.filter(online).length + ' online / ' + state.devices.length + ')';
@@ -268,13 +279,13 @@ $('local-form').addEventListener('submit', async event => {
   event.preventDefault();
   const selection = localSelection();
   if (busy || !selection.valid || !$('local-confirm').checked) {
-    $('local-message').textContent = 'Select the authenticated local device, conversation mode, approved workspace, session for Resume and an instruction; then confirm the read-only turn.';
+    $('local-message').textContent = 'Select the authenticated local device, conversation mode, approved workspace, session for Resume and an instruction; then confirm the read-only analysis.';
     return;
   }
   const { device, mode, workspace, session, prompt } = selection;
-  if (!confirm('Run one REAL LOCAL READ-ONLY Codex turn?\n\nDevice: ' + deviceLabel(device) +
+  if (!confirm('Run one REAL LOCAL READ-ONLY Codex analysis?\n\nDevice: ' + deviceLabel(device) +
     '\nConversation: ' + (mode === 'new' ? 'New' : 'Resume ' + session.id) + '\nWorkspace: ' + workspace.label +
-    '\n\n' + prompt + '\n\nFile changes are prohibited. This does not authorize execution on another device.')) {
+    '\n\n' + prompt + '\n\nCodex may request authorized project files through the limited READ-ONLY reader. Older sessions may use bounded continuations in this same conversation; the total analysis deadline still applies. File changes, arbitrary shell and access to private files are prohibited. This does not authorize execution on another device.')) {
     $('local-confirm').checked = false;
     controls();
     return;
@@ -286,7 +297,7 @@ $('local-form').addEventListener('submit', async event => {
       deviceId: device.id, mode, threadId: mode === 'resume' ? session.id : null,
       workspaceId: workspace.id, prompt, confirmed: true
     });
-    $('local-message').textContent = 'Confirmed local read-only turn submitted. Follow progress and results below.';
+    $('local-message').textContent = 'Confirmed local read-only analysis submitted. Follow progress and results below.';
     $('local-prompt').value = '';
     $('local-confirm').checked = false;
     await refresh();

@@ -62,6 +62,8 @@ function brokerFixture(t) {
           const response = result => reply({ id: message.id, result });
           switch (message.method) {
             case 'initialize': response({}); break;
+            case 'config/read': response({ config: { mcp_servers: {} } }); break;
+            case 'skills/list': response({ data: [{ cwd: f.workspace, errors: [], skills: [] }] }); break;
             case 'account/read': response({ account: { type: 'chatgpt' } }); break;
             case 'thread/list':
               response({ data: [THREAD_A, THREAD_B].map(id => ({ id, cwd: f.workspace,

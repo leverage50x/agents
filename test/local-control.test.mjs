@@ -129,20 +129,22 @@ test('local jobs serialize queued and running turns and accept only bounded matc
   await f.claim();
   assert.equal((await f.propose()).status, 409);
   for (const patch of [
-    { status: 'live' }, { output: 'x'.repeat(8001) }, { threadId: 'invalid' }, { threadId: foreignThreadId },
+    { status: 'live' }, { output: 'x'.repeat(8001) }, { outputTruncated: 'true' }, { threadId: 'invalid' }, { threadId: foreignThreadId },
     { events: [{ type: 'shell', message: 'not permitted' }] },
     { events: [{ type: 'progress', message: 'x'.repeat(161) }] },
     { events: Array.from({ length: 21 }, () => ({ type: 'progress', message: 'too many' })) }
   ]) assert.equal((await f.update({ jobId, status: 'running', ...patch })).status, 400);
   assert.equal((await f.operator()).body.readonlyJobs[0].status, 'running');
-  const progress = { jobId, status: 'running', output: 'Synthetic partial response', threadId,
+  const progress = { jobId, status: 'running', output: 'Synthetic partial response', outputTruncated: true, threadId,
     events: [{ type: 'progress', message: 'Read-only turn started.' }, { type: 'output', message: 'Response received.' }] };
   assert.equal((await f.update(progress)).status, 200);
   assert.equal((await f.operator()).body.readonlyJobs[0].output, progress.output);
-  assert.equal((await f.update({ ...progress, status: 'completed', output: 'Synthetic final response' })).status, 200);
+  assert.equal((await f.operator()).body.readonlyJobs[0].outputTruncated, true);
+  assert.equal((await f.update({ ...progress, status: 'completed', output: 'Synthetic final response', outputTruncated: false })).status, 200);
   assert.equal((await f.update({ ...progress, status: 'completed' })).status, 409);
   const final = (await f.operator()).body.readonlyJobs[0];
   assert.equal(final.threadId, threadId);
+  assert.equal(final.outputTruncated, false);
   assert.ok(final.finishedAt);
   assert.equal((await f.propose()).status, 201, 'a completed turn releases the local queue');
 });
@@ -398,6 +400,33 @@ test('legacy live flag cannot instantiate local control and normal discovery sta
       assert.equal((await f.propose()).status, 400);
     } finally { await agent.close(); }
   }
+});
+
+test('agent reports UTF-8 transport truncation even when the controller character limit was not reached', async t => {
+  const f = setup(t);
+  const answer = '🙂'.repeat(3000);
+  const agent = createAgent({ env: { ...f.env, LEVERAGE_LOCAL_READONLY: '1' }, controlFactory: () => ({
+    accountStatus: async () => ({ status: 'authenticated' }),
+    listSessions: async () => ({ sessions: [session()], status: 'available', truncated: false, source: 'app-server' }),
+    run: async (_job, onEvent) => {
+      onEvent({ type: 'output', message: answer, outputTruncated: false });
+      return { status: 'completed', threadId, output: answer, outputTruncated: false };
+    }, close: async () => {},
+  }), fetchImpl: async (url, options) => {
+    const endpoint = new URL(url);
+    const response = await dispatch(f.server, '', { endpoint: endpoint.pathname + endpoint.search,
+      method: options.method, authorization: options.headers.Authorization,
+      ...(options.body === undefined ? {} : { body: JSON.parse(options.body) }) });
+    return { ok: response.status < 400, status: response.status, json: async () => response.body };
+  } });
+  t.after(() => agent.close());
+  await agent.tick(); await f.propose(); await agent.tick(); await agent.waitForIdle();
+  const job = (await f.operator()).body.readonlyJobs[0];
+  assert.equal(job.status, 'completed');
+  assert.equal(job.outputTruncated, true);
+  assert.equal(job.output, '🙂'.repeat(2000));
+  assert.ok(Buffer.byteLength(job.output) <= 8000);
+  assert.equal(job.output.isWellFormed(), true);
 });
 
 test('claim revalidates authentication, local capability, Resume availability and approval expiry', async t => {

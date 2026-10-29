@@ -2,6 +2,8 @@
 
 Dashboard central pentru dispozitive personale, heartbeat și inventar al sesiunilor Codex. Stage 1 este păstrat în tagul `v0.1.1-stage1-demo`, 2A pe `stage2-device-discovery`, iar controlul local și launcher-ul pe `stage2b-local-control`, fără merge în main.
 
+Pilotul cu agent separat WSL este pe `pilot-laptop2`: [PILOT-LAPTOP2.md](PILOT-LAPTOP2.md), `./laptop2 check|start|stop|status`. Acesta reutilizează agentul și autentificarea Codex locală pentru inventar; controlul laptopului secundar rămâne blocat până la autorizarea explicită per dispozitiv/workspace în Hub.
+
 Aplicația oferă inventar de dispozitive/sesiuni și control Codex real, local, **READ-ONLY**. Selectează explicit dispozitivul principal, New sau Resume, workspace-ul și instrucțiunea, apoi confirmă. Codex poate cere directoare și linii din sursele autorizate în timpul analizei, fără preload al întregului repository. Scrierea și execuția pe alte dispozitive rămân blocate; `LEVERAGE_ENABLE_LIVE_CODEX=1` este refuzat. Ghid curent: [ETAPA-2C-READONLY.md](ETAPA-2C-READONLY.md); launcher și istoric: [ETAPA-2B-LOCAL.md](ETAPA-2B-LOCAL.md).
 
 ## Pornire locală

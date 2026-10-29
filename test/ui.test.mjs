@@ -261,6 +261,21 @@ test('local Resume requires an explicitly chosen device-scoped session and rejec
   assert.equal(localRequests(b).length, 1);
 });
 
+test('secondary Codex authentication and workspace inventory remain visible without execution permission', async () => {
+  const secondary = { ...localDevice, id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', name: 'Laptop 2',
+    localControl: false, workspaces: [{ id: 'project', label: '<b>secondary workspace</b>' }] };
+  const b = browser(localState([localDevice, secondary]));
+  await b.login();
+  const cards = b.element('devices').innerHTML;
+  assert.match(cards, /Codex authenticated/);
+  assert.match(cards, /Device-local workspaces \(inventory\)/);
+  assert.ok(cards.includes('&lt;b&gt;secondary workspace&lt;/b&gt;'));
+  assert.equal(cards.includes('<b>secondary workspace</b>'), false);
+  change(b, 'local-device', secondary.id);
+  assert.equal(b.element('local-submit').disabled, true);
+  assert.match(b.element('local-control-status').textContent, /inventory-only/);
+});
+
 test('local control fails closed for auth changes, offline, revoked, absent capability and disconnected Hub', async () => {
   for (const [patch, label] of [
     [{ codexAuth: 'not-authenticated' }, 'Not authenticated'],

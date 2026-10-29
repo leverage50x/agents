@@ -218,6 +218,8 @@ function render() {
     '</code><p class="muted">Last heartbeat: ' + escape(timestamp(d.lastSeen)) + '</p><small>' + escape(d.platform) +
     ' · Remote instruction dispatch: disabled · ' + (d.workspaceReady ? 'Workspace verified' : 'Workspace missing or invalid') +
     '</small><p class="muted">Codex authentication: ' + escape(authLabel(d.codexAuth)) +
+    '</p><p class="muted">Device-local workspaces (inventory): ' +
+    ((d.workspaces || []).map(w => escape(w.label) + ' [' + escape(w.id) + ']').join(', ') || 'Not reported') +
     '</p><p><b>Configured MCP (' + d.mcp.servers.length + ')</b> <small>— ' + escape(d.mcp.status) +
     '; NOT verified live</small></p><div class="chips">' + (d.mcp.servers.map(s =>
       '<span class="chip">' + escape(s) + '</span>').join('') || '<small>None found</small>') +

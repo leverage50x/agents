@@ -157,6 +157,17 @@ export function createHub({ token, credentialStore = createCredentialStore(), no
         })
       });
     }
+    if (req.method === 'GET' && u.pathname === '/api/agent/status') {
+      if (u.searchParams.has('deviceId') && u.searchParams.get('deviceId') !== agent.id) {
+        return send(res, 403, { error: 'Agent identity mismatch.' });
+      }
+      const device = devices.get(agent.id);
+      return send(res, 200, { deviceId: agent.id, online: Boolean(online(device)),
+        lastSeen: device?.lastSeen ?? null,
+        codexAuth: device?.codexAuth || 'unavailable',
+        sessionInventory: device?.sessionInventory || { status: 'unknown', truncated: false },
+        workspaces: device?.workspaces || [] });
+    }
     if (req.method === 'POST' && u.pathname === '/api/admin/agents') {
       const b = await readJson(req);
       requireValue(typeof b.name === 'string' && b.name.trim().length > 0 && b.name.length <= 64 &&
@@ -188,13 +199,20 @@ export function createHub({ token, credentialStore = createCredentialStore(), no
         !/[\x00-\x1f\x7f]/.test(b.name), 'Invalid device name.');
       requireValue(typeof b.platform === 'string' && b.platform.length <= 30, 'Invalid platform.');
       requireValue(b.workspaceReady === undefined || typeof b.workspaceReady === 'boolean', 'Invalid workspace readiness.');
+      requireValue(b.codexMetadata === undefined || typeof b.codexMetadata === 'boolean', 'Invalid Codex metadata mode.');
+      const workspaces = b.workspaces ?? [];
+      requireValue(Array.isArray(workspaces) && workspaces.length <= 1 && workspaces.every(w =>
+        isObject(w) && w.id === 'project' && typeof w.label === 'string' && /^[A-Za-z0-9][A-Za-z0-9._ -]{0,79}$/.test(w.label)),
+      'Invalid device workspace inventory.');
       const local = localAgent(agent) && b.localControl === true && b.workspaceBinding === workspaceBinding;
       const discovered = inventory(b, local);
       expireDisconnected();
       devices.set(b.deviceId, {
         id: agent.id, name: agent.name, platform: b.platform, sandbox: 'no-execution',
         workspaceReady: b.workspaceReady === true, executionMode: local ? 'local-read-only' : 'inventory-only',
-        ...discovered, localControl: local, codexAuth: local ? safeAuth(b.codexAuth) : 'unavailable', lastSeen: now()
+        ...discovered, localControl: local, codexAuth: local || b.codexMetadata === true ? safeAuth(b.codexAuth) : 'unavailable',
+        workspaces: local ? [{ id: 'project', label: path.basename(authorizedWorkspace) }]
+          : b.workspaceReady === true ? workspaces.map(w => ({ id: w.id, label: w.label })) : [], lastSeen: now()
       });
       return send(res, 200, { ok: true });
     }

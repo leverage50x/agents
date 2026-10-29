@@ -12222,3 +12222,39 @@ Review result: no blocking finding. Shared scan genuinely removes duplicated fil
 Auditul anterior centralizării:12commituri/190bloburi/58fișiere,0constatări de secrete și0căi private urmărite. Au rămas numai excepțiile punctuale pentru comanda regex istorică deja revizuită, nu date personale. GitHub leverage50x/agents verificatPRIVATE/ADMIN; origin corect și remote stage2b-local-control la HEADbaseline. Jurnalul istoric rămâne prefix identic cu backupul ignorat.
 
 Acest adaos este generat prin apply_patch .local-run/opt-finalize-journal.mjs și node .local-run/opt-finalize-journal.mjs, înainte de ultimul commit. Helperul .local-run/opt-final-metrics.mjs va înscrie măsurătorile finale pentru surse/teste/documentație/jurnal/configurații în raport, separat. Pașii de închidere încă planificați la înghețarea jurnalului: auditul ultimei versiuni,git diff --check,stagingexplicit al celor15fișiere,git diff --cached --check/listă/stat,git commit -m "Simplify session inventory and local runtime",git push origin stage2b-local-control,verificarea GitHubActions pentru SHA-ul publicat și confirmarea stării curate/aheadbehind0/main+taguri neschimbate. Rezultatele acestor pași nu sunt inventate anticipat; vor fi raportate operatorului după executare. Nu se modifică jurnalul după commit.
+
+## Pilot laptop 2 — 2026-10-29
+
+Operațiuni agregate concis conform cererii: citirile/căutările banale sunt grupate; comenzile importante, testele și erorile sunt consemnate. Cwd=<workspace>; fluxurile subagenților au rulat în paralel. Niciun secret, output de cont, transcript sau cale personală nu este copiat.
+
+1. `git status --short --branch`, `git log -1`, verificare origin/AGENTS/ETAPA-2-LAPTOP2/agent/controller/Hub/launcher/UI/teste: exit0; baseline2665aeed699eabfb844141f2eabbe58570f0da8b,starecurată. `git switch -c pilot-laptop2 stage2b-local-control`:exit0 prin aprobarea platformei; main/taguri/branchbaseline păstrate.
+
+2. `npm test > .local-run/pilot-baseline.tap 2>&1`:exit0,208/208PASS,6929.715396ms. Nu a fost modificat serviciul principal existent.
+
+3. Subagenții pilot_agent_launcher/pilot_inventory/pilot_security_tests au citit și căutat callerii cu cat/sed/rg; toate citirile exit0, unele outputuri largi trunchiate urmate de citiri țintite. Au raportat comenzile și rezultatele în trei ledgere ignorate pilot-*-ledger.md, centralizate aici prin operațiunile importante de mai jos. Nicio operațiune pe laptopul fizic 2 sau procese personale.
+
+4. Auditul independent a confirmat singletonul de control UUIDprincipal+hashworkspaceHub. Decizie în fallback-ul autorizat: pilotinventar/auth, fără extindere remoteREADONLY; ar fi necesară autorizare operator per device/workspace și lifecycle de binding, nu heartbeat self-authorization.
+
+5. OpenAI Docs skill citit; căutare oficială și pagini deschise learn.chatgpt.com/docs/cli, /cli/reference și /windows/wsl: documentarea login/status/WSL, fără extragere credențiale sau APIkey. Comenzile de instalare/tunel/login din ghid sunt pentru operator, nu operațiuni executate pe laptopul2.
+
+6. apply_patch: Hub GET/api/agent/status self-only, authenum/workspaces de inventar fără acordare de control; sanitizare/roluri/revocare păstrate. UI afișează workspace-uri și auth pentru secundar; primaryworkspace derivat din configHub. AGENTS/README/ghidistoric actualizate și PILOT-LAPTOP2.md creat. Root a extins regresiile UI/localcontrol și a adăugat refuzul check pe Windows nativ.
+
+7. Subagentinventory apply_patch: LEVERAGE_CODEX_METADATA=1 refolosește account/read+thread/list, workspaceexplicit, fără fallback nefiltrat; claim/run rămâne numai localMode. Creat test/agent-metadata.test.mjs. `node --test test/agent-metadata.test.mjs test/agent.test.mjs test/agent-recovery.test.mjs test/codex-agent-restart.test.mjs > .local-run/pilot-inventory-tests.tap 2>&1`:exit0,25/25PASS,2126.379102ms. node --check și git diff --check țintite:exit0.
+
+8. Subagentlauncher apply_patch: createLauncher agentOnly cu aceeași infrastructură de ownership/lock/rollback, configstrictagent.env, fără Hub/operatorcreds, flaguri metadata1/readonly0/live0. Creat executabil laptop2 și test/laptop2.test.mjs; `chmod +x laptop2`, node --check și diffcheck:exit0.
+
+9. `node --test test/launcher.test.mjs test/laptop2.test.mjs > .local-run/pilot-launcher-tests.tap 2>&1`:primaîncercareexit1,17PASS/3FAIL; remediate accesul hubPidnul și diagnosticulURL. Rerulareexit0,20/20PASS,4439.466831ms. Patchcuanchorincomplet respins fără schimbări; patchseparat a adăugat guard Node>=22 înainteimport, cazNode18simulatVM. `node --test test/laptop2.test.mjs > .local-run/pilot-laptop2-final.tap 2>&1`:exit0,6/6PASS; sintaxă/diffcheckPASS.
+
+10. `./laptop2 check`:exit0 pe WSLdisponibil,Node22.23.3,Gitavailable,Codex0.163.0,authenticated; codex login status executat în probe fixe cu outputbrut suprimat. Nu s-a executat codex login și nu s-a deschis browser.
+
+11. Subagentsecurity apply_patch: test/pilot-laptop2.test.mjs, doiagenți/HTTP reale și metadataCodex simulate. `node --test test/pilot-laptop2.test.mjs`:exit0,3/3PASS inițial; o extindere a avut exit1,2/3PASS din așteptaregreșită pentru workspaces:null, corectat numai testul. Rerulare+diffcheckexit0,3/3PASS,258.303ms. Roluri/TTL/reconnect/revoke/UUID/session/workspaceisolation/spoofing/noexec verificate.
+
+12. `node --test test/pilot-laptop2.test.mjs test/agent-metadata.test.mjs test/local-control.test.mjs test/ui.test.mjs > .local-run/pilot-core.tap 2>&1`:exit0. `npm test > .local-run/pilot-final.tap 2>&1`:exit0,224/224PASS,7121.5891ms.
+
+13. apply_patch a creat helperul ignorat .local-run/pilot-real-metadata.mjs. `node .local-run/pilot-real-metadata.mjs > .local-run/pilot-real-metadata.log 2>&1`:exit0. Un Hub sintetic127.0.0.1 și doiagențiNodeînprocese/copiiizolate,UUID/token/workspace-uri distincte, ambelemetadataAppServernative:authenticated,inventoryavailable,0sesiuniînworkspacenou. Același login existent al acestui laptop pentru proba locală; fără copiereauth,0turnuri,0personalprocessstops. Duplicate start refoloseșteprocesele,stopconfirmatpentruambele; fixturepropriișterse. Nu reprezintă testfiziclaptop2/tunelSSHreal sauconturiCodexindependente.
+
+14. După guard-ul Linux al prerequisitecheck: `npm test > .local-run/pilot-final-verified.tap 2>&1`:exit0,224/224PASS,7115.721066ms,0fail/skip/cancel. Verificare node --check pentru39module/wrappere:PASS. Nicio inferențămodel nouă sau testremoteNewResume pretins; toate regresiile principale READONLY sunt păstrate.
+
+15. `node .local-run/review-publication.mjs pilot-laptop2 > .local-run/pilot-publication-audit.log 2>&1`:exit0;13commituri,63fișiere,0constatări de secrete/dateprivate și0căiprivatetracked. Excepția punctuală regexistorică rămâne documentată în helperul anterior, nu ascunde o credențială. gitdiffcheckPASS; main906c24f15f8b364d9bec6da8cebb74b57caa8862,stage2b2665aeed699eabfb844141f2eabbe58570f0da8b,tag229f258d9316dc5169eda089df374f0ccfbbe234 neschimbate.
+
+16. Închidere prin apply_patch .local-run/pilot-close-journal.mjs și node .local-run/pilot-close-journal.mjs: păstrează prefixul istoric identic; ghidul include pașii operatorului și limitările. Auditfinal/diffcheck și stagingexplicit au trecut. Verificarea `git ls-files --stage laptop2` a arătat100644, deși fișierul local era755; `git config --get core.filemode` a confirmatfalse, configurație locală preexistentă. `chmod +x laptop2 && git update-index --chmod=+x laptop2`:exit0,marcat explicit executabil în Git,fără schimbarea config. Se repetă numai auditul/indexcheck după completarea jurnalului; codul/testele nu s-au schimbat. Pașii rămași planificați la înghețarea jurnalului, nu rezultate inventate:git commit -m "Add isolated laptop 2 inventory pilot",git push -u origin pilot-laptop2,verificareGitHubActions/PRIVATE/SHA/sync/workingtreecurat. Rezultatele sunt raportate operatorului după execuție, fără modificarea jurnalului după commit.

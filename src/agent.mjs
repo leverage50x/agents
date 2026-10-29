@@ -46,10 +46,15 @@ export function createAgent({ env = process.env, fetchImpl = fetch, controlFacto
   const source = env.LEVERAGE_SESSION_SOURCE || 'app-server';
   if (!['app-server', 'files'].includes(source)) throw new Error('Invalid session inventory source.');
   const localMode = env.LEVERAGE_LOCAL_READONLY === '1' && env.LEVERAGE_ENABLE_LIVE_CODEX !== '1';
-  if (localMode && !workspaceReady(env.LEVERAGE_WORKSPACE)) throw new Error('An authorized local workspace is required.');
+  const metadataMode = env.LEVERAGE_CODEX_METADATA === '1' && env.LEVERAGE_ENABLE_LIVE_CODEX !== '1';
+  if ((localMode || metadataMode) && !workspaceReady(env.LEVERAGE_WORKSPACE)) throw new Error('An authorized local workspace is required.');
+  if (metadataMode && source !== 'app-server') throw new Error('Codex metadata authentication requires the App Server inventory.');
   const controlOptions = Object.freeze({ workspace: env.LEVERAGE_WORKSPACE, home });
-  let control = localMode ? controlFactory(controlOptions) : null;
+  let control = localMode || metadataMode ? controlFactory(controlOptions) : null;
   const workspaceBinding = localMode ? createHash('sha256').update(fs.realpathSync(env.LEVERAGE_WORKSPACE)).digest('hex') : null;
+  const workspaceName = path.basename(env.LEVERAGE_WORKSPACE || '');
+  const workspaceLabel = env.LEVERAGE_REPORT_PROJECT !== '0' && /^[A-Za-z0-9][A-Za-z0-9._ -]{0,79}$/.test(workspaceName)
+    ? workspaceName : 'project';
   let activeRun = null;
   let account = 'unavailable';
   let cachedInventory;
@@ -220,7 +225,7 @@ export function createAgent({ env = process.env, fetchImpl = fetch, controlFacto
           nextRecoveryAt = null; recoveryDelay = recoveryDelayMs;
         }
       }
-      discovered = cachedInventory || await discoverCodexSessions({ home, source: 'files' });
+      discovered = cachedInventory || (metadataMode ? unavailableInventory() : await discoverCodexSessions({ home, source: 'files' }));
     } else discovered = await discoverCodexSessions({ home, source,
       ...(env.LEVERAGE_WORKSPACE && source === 'app-server' ? { workspace: env.LEVERAGE_WORKSPACE } : {}) });
     const { sessions: listed, ...sessionInventory } = discovered;
@@ -228,9 +233,10 @@ export function createAgent({ env = process.env, fetchImpl = fetch, controlFacto
       ? listed.map(({ project, ...metadata }) => metadata) : listed;
     const heartbeat = {
       deviceId, name, platform: process.platform, mcp: listMcp(home), sessions, sessionInventory,
-      localControl: Boolean(control), workspaceBinding, codexAuth: account,
+      localControl: localMode, workspaceBinding, codexAuth: account,
+      ...(metadataMode ? { codexMetadata: true, workspaces: [{ id: 'project', label: workspaceLabel }] } : {}),
       sandbox: 'no-execution', workspaceReady: workspaceReady(env.LEVERAGE_WORKSPACE),
-      executionMode: control ? 'local-read-only' : 'inventory-only'
+      executionMode: localMode ? 'local-read-only' : 'inventory-only'
     };
     // Titles are optional presentation metadata. Preserve the existing body
     // limit and the core inventory/authentication if they exhaust its budget.
@@ -238,7 +244,7 @@ export function createAgent({ env = process.env, fetchImpl = fetch, controlFacto
       heartbeat.sessions = sessions.map(({ title, ...metadata }) => metadata);
     }
     await request('POST', '/api/agent/heartbeat', heartbeat, signal);
-    if (control && !activeRun && !closing) {
+    if (localMode && control && !activeRun && !closing) {
       const next = await request('GET', '/api/agent/local/task?deviceId=' + deviceId, undefined, signal);
       if (next.job) {
         activeRun = executeReadonly(next.job, signal).catch(() => {}).finally(() => { activeRun = null; });

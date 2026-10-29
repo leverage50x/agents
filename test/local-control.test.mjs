@@ -87,6 +87,7 @@ test('local Hub requires explicit selectors, read-only approval and server-owned
   assert.deepEqual(state.localControl, {
     enabled: true, deviceId: f.device.deviceId, workspaces: [{ id: 'project', label: 'workspace' }]
   });
+  assert.deepEqual(state.devices[0].workspaces, state.localControl.workspaces);
   assert.equal(JSON.stringify(state).includes(f.workspace), false, 'authorized absolute workspace stays agent-local');
 });
 

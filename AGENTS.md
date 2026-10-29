@@ -1,7 +1,7 @@
 # Leverage50xAgents — instructions for Codex
 
 ## Mission and current stage
-Stage 1 is published as v0.1.1-stage1-demo and Stage 2A is on stage2-device-discovery. The current operator request authorizes Stage 2C on stage2b-local-control: local READ-ONLY repository analysis through a bounded client-owned reader, controlled real synthetic-repository tests, commits and publication of that branch. Preserve Stage 2B New/Resume, authentication and the Linux/WSL launcher. Do not modify or merge into main, rewrite history or move existing tags. Do not connect laptop 2 or enable execution on another device. File-writing execution and technical approvals for writes remain unauthorized.
+Stage 1 is published as v0.1.1-stage1-demo; Stage 2C and simplification are on stage2b-local-control. The current operator request authorizes the pilot-laptop2 branch: an agent-only Linux/WSL launcher, device-local Codex authentication/session/workspace metadata, isolated two-device tests, documentation, commits and publication of this branch. Preserve primary-device New/Resume and all READ-ONLY protections. The pilot delivers secondary-device inventory/authentication; secondary execution stays blocked pending an operator-controlled per-device/workspace authorization design. Do not modify main or existing tags, access the physical laptop without established access, copy Codex credentials/history, or enable writes.
 
 ## Permanent autonomy policy — primary agent and every subagent
 This policy applies to the primary agent and all delegated agents. Explicit task authorization persists for the operations it describes; it is not permission for unrelated or future sensitive work. Do not interrupt the operator for ordinary authorized commands. Platform-enforced approvals remain mandatory.
@@ -17,7 +17,7 @@ This policy applies to the primary agent and all delegated agents. Explicit task
 ### CERE APROBARE
 - Important deletions, destructive changes, sudo or system modifications.
 - Access to external devices or sensitive services, unless the exact access is explicitly authorized for the current task.
-- Git push, merge into main or publication unless explicitly authorized for that task. The current Stage 2C push to stage2b-local-control is authorized; main and existing tags remain protected.
+- Git push, merge into main or publication unless explicitly authorized for that task. The current push to pilot-laptop2 is authorized; main, stage2b-local-control and existing tags remain protected.
 - Changes to authentication, secrets or security policies unless the exact change has been explicitly requested. The current request authorizes this autonomy policy and project-local workspace-write/on-request settings, not global permission changes.
 
 ### INTERZIS FĂRĂ AUTORIZARE SEPARATĂ

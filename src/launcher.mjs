@@ -1,13 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import net from 'node:net';
-import { spawn } from 'node:child_process';
+import { spawn, execFile } from 'node:child_process';
 import { once } from 'node:events';
 import { fileURLToPath } from 'node:url';
 import { parseEnv } from 'node:util';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createCredentialStore, preparePrivateDirectory, resolveLocalSecretPath } from './credentials.mjs';
-import { localHubUrl, loopbackHost, validateToken } from './local-config.mjs';
+import { localHubUrl, loopbackHost, validateToken, workspaceReady } from './local-config.mjs';
 
 const DEFAULT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -163,6 +163,23 @@ function configuration(root, env) {
       LEVERAGE_LOCAL_READONLY: '1', LEVERAGE_ENABLE_LIVE_CODEX: '0' } };
 }
 
+function agentConfiguration(root, env) {
+  const agent = readEnvironment(resolveLocalSecretPath('.local-run/agent.env', { cwd: root }), root, AGENT_KEYS);
+  const agentToken = validateToken(agent.LEVERAGE_AGENT_TOKEN);
+  if (!UUID.test(agent.LEVERAGE_AGENT_ID || '') || !workspaceReady(agent.LEVERAGE_WORKSPACE)) {
+    throw safeError('The private agent configuration needs an enrolled UUID and an absolute readable workspace.');
+  }
+  if (agent.LEVERAGE_ENABLE_LIVE_CODEX === '1') throw safeError('Real instruction execution remains disabled.');
+  let origin;
+  try { origin = localHubUrl(agent.LEVERAGE_URL || 'http://127.0.0.1:18765'); }
+  catch { throw safeError('The agent Hub URL must be an HTTP loopback origin.'); }
+  const url = new URL(origin);
+  return { agentOnly: true, origin, host: url.hostname === '[::1]' ? '::1' : url.hostname,
+    port: Number(url.port || 80), agentToken, deviceId: agent.LEVERAGE_AGENT_ID,
+    agentEnv: { ...baseEnvironment(env), ...agent, LEVERAGE_URL: origin,
+      LEVERAGE_CODEX_METADATA: '1', LEVERAGE_LOCAL_READONLY: '0', LEVERAGE_ENABLE_LIVE_CODEX: '0' } };
+}
+
 async function portOpen(host, port) {
   return new Promise((resolve, reject) => {
     const socket = net.createConnection({ host, port });
@@ -176,10 +193,13 @@ async function portOpen(host, port) {
 async function stateRequest(config) {
   let response;
   try {
-    response = await fetch(config.origin + '/api/state', { headers: { Authorization: 'Bearer ' + config.operator },
+    response = await fetch(config.origin + (config.agentOnly ? '/api/agent/status' : '/api/state'), {
+      headers: { Authorization: 'Bearer ' + (config.agentOnly ? config.agentToken : config.operator) },
       signal: AbortSignal.timeout(1500), redirect: 'error' });
   } catch { return null; }
-  if (response.status === 401 || response.status === 403) throw safeError('The running Hub rejected the existing operator credentials.');
+  if (response.status === 401 || response.status === 403) throw safeError(config.agentOnly
+    ? 'The Hub rejected this agent credential; check enrollment or revocation.'
+    : 'The running Hub rejected the existing operator credentials.');
   if (!response.ok) return null;
   let bytes = 0;
   const chunks = [];
@@ -190,15 +210,18 @@ async function stateRequest(config) {
   }
   try {
     const state = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    if (config.agentOnly) return state.deviceId === config.deviceId ? { devices: [{ ...state, id: state.deviceId }] } : null;
     return Array.isArray(state.devices) ? state : null;
   } catch { return null; }
 }
 
 export function createLauncher({ root = DEFAULT_ROOT, env = process.env, log = console.log,
-  startTimeoutMs = 20000, stopTimeoutMs = 5000 } = {}) {
+  startTimeoutMs = 20000, stopTimeoutMs = 5000, agentOnly = false } = {}) {
   if (process.platform !== 'linux') throw safeError('The launcher currently requires Linux or WSL.');
   root = fs.realpathSync(root);
-  const directory = path.join(root, '.local-run', 'launcher');
+  const directory = path.join(root, '.local-run', agentOnly ? 'agent-launcher' : 'launcher');
+  const configure = () => agentOnly ? agentConfiguration(root, env) : configuration(root, env);
+  const roles = agentOnly ? ['agent'] : ['hub', 'agent'];
   const stateFile = path.join(directory, 'state.json');
   const lockFile = path.join(directory, 'lock.json');
   const logFile = path.join(directory, 'operations.jsonl');
@@ -218,6 +241,7 @@ export function createLauncher({ root = DEFAULT_ROOT, env = process.env, log = c
       const state = privateJSON(stateFile);
       if (state.version !== 1 || !Number.isInteger(state.port) || !['127.0.0.1', '::1'].includes(state.host) ||
           !UUID.test(state.deviceId || '')) throw safeError('Invalid launcher state.');
+      if (agentOnly && state.hub !== null) throw safeError('An agent-only launcher cannot own a Hub.');
       for (const role of ['hub', 'agent']) {
         const record = state[role];
         if (record !== null && (!record || !Number.isSafeInteger(record.pid) || record.pid < 1 ||
@@ -321,7 +345,7 @@ export function createLauncher({ root = DEFAULT_ROOT, env = process.env, log = c
   async function waitFor(config, state, requireAgent) {
     const deadline = Date.now() + startTimeoutMs;
     while (Date.now() < deadline) {
-      if (!owned(state.hub, 'hub')) throw safeError('The owned Hub exited before readiness; see operational logs.');
+      if (!agentOnly && !owned(state.hub, 'hub')) throw safeError('The owned Hub exited before readiness; see operational logs.');
       if (requireAgent && !owned(state.agent, 'agent')) throw safeError('The owned agent exited before its heartbeat; see operational logs.');
       const response = await stateRequest(config);
       if (response && (!requireAgent || response.devices.some(d => d.id === config.deviceId && d.online === true))) return response;
@@ -336,7 +360,7 @@ export function createLauncher({ root = DEFAULT_ROOT, env = process.env, log = c
       const started = [];
       let state;
       try {
-        const config = configuration(root, env);
+        const config = configure();
         state = readState() || { version: 1, host: config.host, port: config.port, deviceId: config.deviceId, hub: null, agent: null };
         if ((owned(state.hub, 'hub') || owned(state.agent, 'agent')) &&
             (state.port !== config.port || state.host !== config.host || state.deviceId !== config.deviceId)) {
@@ -344,8 +368,9 @@ export function createLauncher({ root = DEFAULT_ROOT, env = process.env, log = c
         }
         state.host = config.host; state.port = config.port; state.deviceId = config.deviceId;
         event('start-requested');
-        let ready;
-        for (const role of ['hub', 'agent']) {
+        let ready = agentOnly ? await stateRequest(config) : null;
+        if (agentOnly && !ready) throw safeError('The private Hub tunnel is unavailable; connect it before starting the agent.');
+        for (const role of roles) {
           if (!owned(state[role], role)) {
             if (role === 'hub' && await portOpen(config.host, config.port)) {
               throw safeError('Port ' + config.port + ' is occupied by an unmanaged process. It was not killed or adopted.');
@@ -362,8 +387,9 @@ export function createLauncher({ root = DEFAULT_ROOT, env = process.env, log = c
           event(role + '-ready');
         }
         event(started.length ? 'start-completed' : 'already-running');
-        log(started.length ? 'Hub and local read-only agent are ready at ' + config.origin + '.' : 'Hub and local read-only agent are already running at ' + config.origin + '.');
-        return { url: config.origin, hubPid: state.hub.pid, agentPid: state.agent.pid };
+        log((agentOnly ? 'Inventory agent' : 'Hub and local read-only agent') +
+          (started.length ? ' ready at ' : ' already running at ') + config.origin + '.');
+        return { url: config.origin, hubPid: state.hub?.pid, agentPid: state.agent.pid };
       } catch (error) {
         if (started.length) event('start-rollback');
         for (const role of [...started].reverse()) {
@@ -380,7 +406,7 @@ export function createLauncher({ root = DEFAULT_ROOT, env = process.env, log = c
       try {
         const state = readState();
         if (state) {
-          for (const role of ['agent', 'hub']) {
+          for (const role of [...roles].reverse()) {
             await stopOwned(state[role], role);
             state[role] = null;
             atomicJSON(stateFile, state);
@@ -393,7 +419,7 @@ export function createLauncher({ root = DEFAULT_ROOT, env = process.env, log = c
     async status() {
       const state = readState();
       let config;
-      try { config = configuration(root, env); } catch { /* Status still reports owned processes without secrets. */ }
+      try { config = configure(); } catch { /* Status still reports owned processes without secrets. */ }
       const host = state?.host || config?.host || '127.0.0.1';
       const port = state?.port || config?.port || 8765;
       let listening = null;
@@ -402,12 +428,16 @@ export function createLauncher({ root = DEFAULT_ROOT, env = process.env, log = c
         configuration: config ? 'ready' : 'missing-or-invalid', portListening: listening,
         hub: { ownedRunning: owned(state?.hub, 'hub') },
         agent: { ownedRunning: owned(state?.agent, 'agent'), online: false, lastHeartbeat: null } };
-      if (config && report.hub.ownedRunning) {
+      if (config && (agentOnly || report.hub.ownedRunning)) {
         try {
           const response = await stateRequest(config);
           const device = response?.devices.find(value => value.id === config.deviceId);
           report.agent.online = device?.online === true;
           if (Number.isFinite(device?.lastSeen)) report.agent.lastHeartbeat = new Date(device.lastSeen).toISOString();
+          if (agentOnly) {
+            report.deviceId = config.deviceId;
+            report.agent.codexAuth = ['authenticated', 'not-authenticated'].includes(device?.codexAuth) ? device.codexAuth : 'unavailable';
+          }
         } catch { /* Auth/network failure remains an unconfirmed heartbeat. */ }
       }
       log(JSON.stringify(report, null, 2));
@@ -445,6 +475,65 @@ export async function runLauncherCLI(args = process.argv.slice(2), options = {})
     await createLauncher(options)[args[0]]();
   } catch (error) {
     console.error(error instanceof LauncherError ? error.message : 'Launcher failed safely. Check local private files and sandbox permissions.');
+    process.exitCode = 1;
+  }
+}
+
+// Fixed local prerequisite probes only. Raw CLI diagnostics/account output are
+// consumed in memory and never returned or logged; this cannot run commands
+// supplied by the Hub/dashboard or perform a login.
+export async function checkLaptop2({ env = process.env, root = DEFAULT_ROOT } = {}) {
+  if (process.platform !== 'linux') throw safeError('Use the laptop 2 checks inside WSL Ubuntu or Linux.');
+  const childEnv = baseEnvironment(env);
+  if (env.CODEX_HOME) childEnv.CODEX_HOME = env.CODEX_HOME;
+  const file = resolveLocalSecretPath('.local-run/agent.env', { cwd: root });
+  if (fs.existsSync(file)) {
+    const agent = readEnvironment(file, root, AGENT_KEYS);
+    const home = agent.LEVERAGE_CODEX_HOME || agent.CODEX_HOME;
+    if (home) childEnv.CODEX_HOME = home;
+  }
+  const executable = name => {
+    for (const directory of (childEnv.PATH || '').split(path.delimiter)) {
+      if (!path.isAbsolute(directory)) continue;
+      const candidate = path.join(directory, name);
+      try {
+        const resolved = fs.realpathSync(candidate);
+        if (/^\/mnt\/[a-z]\//i.test(resolved) || !fs.statSync(resolved).isFile()) continue;
+        fs.accessSync(resolved, fs.constants.X_OK);
+        return resolved;
+      } catch { /* Continue through the trusted local PATH. */ }
+    }
+  };
+  const probe = (name, args) => new Promise(resolve => {
+    const command = executable(name);
+    if (!command) return resolve({ code: null, output: '' });
+    execFile(command, args, { env: childEnv, shell: false, timeout: 5000, maxBuffer: 8192 },
+      (error, stdout, stderr) => resolve({ code: error ? error.code : 0, output: stdout + stderr }));
+  });
+  const git = await probe('git', ['--version']);
+  const version = await probe('codex', ['--version']);
+  const login = version.code === 0 ? await probe('codex', ['login', 'status']) : { code: null, output: '' };
+  const auth = login.code === 0 && /Logged in using (?:ChatGPT|(?:an )?API key)/i.test(login.output)
+    ? 'authenticated' : /Not logged in/i.test(login.output) ? 'not-authenticated' : 'unavailable';
+  return { node: process.version, nodeSupported: Number(process.versions.node.split('.')[0]) >= 22,
+    gitAvailable: git.code === 0 && /^git version \d+\./.test(git.output),
+    codexVersion: /^codex-cli (\d+\.\d+\.\d+)\s*$/.exec(version.output)?.[1] || 'unavailable',
+    codexCompatible: version.output.trim() === 'codex-cli 0.163.0', codexAuth: auth,
+    ...(auth === 'not-authenticated' ? { nextStep: 'Run codex login manually in WSL on this laptop.' } : {}) };
+}
+
+export async function runLaptop2CLI(args = process.argv.slice(2), options = {}) {
+  try {
+    if (args.length !== 1 || !['check', 'start', 'stop', 'status'].includes(args[0])) {
+      throw safeError('Usage: ./laptop2 check|start|stop|status');
+    }
+    if (args[0] === 'check') {
+      const result = await checkLaptop2(options);
+      (options.log || console.log)(JSON.stringify(result, null, 2));
+      if (!result.nodeSupported || !result.gitAvailable || !result.codexCompatible) process.exitCode = 1;
+    } else await createLauncher({ ...options, agentOnly: true })[args[0]]();
+  } catch (error) {
+    console.error(error instanceof LauncherError ? error.message : 'Agent launcher failed safely. Check private files and the SSH tunnel.');
     process.exitCode = 1;
   }
 }

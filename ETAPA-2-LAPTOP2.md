@@ -1,5 +1,7 @@
 # Laptopul 2 — ghid de pregătire pentru inventar privat
 
+Ghid istoric 2A/2B. Pentru pilotul curent și launcher-ul agent-only pe `pilot-laptop2`, urmează [PILOT-LAPTOP2.md](PILOT-LAPTOP2.md).
+
 Livrarea curentă pe `stage2b-local-control` permite control real READ-ONLY numai pe agentul principal. Acest ghid pregătește o conectare ulterioară a laptopului 2 pentru inventar; comenzile pe alt dispozitiv și transferul credențialelor necesită autorizarea explicită a operatorului. Ele nu sunt executate ca parte a livrării curente.
 
 Comenzile sunt pentru Bash în Linux/WSL, în contul proprietarului. Nu sunt comenzi executate pe laptopul 2 de agentul de dezvoltare. Sunt necesare Node.js >=22, npm, Git și OpenSSH client. Verifică `node --version`, `npm --version`, `git --version`, `ssh -V`. Pentru inventarul App Server verificat este necesar Codex CLI **0.163.0**; alte versiuni fac acest inventar indisponibil. Sursa explicită `files` oferă separat numai nume de fișiere, fără certificarea filtrului CLI. Nu instala sau actualiza Codex doar pentru acest ghid fără verificarea propriului mediu.
